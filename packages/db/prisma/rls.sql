@@ -56,8 +56,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO app_user;
 
 -- ---------- macro: enable + force RLS + tenant policy -----------------------
--- Usage: SELECT _app_userly_tenant_rls('memberships');
-CREATE OR REPLACE FUNCTION _app_userly_tenant_rls(_table regclass) RETURNS void
+-- Usage: SELECT _apply_tenant_rls('memberships');
+CREATE OR REPLACE FUNCTION _apply_tenant_rls(_table regclass) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
   EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', _table);
@@ -72,107 +72,107 @@ BEGIN
 END$$;
 
 -- ---------- apply to tenant-scoped tables (Day 1 set) -----------------------
-SELECT _app_userly_tenant_rls('memberships');
-SELECT _app_userly_tenant_rls('invitations');
-SELECT _app_userly_tenant_rls('api_keys');
+SELECT _apply_tenant_rls('memberships');
+SELECT _apply_tenant_rls('invitations');
+SELECT _apply_tenant_rls('api_keys');
 
 -- ---------- catalog tables (Day 2) ------------------------------------------
-SELECT _app_userly_tenant_rls('assets');
-SELECT _app_userly_tenant_rls('categories');
-SELECT _app_userly_tenant_rls('products');
-SELECT _app_userly_tenant_rls('product_variants');
-SELECT _app_userly_tenant_rls('product_images');
-SELECT _app_userly_tenant_rls('services');
-SELECT _app_userly_tenant_rls('service_pricing_tiers');
-SELECT _app_userly_tenant_rls('availability_windows');
-SELECT _app_userly_tenant_rls('business_info');
-SELECT _app_userly_tenant_rls('locations');
-SELECT _app_userly_tenant_rls('contact_channels');
-SELECT _app_userly_tenant_rls('faqs');
-SELECT _app_userly_tenant_rls('policies');
+SELECT _apply_tenant_rls('assets');
+SELECT _apply_tenant_rls('categories');
+SELECT _apply_tenant_rls('products');
+SELECT _apply_tenant_rls('product_variants');
+SELECT _apply_tenant_rls('product_images');
+SELECT _apply_tenant_rls('services');
+SELECT _apply_tenant_rls('service_pricing_tiers');
+SELECT _apply_tenant_rls('availability_windows');
+SELECT _apply_tenant_rls('business_info');
+SELECT _apply_tenant_rls('locations');
+SELECT _apply_tenant_rls('contact_channels');
+SELECT _apply_tenant_rls('faqs');
+SELECT _apply_tenant_rls('policies');
 
 -- ---------- imports / connectors / webhooks (Day 3) -------------------------
-SELECT _app_userly_tenant_rls('import_jobs');
-SELECT _app_userly_tenant_rls('import_job_rows');
-SELECT _app_userly_tenant_rls('api_connectors');
-SELECT _app_userly_tenant_rls('sync_runs');
-SELECT _app_userly_tenant_rls('webhook_endpoints');
-SELECT _app_userly_tenant_rls('webhook_deliveries');
+SELECT _apply_tenant_rls('import_jobs');
+SELECT _apply_tenant_rls('import_job_rows');
+SELECT _apply_tenant_rls('api_connectors');
+SELECT _apply_tenant_rls('sync_runs');
+SELECT _apply_tenant_rls('webhook_endpoints');
+SELECT _apply_tenant_rls('webhook_deliveries');
 
 -- ---------- Shopify integration ---------------------------------------------
-SELECT _app_userly_tenant_rls('shopify_connections');
-SELECT _app_userly_tenant_rls('shopify_scrape_runs');
-SELECT _app_userly_tenant_rls('shopify_staged_items');
+SELECT _apply_tenant_rls('shopify_connections');
+SELECT _apply_tenant_rls('shopify_scrape_runs');
+SELECT _apply_tenant_rls('shopify_staged_items');
 
 -- ---------- versioning + notifications (Day 4) ------------------------------
-SELECT _app_userly_tenant_rls('catalog_revisions');
-SELECT _app_userly_tenant_rls('notifications');
+SELECT _apply_tenant_rls('catalog_revisions');
+SELECT _apply_tenant_rls('notifications');
 
 -- Bookings — RLS is applied inline in migration 20260513170000_bookings, but was
 -- missing from this file, so a full rebuild from rls.sql alone would leave
 -- bookings without a policy (default-deny outage on the next rebuild). Added for
 -- parity (L-14). Idempotent: the helper DROPs the policy before re-creating it.
-SELECT _app_userly_tenant_rls('bookings');
+SELECT _apply_tenant_rls('bookings');
 -- Phase 1.5
-SELECT _app_userly_tenant_rls('whatsapp_channels');
-SELECT _app_userly_tenant_rls('whatsapp_messages');
+SELECT _apply_tenant_rls('whatsapp_channels');
+SELECT _apply_tenant_rls('whatsapp_messages');
 -- Session 4 (Phase 3 inbox)
-SELECT _app_userly_tenant_rls('whatsapp_threads');
-SELECT _app_userly_tenant_rls('whatsapp_thread_tags');
-SELECT _app_userly_tenant_rls('whatsapp_notes');
-SELECT _app_userly_tenant_rls('canned_responses');
-SELECT _app_userly_tenant_rls('whatsapp_templates');
+SELECT _apply_tenant_rls('whatsapp_threads');
+SELECT _apply_tenant_rls('whatsapp_thread_tags');
+SELECT _apply_tenant_rls('whatsapp_notes');
+SELECT _apply_tenant_rls('canned_responses');
+SELECT _apply_tenant_rls('whatsapp_templates');
 -- Phase 2 (AI bot builder)
-SELECT _app_userly_tenant_rls('bot_configs');
-SELECT _app_userly_tenant_rls('crawl_jobs');
-SELECT _app_userly_tenant_rls('crawl_pages');
-SELECT _app_userly_tenant_rls('knowledge_base_entries');
-SELECT _app_userly_tenant_rls('bot_test_runs');
-SELECT _app_userly_tenant_rls('bot_simulation_turns');
+SELECT _apply_tenant_rls('bot_configs');
+SELECT _apply_tenant_rls('crawl_jobs');
+SELECT _apply_tenant_rls('crawl_pages');
+SELECT _apply_tenant_rls('knowledge_base_entries');
+SELECT _apply_tenant_rls('bot_test_runs');
+SELECT _apply_tenant_rls('bot_simulation_turns');
 -- Phase 3 §5.1.3 + §5.1.4
-SELECT _app_userly_tenant_rls('subscriptions');
-SELECT _app_userly_tenant_rls('usage_events');
-SELECT _app_userly_tenant_rls('usage_monthly');
-SELECT _app_userly_tenant_rls('branding_configs');
-SELECT _app_userly_tenant_rls('meta_onboarding_steps');
-SELECT _app_userly_tenant_rls('data_exports');
+SELECT _apply_tenant_rls('subscriptions');
+SELECT _apply_tenant_rls('usage_events');
+SELECT _apply_tenant_rls('usage_monthly');
+SELECT _apply_tenant_rls('branding_configs');
+SELECT _apply_tenant_rls('meta_onboarding_steps');
+SELECT _apply_tenant_rls('data_exports');
 -- Phase 4 — Broadcasts
-SELECT _app_userly_tenant_rls('contacts');
-SELECT _app_userly_tenant_rls('contact_tags');
-SELECT _app_userly_tenant_rls('segments');
-SELECT _app_userly_tenant_rls('broadcasts');
-SELECT _app_userly_tenant_rls('broadcast_recipients');
-SELECT _app_userly_tenant_rls('broadcast_events');
+SELECT _apply_tenant_rls('contacts');
+SELECT _apply_tenant_rls('contact_tags');
+SELECT _apply_tenant_rls('segments');
+SELECT _apply_tenant_rls('broadcasts');
+SELECT _apply_tenant_rls('broadcast_recipients');
+SELECT _apply_tenant_rls('broadcast_events');
 -- Phase 5.4 — Sequences (drip)
-SELECT _app_userly_tenant_rls('sequences');
-SELECT _app_userly_tenant_rls('sequence_steps');
-SELECT _app_userly_tenant_rls('sequence_enrollments');
+SELECT _apply_tenant_rls('sequences');
+SELECT _apply_tenant_rls('sequence_steps');
+SELECT _apply_tenant_rls('sequence_enrollments');
 -- Cart / Shop feature
-SELECT _app_userly_tenant_rls('carts');
-SELECT _app_userly_tenant_rls('cart_items');
+SELECT _apply_tenant_rls('carts');
+SELECT _apply_tenant_rls('cart_items');
 -- AI bot builder — flow candidates + test scenarios (added 2026-06-15 after
 -- the RLS drift test flagged them missing).
-SELECT _app_userly_tenant_rls('bot_conversation_flow_options');
-SELECT _app_userly_tenant_rls('bot_test_scenarios');
+SELECT _apply_tenant_rls('bot_conversation_flow_options');
+SELECT _apply_tenant_rls('bot_test_scenarios');
 -- Ultra plan — per-contact persona memory
-SELECT _app_userly_tenant_rls('contact_memory');
+SELECT _apply_tenant_rls('contact_memory');
 -- Phase 8 — AI message provenance / audit trail
-SELECT _app_userly_tenant_rls('system_prompt_snapshots');
-SELECT _app_userly_tenant_rls('message_provenances');
-SELECT _app_userly_tenant_rls('provenance_flag_decisions');
+SELECT _apply_tenant_rls('system_prompt_snapshots');
+SELECT _apply_tenant_rls('message_provenances');
+SELECT _apply_tenant_rls('provenance_flag_decisions');
 -- provenance_suppressions has a custom policy (NULL org_id = global,
 -- readable by every tenant). The migration installs it inline; we just
 -- enable + force RLS here on every re-apply for safety.
 ALTER TABLE provenance_suppressions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE provenance_suppressions FORCE ROW LEVEL SECURITY;
 -- Voice media gateway (Aseer-time voicebot)
-SELECT _app_userly_tenant_rls('voice_calls');
-SELECT _app_userly_tenant_rls('voice_call_turns');
-SELECT _app_userly_tenant_rls('phone_integrations');
+SELECT _apply_tenant_rls('voice_calls');
+SELECT _apply_tenant_rls('voice_call_turns');
+SELECT _apply_tenant_rls('phone_integrations');
 -- Payments (per-tenant, multi-provider)
-SELECT _app_userly_tenant_rls('payment_configs');
+SELECT _apply_tenant_rls('payment_configs');
 -- Messenger / Instagram channel
-SELECT _app_userly_tenant_rls('messenger_channels');
+SELECT _apply_tenant_rls('messenger_channels');
 -- plans is GLOBAL (no organization_id) — no RLS needed; access via API only.
 
 -- ---------- pg_trgm GIN indexes for fast search (Prisma can't express) ------
@@ -192,7 +192,7 @@ CREATE INDEX IF NOT EXISTS contacts_search_trgm_idx
   );
 
 -- Auto-maintain search_text on products, services, faqs.
-CREATE OR REPLACE FUNCTION _aligned_set_product_search_text() RETURNS trigger
+CREATE OR REPLACE FUNCTION _set_product_search_text() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   NEW.search_text := lower(coalesce(NEW.name, '') || ' ' || coalesce(NEW.short_description, '') || ' ' || coalesce(NEW.description, '') || ' ' || coalesce(NEW.sku, ''));
@@ -202,9 +202,9 @@ END$$;
 DROP TRIGGER IF EXISTS products_search_text_trg ON products;
 CREATE TRIGGER products_search_text_trg
   BEFORE INSERT OR UPDATE OF name, short_description, description, sku ON products
-  FOR EACH ROW EXECUTE FUNCTION _aligned_set_product_search_text();
+  FOR EACH ROW EXECUTE FUNCTION _set_product_search_text();
 
-CREATE OR REPLACE FUNCTION _aligned_set_service_search_text() RETURNS trigger
+CREATE OR REPLACE FUNCTION _set_service_search_text() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   NEW.search_text := lower(coalesce(NEW.name, '') || ' ' || coalesce(NEW.short_description, '') || ' ' || coalesce(NEW.description, ''));
@@ -214,9 +214,9 @@ END$$;
 DROP TRIGGER IF EXISTS services_search_text_trg ON services;
 CREATE TRIGGER services_search_text_trg
   BEFORE INSERT OR UPDATE OF name, short_description, description ON services
-  FOR EACH ROW EXECUTE FUNCTION _aligned_set_service_search_text();
+  FOR EACH ROW EXECUTE FUNCTION _set_service_search_text();
 
-CREATE OR REPLACE FUNCTION _aligned_set_faq_search_text() RETURNS trigger
+CREATE OR REPLACE FUNCTION _set_faq_search_text() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   NEW.search_text := lower(coalesce(NEW.question, '') || ' ' || coalesce(NEW.answer, ''));
@@ -226,7 +226,7 @@ END$$;
 DROP TRIGGER IF EXISTS faqs_search_text_trg ON faqs;
 CREATE TRIGGER faqs_search_text_trg
   BEFORE INSERT OR UPDATE OF question, answer ON faqs
-  FOR EACH ROW EXECUTE FUNCTION _aligned_set_faq_search_text();
+  FOR EACH ROW EXECUTE FUNCTION _set_faq_search_text();
 
 -- audit_logs and sessions: organization_id is nullable (system / pre-org events).
 -- Policy still filters by org_id when present; NULL rows visible only when bypass on.
@@ -281,33 +281,33 @@ CREATE POLICY user_membership_or_bypass ON users
   WITH CHECK (rls_bypassed());  -- writes go through bypass (auth/admin paths)
 
 -- ---------- end -------------------------------------------------------------
-SELECT _app_userly_tenant_rls('tenant_wallets');
-SELECT _app_userly_tenant_rls('wallet_ledger');
-SELECT _app_userly_tenant_rls('google_calendar_connections');
+SELECT _apply_tenant_rls('tenant_wallets');
+SELECT _apply_tenant_rls('wallet_ledger');
+SELECT _apply_tenant_rls('google_calendar_connections');
 
 -- Sales Scan ("Teach the bot with your own data") — added 2026-07-30.
-SELECT _app_userly_tenant_rls('sales_scan_grants');
-SELECT _app_userly_tenant_rls('sales_messages');
-SELECT _app_userly_tenant_rls('sales_scan_summaries');
+SELECT _apply_tenant_rls('sales_scan_grants');
+SELECT _apply_tenant_rls('sales_messages');
+SELECT _apply_tenant_rls('sales_scan_summaries');
 
 -- "Sync contacts with phone" — QR-mediated address-book import. Added 2026-07-31.
-SELECT _app_userly_tenant_rls('contact_sync_sessions');
+SELECT _apply_tenant_rls('contact_sync_sessions');
 -- Per-row ledger for a sync run. Holds third-party PII (names/numbers from a tenant's
 -- address book) while staged, so the policy matters as much as the sessions table's.
-SELECT _app_userly_tenant_rls('contact_sync_staged_items');
+SELECT _apply_tenant_rls('contact_sync_staged_items');
 
 -- Hader mobile app push-device registrations — added 2026-08-03.
-SELECT _app_userly_tenant_rls('device_tokens');
+SELECT _apply_tenant_rls('device_tokens');
 
 -- Landing pad for Meta webhook payloads no handler consumes yet (Coexistence
 -- `history` / `smb_*` above all). Holds raw third-party message content, so the
 -- policy matters as much as whatsapp_messages'. Added 2026-08-20.
-SELECT _app_userly_tenant_rls('meta_webhook_events');
+SELECT _apply_tenant_rls('meta_webhook_events');
 
 -- Post-conversation CSAT rows (F2, roadmap 2026-08-26) — per-tenant ratings
 -- with contact linkage. Added 2026-08-27.
-SELECT _app_userly_tenant_rls('conversation_feedback');
+SELECT _apply_tenant_rls('conversation_feedback');
 
 -- Back-in-stock watches (F5, roadmap 2026-08-26) — per-tenant customer
 -- interest flags with contact linkage. Added 2026-08-28.
-SELECT _app_userly_tenant_rls('stock_watches');
+SELECT _apply_tenant_rls('stock_watches');

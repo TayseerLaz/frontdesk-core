@@ -9,7 +9,7 @@
 ## 0. TL;DR — ordered checklist
 
 1. `packages/db/prisma/schema.prisma` — model(s) with `organizationId`; extend `AuditAction` / `NotificationKind` enums if needed.
-2. `pnpm db:migrate --name <feature>` (or `migrate:create` to hand-edit first) → **append `SELECT _app_userly_tenant_rls('<table>');` inside that same migration** for every new tenant table.
+2. `pnpm db:migrate --name <feature>` (or `migrate:create` to hand-edit first) → **append `SELECT _apply_tenant_rls('<table>');` inside that same migration** for every new tenant table.
 3. Append the same line at the bottom of `packages/db/prisma/rls.sql` (after the `-- end` marker). Both places are required.
 4. `packages/shared/src/schemas/<feature>.ts` + re-export from `packages/shared/src/index.ts`; new error codes in `packages/shared/src/types/api-error.ts`; `ORG_FEATURES` entry in `packages/shared/src/constants/org-features.ts` if HQ-toggleable.
 5. `apps/api/src/lib/<feature>.ts` — the engine (business logic, money, external clients).
@@ -94,7 +94,7 @@ Plugins register in `apps/api/src/server.ts:336-342`:
 
 ### Migration rules
 - Dir name `YYYYMMDDHHMMSS_snake_name` (hand-picked timestamps). `pnpm db:migrate` = `prisma migrate dev && pnpm rls:apply` — rls.sql is always re-applied for you.
-- Tenant table ⇒ RLS **inline in the same migration** (`SELECT _app_userly_tenant_rls('<table>');`) AND appended to `rls.sql`. The migration protects fresh DBs the instant the table exists; rls.sql is the every-deploy backstop. (Skipping the migration half caused the `contact_memory` cross-tenant leak.)
+- Tenant table ⇒ RLS **inline in the same migration** (`SELECT _apply_tenant_rls('<table>');`) AND appended to `rls.sql`. The migration protects fresh DBs the instant the table exists; rls.sql is the every-deploy backstop. (Skipping the migration half caused the `contact_memory` cross-tenant leak.)
 - Intentionally global table (HQ-only, e.g. `eval_runs`, `leads`) ⇒ header comment explaining why there's no `organization_id`/RLS; access solely behind `requireSuperAdmin` + `withRlsBypass`.
 - `ALTER TYPE … ADD VALUE` (enum values) ⇒ **its own separate migration**, `IF NOT EXISTS`, timestamped just after the feature migration (Postgres can't use a fresh enum value in the same tx).
 - Additive nullable columns on existing RLS tables need no policy work — say so in the migration header.

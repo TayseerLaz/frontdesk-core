@@ -4,7 +4,7 @@ import { withSecretCrypto } from './secret-crypto.js';
 
 declare global {
   // eslint-disable-next-line no-var
-  var __alignedPrisma: PrismaClient | undefined;
+  var __prismaClient: PrismaClient | undefined;
 }
 
 export function createPrisma(): PrismaClient {
@@ -26,4 +26,4 @@ export function createPrisma(): PrismaClient {
  * Per-request tenant scoping is applied via `withTenant()` (see api/src/lib/db).
  */
 export const prisma: PrismaClient =
-  globalThis.__alignedPrisma ?? (globalThis.__alignedPrisma = createPrisma());
+  globalThis.__prismaClient ?? (globalThis.__prismaClient = createPrisma());

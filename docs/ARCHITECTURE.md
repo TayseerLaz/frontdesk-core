@@ -121,7 +121,7 @@ Everything funnels through three wrappers in
 | `withRlsBypass(fn)` :55 | `app.bypass_rls = 'on'` | HQ cross-tenant ops + auth bootstrap. Caller MUST be gated by `requireSuperAdmin` |
 | `withAliniaSync(orgId, fn)` :78 | tenant scope **+** `app.alinia_sync = 'on'` | Only the Alinia→Hader mirror sync |
 
-The policy, applied by the `_app_userly_tenant_rls` macro at
+The policy, applied by the `_apply_tenant_rls` macro at
 [rls.sql:60-72](../packages/db/prisma/rls.sql#L60):
 
 ```sql

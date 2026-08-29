@@ -325,9 +325,9 @@ reconnect ✓. If history turns out to be near-zero, revisit the history decisio
 | File | What |
 |---|---|
 | `packages/db/prisma/schema.prisma` | `SalesScanGrant`, `SalesMessage`, `SalesInsightRun`, `SalesInsight` — all `organizationId` |
-| `packages/db/prisma/migrations/<ts>_sales_scan/migration.sql` | tables + `SELECT _app_userly_tenant_rls(...)` per table **inline** |
+| `packages/db/prisma/migrations/<ts>_sales_scan/migration.sql` | tables + `SELECT _apply_tenant_rls(...)` per table **inline** |
 | `packages/db/prisma/migrations/<ts>_sales_scan_backfill/migration.sql` | `array_append(disabled_features,'sales_scan')` — **required by the invariant gate** |
-| `packages/db/prisma/rls.sql` | same `_app_userly_tenant_rls` lines appended after the `-- end` marker |
+| `packages/db/prisma/rls.sql` | same `_apply_tenant_rls` lines appended after the `-- end` marker |
 | `packages/shared/src/constants/org-features.ts` | `sales_scan` key, `defaultDisabled: true`, `hrefs: ['/settings/sales-scan']` |
 | `packages/shared/src/schemas/sales-scan.ts` (+ `index.ts` export) | Zod DTOs |
 | `apps/api/src/modules/sales-scan/sales-scan.routes.ts` | portal CRUD, `requireRole('admin')` for connect/disconnect, `assertOrgFeature` gate |

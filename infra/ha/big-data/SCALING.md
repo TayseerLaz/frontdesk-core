@@ -41,7 +41,7 @@ BEGIN;
 COMMIT;
 ```
 - **RLS note:** re-apply the tenant-isolation policy to the new parent — RLS is
-  inherited by partitions, so `_app_userly_tenant_rls('whatsapp_messages')`
+  inherited by partitions, so `_apply_tenant_rls('whatsapp_messages')`
   after the swap keeps isolation intact (verify with the rls-drift test).
 - **Retention** then becomes instant + cheap: `DROP TABLE whatsapp_messages_2024_12`
   instead of a giant `DELETE` (no vacuum storm). Automate with `pg_partman`'s

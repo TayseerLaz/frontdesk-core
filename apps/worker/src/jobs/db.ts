@@ -5,14 +5,14 @@ import { PrismaClient } from '@prisma/client';
 
 declare global {
   // eslint-disable-next-line no-var
-  var __alignedWorkerPrisma: PrismaClient | undefined;
+  var __workerPrisma: PrismaClient | undefined;
 }
 
 // withSecretCrypto is inert unless SECRET_ENCRYPTION_KEY is set; mirrors the
 // api client so the worker also decrypts whatsapp_channels secrets at read.
 export const prisma: PrismaClient =
-  globalThis.__alignedWorkerPrisma ??
-  (globalThis.__alignedWorkerPrisma = withSecretCrypto(
+  globalThis.__workerPrisma ??
+  (globalThis.__workerPrisma = withSecretCrypto(
     new PrismaClient({ log: ['warn', 'error'] }),
   ));
 
