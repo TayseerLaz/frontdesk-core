@@ -117,7 +117,7 @@ export default function SignupPage() {
         <div className="space-y-1.5">
           <Label htmlFor="organizationSlug">Organization URL</Label>
           <div className="flex items-center overflow-hidden rounded-md border border-border bg-white shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-400">
-            <span className="px-3 text-xs text-foreground-subtle">aligned.app/</span>
+            <span className="px-3 text-xs text-foreground-subtle">platform.app/</span>
             <Input
               id="organizationSlug"
               className="border-0 shadow-none focus-visible:ring-0 focus-visible:border-0"

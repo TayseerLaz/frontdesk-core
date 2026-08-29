@@ -1,6 +1,6 @@
 'use client';
 
-// Phase 8 / 1.4 — ALIGNED-admin cross-tenant provenance browser.
+// Phase 8 / 1.4 — super-admin cross-tenant provenance browser.
 //
 // Lists every persisted bot-reply provenance row across all tenants.
 // Filters: organization, flagged-only toggle, date range, cursor
@@ -106,7 +106,7 @@ interface MessageProvenance {
   createdAt: string;
 }
 
-export default function AlignedAdminProvenancePage() {
+export default function PlatformAdminProvenancePage() {
   const { session } = useSession();
   const [organizationId, setOrganizationId] = useState<string | 'all'>('all');
   const [flaggedOnly, setFlaggedOnly] = useState(false);
@@ -148,7 +148,7 @@ export default function AlignedAdminProvenancePage() {
         <PageHeader backHref="/hq" backLabel="Tenants" title="AI provenance" />
         <Card>
           <CardContent className="p-6 text-sm text-foreground-muted">
-            ALIGNED admin role required.
+            Super-admin role required.
           </CardContent>
         </Card>
       </>

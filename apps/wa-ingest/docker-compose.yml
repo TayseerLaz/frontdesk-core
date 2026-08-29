@@ -1,23 +1,23 @@
-# hader-wa-ingest — Sales Scan capture service. Runs on the AlignDesk box, 88.80.145.157.
+# platform-wa-ingest — Sales Scan capture service. Runs on the AlignDesk box, 88.80.145.157.
 #
 # ⚠ SHARED BOX WARNING
 # This machine also runs `qr_whatsapp` out of ~/qr_whatsapp — a DIFFERENT product, serving
 # a paying customer's live WhatsApp bot on 127.0.0.1:4100. This project is separated from
 # it in every dimension Compose can separate: its own project name, container name, image
-# tag, volume and directory (~/hader-wa-ingest). Never run compose for this service from
+# tag, volume and directory (~/platform-wa-ingest). Never run compose for this service from
 # ~/qr_whatsapp, never add this service to that project's file, and never `docker compose
 # down` without -p/-f scoping you have read twice.
 #
 # Ports already taken on this box: 4000 zeed · 4001 zeed-mohamad · 4100 qr_whatsapp.
 # We take 4200. Under host networking a port clash is a crash loop, so check before moving.
 #
-# Deploy:  bash infra/scripts/deploy-wa-ingest.sh   (from ~/hader-wa-ingest)
-# Manual:  cd ~/hader-wa-ingest/apps/wa-ingest && docker compose -p hader-wa-ingest up -d --build
+# Deploy:  bash infra/scripts/deploy-wa-ingest.sh   (from ~/platform-wa-ingest)
+# Manual:  cd ~/platform-wa-ingest/apps/wa-ingest && docker compose -p platform-wa-ingest up -d --build
 #
 # Requires Docker Compose v2.3.3+ (top-level `name:`). The deploy script also passes
-# `-p hader-wa-ingest` so project isolation holds even on a compose that ignores `name:`.
+# `-p platform-wa-ingest` so project isolation holds even on a compose that ignores `name:`.
 
-name: hader-wa-ingest
+name: platform-wa-ingest
 
 services:
   wa-ingest:
@@ -27,8 +27,8 @@ services:
       # .dockerignore keeps node_modules/.git/dist/.env out of the context.
       context: ../..
       dockerfile: apps/wa-ingest/Dockerfile
-    image: hader-wa-ingest:local
-    container_name: hader-wa-ingest
+    image: platform-wa-ingest:local
+    container_name: platform-wa-ingest
     restart: unless-stopped
 
     # tini as PID 1: reaps the tsx child and forwards SIGTERM so pool.stopAll() runs.
@@ -48,7 +48,7 @@ services:
     # ⚠ INVARIANT: because nothing else constrains reachability, the `host: '127.0.0.1'`
     #   in src/index.ts IS the firewall. Do not "fix" it to 0.0.0.0 — /v1/status hands out
     #   WhatsApp device-linking QR codes, and that must never be internet-reachable.
-    #   Hader (on 88.80.145.171) reaches this service through the reverse SSH tunnel
+    #   the platform (on 88.80.145.171) reaches this service through the reverse SSH tunnel
     #   documented in README.md, not through a published port.
     network_mode: host
 
@@ -111,5 +111,5 @@ services:
 volumes:
   wa-ingest-data:
     # Explicit name so runbook commands are stable (`docker volume inspect
-    # hader-wa-ingest-data`) instead of depending on the project-name prefix.
-    name: hader-wa-ingest-data
+    # platform-wa-ingest-data`) instead of depending on the project-name prefix.
+    name: platform-wa-ingest-data

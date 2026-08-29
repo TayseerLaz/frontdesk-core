@@ -1,4 +1,4 @@
-// Full-shell loading skeleton — mirrors AppShell's real geometry (oxblood
+// Full-shell loading skeleton — mirrors AppShell's real geometry (brand-panel
 // sidebar at w-60, h-14 top bar, padded content) so the pre-auth / pre-data
 // frame shows the actual layout shape instead of a floating box. Big
 // perceived-speed win: the page "snaps" into the same silhouette it loads into.
@@ -7,8 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function AppShellSkeleton() {
   return (
     <div className="flex h-dvh bg-surface-muted" aria-busy aria-label="Loading">
-      {/* Sidebar — matches the oxblood brand panel (fixed colors, lg+ only). */}
-      <aside className="hidden h-dvh w-60 shrink-0 flex-col gap-6 overflow-hidden rounded-r-2xl bg-[#360516] p-4 dark:bg-surface lg:flex">
+      {/* Sidebar — matches the brand-panel brand panel (fixed colors, lg+ only). */}
+      <aside className="hidden h-dvh w-60 shrink-0 flex-col gap-6 overflow-hidden rounded-r-2xl bg-[#11334d] p-4 dark:bg-surface lg:flex">
         <div className="h-8 w-28 rounded-md bg-white/10 dark:bg-surface-elevated" />
         <div className="space-y-5">
           {[5, 3, 4, 2, 4].map((count, g) => (

@@ -17,6 +17,7 @@
 // neutral-*, which the root layout's dark mode does not remap: on a phone set to dark the
 // card went near-black while the text stayed dark grey — 1.7:1 contrast, an unreadable
 // page that threw no error.
+import { brand } from '@/lib/brand';
 import { Check, Loader2, Upload, Users } from 'lucide-react';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 
@@ -230,7 +231,7 @@ export default function PhoneSyncPage({ params }: { params: Promise<{ token: str
         <p className="text-center text-lg font-medium">Link expired</p>
         <p className="mt-2 text-center text-sm text-foreground-muted">{loadError}</p>
         <p className="mt-4 text-center text-sm text-foreground-muted">
-          Go back to Hader on your computer and tap “Sync contacts with phone” again.
+          Go back to {brand.name} on your computer and tap “Sync contacts with phone” again.
         </p>
       </Shell>
     );
@@ -291,7 +292,7 @@ export default function PhoneSyncPage({ params }: { params: Promise<{ token: str
       <Shell>
         <p className="text-center text-lg font-medium">This link expired</p>
         <p className="mt-2 text-center text-sm text-foreground-muted">
-          Go back to Hader on your computer and tap “Sync contacts with phone” again to get a
+          Go back to {brand.name} on your computer and tap “Sync contacts with phone” again to get a
           fresh code.
         </p>
       </Shell>
@@ -326,7 +327,7 @@ export default function PhoneSyncPage({ params }: { params: Promise<{ token: str
         <h1 className="text-center text-lg font-medium">Share contacts</h1>
         <p className="text-center text-sm text-foreground-muted">
           with <span className="font-medium text-foreground">{session.organizationName}</span> on
-          Hader
+          {brand.name}
         </p>
       </div>
 
@@ -430,7 +431,7 @@ export default function PhoneSyncPage({ params }: { params: Promise<{ token: str
       ) : null}
 
       <p className="mt-6 text-center text-xs text-foreground-subtle">
-        Contact names, numbers and emails are saved to your Hader account. Contact photos are
+        Contact names, numbers and emails are saved to your {brand.name} account. Contact photos are
         never uploaded.
         {minsLeft !== null && minsLeft > 0 ? ` This link works for ${minsLeft} more minutes.` : ''}
       </p>

@@ -41,7 +41,7 @@ export default async function importRoutes(app: FastifyInstance) {
       const buf = await buildTemplateXlsx(req.params.kind);
       reply
         .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        .header('Content-Disposition', `attachment; filename="aligned-${req.params.kind}-template.xlsx"`);
+        .header('Content-Disposition', `attachment; filename="${req.params.kind}-template.xlsx"`);
       return reply.send(buf);
     },
   );
@@ -395,7 +395,7 @@ export default async function importRoutes(app: FastifyInstance) {
           lines.push([r.rowNumber, errorStr, ...keys.map((k) => raw[k])].map(esc).join(','));
         }
 
-        const filename = `aligned-import-${job.id.slice(0, 8)}-errors.csv`;
+        const filename = `import-${job.id.slice(0, 8)}-errors.csv`;
         reply
           .header('Content-Type', 'text/csv; charset=utf-8')
           .header('Content-Disposition', `attachment; filename="${filename}"`);

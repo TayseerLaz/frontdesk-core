@@ -27,7 +27,7 @@ interface Status {
 
 const ERRORS: Record<string, string> = {
   norefresh:
-    'Google didn’t return a refresh token. Remove Hader at myaccount.google.com/permissions, then reconnect.',
+    'Google didn’t return a refresh token. Remove this app at myaccount.google.com/permissions, then reconnect.',
   state: 'That connection link expired — please try again.',
   exchange: 'Couldn’t complete the connection. Please try again.',
   '1': 'Connection was cancelled.',
@@ -94,7 +94,7 @@ export default function GoogleCalendarSettingsPage() {
         backHref="/settings"
         eyebrow="Integrations"
         title="Google Calendar"
-        description="Keep Hader and Google Calendar in step — bookings appear on your calendar automatically, and your calendar's events show up in Hader and can hold booking slots."
+        description="Keep your bookings and Google Calendar in step — bookings appear on your calendar automatically, and your calendar's events show up here and can hold booking slots."
       />
 
       <div className="mt-6 max-w-2xl">
@@ -112,7 +112,7 @@ export default function GoogleCalendarSettingsPage() {
               <Skeleton className="h-10 w-64" />
             ) : !s?.configured ? (
               <div className="rounded-md border border-amber-300 bg-amber-50/50 p-4 text-sm text-amber-900">
-                Google Calendar isn’t set up on this platform yet. The ALIGNED team needs to add the
+                Google Calendar isn’t set up on this platform yet. The platform team needs to add the
                 Google OAuth credentials before you can connect.
               </div>
             ) : s.connected ? (
@@ -133,7 +133,7 @@ export default function GoogleCalendarSettingsPage() {
                   onClick={async () => {
                     const ok = await confirmDialog({
                       title: 'Disconnect Google Calendar?',
-                      body: 'New bookings will stop syncing, your calendar will stop appearing in Hader, and it will no longer hold booking slots. Events already on the calendar stay.',
+                      body: 'New bookings will stop syncing, your calendar will stop appearing here, and it will no longer hold booking slots. Events already on the calendar stay.',
                       confirmLabel: 'Disconnect',
                     });
                     if (ok) disconnect.mutate();
@@ -146,7 +146,7 @@ export default function GoogleCalendarSettingsPage() {
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-foreground-muted">
-                  Not connected yet. You’ll be sent to Google to grant Hader permission to read your
+                  Not connected yet. You’ll be sent to Google to grant permission to read your
                   calendar’s events and add its own.
                 </p>
                 <Button onClick={connect} loading={connecting}>
@@ -174,7 +174,7 @@ export default function GoogleCalendarSettingsPage() {
                     Add bookings to my Google Calendar
                   </p>
                   <p className="mt-1 text-xs text-foreground-muted">
-                    Off: bookings stay in Hader only — no calendar event, no meeting link, no
+                    Off: bookings stay in the portal only — no calendar event, no meeting link, no
                     invitation. Everything below applies only while this is on.
                   </p>
                 </div>
@@ -281,9 +281,9 @@ export default function GoogleCalendarSettingsPage() {
         ) : null}
 
         <p className="mt-4 text-xs text-foreground-subtle">
-          Only bookings that have a resolved date &amp; time are synced to Google. Hader also
+          Only bookings that have a resolved date &amp; time are synced to Google. We also
           <strong className="font-medium"> reads</strong> this calendar so its events appear in your
-          bookings calendar and can hold slots — we never edit or delete events Hader didn&apos;t
+          bookings calendar and can hold slots — we never edit or delete events we didn&apos;t
           create, and nothing from your calendar is shown to customers.
         </p>
       </div>

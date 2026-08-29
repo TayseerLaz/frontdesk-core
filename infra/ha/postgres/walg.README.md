@@ -25,7 +25,7 @@ chmod +x /usr/local/bin/wal-g && wal-g --version
 
 ```bash
 # Reuse the platform's Wasabi creds, but a SEPARATE bucket/prefix from app files.
-WALG_S3_PREFIX=s3://aligned-pg-backups/prod
+WALG_S3_PREFIX=s3://platform-pg-backups/prod
 AWS_ACCESS_KEY_ID=<WASABI_ACCESS_KEY_ID>
 AWS_SECRET_ACCESS_KEY=<WASABI_SECRET_ACCESS_KEY>
 AWS_ENDPOINT=https://s3.<region>.wasabisys.com

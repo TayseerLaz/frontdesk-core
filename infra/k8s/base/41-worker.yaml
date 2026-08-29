@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: hader-worker-metrics
-  namespace: hader
+  name: platform-worker-metrics
+  namespace: platform
   labels:
-    app: hader-worker
+    app: platform-worker
 spec:
   selector:
-    app: hader-worker
+    app: platform-worker
   ports:
     - name: metrics
       port: 9100
@@ -16,8 +16,8 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hader-worker
-  namespace: hader
+  name: platform-worker
+  namespace: platform
 spec:
   # The worker is genuinely closer to scalable than the API: its four heavy
   # ticks (sequence, provenance-digest, dunning, booking-reminder) all take a
@@ -38,26 +38,26 @@ spec:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: hader-worker
+      app: platform-worker
   template:
     metadata:
       labels:
-        app: hader-worker
+        app: platform-worker
     spec:
       # Long: a crawl or import job in flight checks a shutdown flag per page
       # and re-queues. Cutting this short abandons work mid-batch.
       terminationGracePeriodSeconds: 120
       containers:
         - name: worker
-          image: ghcr.io/tayseerlaz/hader-worker:latest
+          image: ghcr.io/tayseerlaz/platform-worker:latest
           ports:
             - name: metrics
               containerPort: 9100
           envFrom:
             - configMapRef:
-                name: hader-config
+                name: platform-config
             - secretRef:
-                name: hader-secrets
+                name: platform-secrets
           # The worker's HTTP server exposes only /health and /metrics — there
           # is no /health/ready, so liveness is all we can probe.
           livenessProbe:

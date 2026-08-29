@@ -23,8 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { formatRelative } from '@/lib/format';
 
-// The ALIGNED-HQ dashboard. The normal per-org widget dashboard answers
-// "how healthy is MY catalog"; this answers "how is Hader doing, and how are
+// The the platform-HQ dashboard. The normal per-org widget dashboard answers
+// "how healthy is MY catalog"; this answers "how is the platform doing, and how are
 // my tenants doing". It reuses the same two admin endpoints that power
 // /hq (no new API surface): the system snapshot + the orgs list.
 
@@ -102,8 +102,8 @@ export function AdminPlatformDashboard({ greeting }: { greeting: string }) {
   return (
     <>
       <PageHeader
-        title={greeting ? `Welcome back, ${greeting}` : 'ALIGNED HQ'}
-        description="Platform overview for Hader and all of its tenants."
+        title={greeting ? `Welcome back, ${greeting}` : 'HQ'}
+        description="Platform overview across every tenant."
         actions={
           <div className="flex items-center gap-2">
             <Button asChild>

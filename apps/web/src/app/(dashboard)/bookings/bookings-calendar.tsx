@@ -1,6 +1,6 @@
 'use client';
 
-// Calendar view for the bookings page. Hader.ai-style: a clean
+// Calendar view for the bookings page. the platform.ai-style: a clean
 // week/month grid with appointment blocks placed by appointmentAt.
 //
 // Self-contained — no calendar library, no date-fns. The grid math is
@@ -63,7 +63,7 @@ type View = 'month' | 'week';
 // ---------- Google Calendar overlay --------------------------------------
 // Events from the tenant's connected Google Calendar, shown alongside the
 // bookings so the operator sees one timeline instead of two. Read-only:
-// Hader never edits them, and clicking one opens it in Google.
+// the platform never edits them, and clicking one opens it in Google.
 
 interface GoogleEvent {
   id: string;
@@ -445,7 +445,7 @@ export function BookingsCalendar({
 // ---------- Google event chip --------------------------------------------
 // Visually subordinate to bookings on purpose: bookings are what the operator
 // acts on here, Google events are context. Clicking opens the event in Google
-// (new tab) — Hader never edits it.
+// (new tab) — the platform never edits it.
 
 function GoogleChip({ event, className }: { event: PlacedEvent; className?: string }) {
   const label = event.allDay

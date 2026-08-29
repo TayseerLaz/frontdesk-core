@@ -790,7 +790,7 @@ export function CreateTemplateDialog({
           <div className="rounded-md border border-border bg-surface-muted/30 p-3 space-y-2">
             <Label className="text-sm font-semibold">Footer (optional, max 60 chars)</Label>
             <Input
-              placeholder="Powered by Aligned"
+              placeholder="Powered by Platform"
               value={footer}
               onChange={(e) => setFooter(e.target.value.slice(0, 60))}
             />

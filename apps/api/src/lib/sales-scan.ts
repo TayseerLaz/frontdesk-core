@@ -30,7 +30,7 @@ export {
  *
  * Slice 1 (this file) owns the GRANT lifecycle: consent evidence, the absolute
  * compliance deadline, and the terminal-state transition. The capture half (the
- * `hader-wa-ingest` service, the reapers, the summary job) is deliberately NOT here
+ * `platform-wa-ingest` service, the reapers, the summary job) is deliberately NOT here
  * yet — see docs/SALES-SCAN-REVIEW-BLOCKERS.md for the 16 blockers that gate it.
  *
  * Invariants this file is responsible for:
@@ -103,7 +103,7 @@ export async function isScanStartable(): Promise<boolean> {
   return isCaptureAvailable();
 }
 
-/** True when this org has the feature switched on by an ALIGNED admin. */
+/** True when this org has the feature switched on by an super-admin. */
 export async function isSalesScanEnabled(tx: Tx, organizationId: string): Promise<boolean> {
   const org = await tx.organization.findUnique({
     where: { id: organizationId },

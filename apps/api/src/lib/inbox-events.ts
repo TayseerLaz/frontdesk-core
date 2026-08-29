@@ -7,7 +7,7 @@
 // SSE handler still covers keep-alive + anything that didn't publish.
 //
 // Scope note: this is in-process. The API runs as a single process (systemd
-// `aligned-api`), so every SSE client shares this emitter. If the API is ever
+// `platform-api`), so every SSE client shares this emitter. If the API is ever
 // scaled to multiple replicas, swap this for Redis pub/sub.
 import { EventEmitter } from 'node:events';
 

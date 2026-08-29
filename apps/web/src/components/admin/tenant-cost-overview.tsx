@@ -87,7 +87,7 @@ export function TenantCostOverview({ orgId }: { orgId: string }) {
   const o = overviewQ.data;
 
   if (!session?.user.isSuperAdmin) {
-    return <div className="p-6 text-foreground-muted">ALIGNED admins only.</div>;
+    return <div className="p-6 text-foreground-muted">Super-admins only.</div>;
   }
 
   const rangeLabel = o

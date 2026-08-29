@@ -1,6 +1,6 @@
 import { hasAuth, listAuthGrantIds, loadAuth, purgeAuth } from './auth-store.js';
 import { env } from './env.js';
-import * as hader from './hader-client.js';
+import * as platform from './platform-client.js';
 import { logger } from './logger.js';
 import { CaptureSession } from './session.js';
 
@@ -8,14 +8,14 @@ import { CaptureSession } from './session.js';
  * Owns every live capture session and — more importantly — owns the guarantee that a
  * window actually ends.
  *
- * Hader is the system of record: it holds the grant, the consent and the deadline. This
+ * the platform is the system of record: it holds the grant, the consent and the deadline. This
  * process is a follower. Every loop below re-derives what it is allowed to run from
- * Hader rather than from local state, so local state can never drift into capturing
+ * the platform rather than from local state, so local state can never drift into capturing
  * something nobody authorised.
  */
 class SessionPool {
   private readonly sessions = new Map<string, CaptureSession>();
-  /** Deadline per grant, refreshed from Hader on every reconcile. */
+  /** Deadline per grant, refreshed from the platform on every reconcile. */
   private readonly deadlines = new Map<string, Date>();
   /** Grants whose credentials still need destroying, retried until they are gone. */
   private readonly pendingPurge = new Set<string>();
@@ -40,12 +40,12 @@ class SessionPool {
    * purged before a socket is ever constructed.
    */
   async reconcileOnBoot(): Promise<void> {
-    let authorised: hader.AuthorisedGrant[] = [];
+    let authorised: platform.AuthorisedGrant[] = [];
     try {
-      authorised = await hader.fetchAuthorisedGrants();
+      authorised = await platform.fetchAuthorisedGrants();
     } catch (err) {
       // Fail CLOSED. If we cannot ask who is authorised, we start nothing.
-      logger.error({ err }, 'boot: cannot reach Hader — starting no sessions');
+      logger.error({ err }, 'boot: cannot reach the platform — starting no sessions');
       return;
     }
     const live = new Set(authorised.map((g) => g.grantId));
@@ -60,7 +60,7 @@ class SessionPool {
   }
 
   /** Start a session for an authorised grant, if we have a free slot. */
-  async ensureRunning(grant: hader.AuthorisedGrant): Promise<'running' | 'queued' | 'expired'> {
+  async ensureRunning(grant: platform.AuthorisedGrant): Promise<'running' | 'queued' | 'expired'> {
     const endsAt = new Date(grant.effectiveEndsAt);
     if (Number.isNaN(endsAt.getTime()) || endsAt <= new Date()) {
       await this.endSession(grant.grantId, 'expired');
@@ -84,12 +84,12 @@ class SessionPool {
       pairPhone: grant.pairPhone,
       hooks: {
         onStatus: (status, extra) => {
-          void hader.pushStatus(grant.grantId, status, extra).catch((e) => hader.logPushFailure(e, 'status'));
+          void platform.pushStatus(grant.grantId, status, extra).catch((e) => platform.logPushFailure(e, 'status'));
           // A logout is terminal — release the slot and purge rather than sit half-dead.
           if (status === 'logged_out') void this.endSession(grant.grantId, 'logged_out');
         },
         onMessages: async (msgs) => {
-          await hader.pushMessages(grant.grantId, msgs);
+          await platform.pushMessages(grant.grantId, msgs);
         },
         // Authority check used before every socket construction and every inbound batch.
         isStillAuthorised: async () => {
@@ -126,9 +126,9 @@ class SessionPool {
     this.deadlines.delete(grantId);
     this.pendingPurge.add(grantId);
     try {
-      await hader.reportEnded(grantId, reason);
+      await platform.reportEnded(grantId, reason);
     } catch (err) {
-      hader.logPushFailure(err, 'ended');
+      platform.logPushFailure(err, 'ended');
     }
     await this.drainPurges();
   }
@@ -141,11 +141,11 @@ class SessionPool {
         continue;
       }
       try {
-        await hader.reportPurged(grantId);
+        await platform.reportPurged(grantId);
         this.pendingPurge.delete(grantId);
       } catch (err) {
-        // Keep it pending: authPurgedAt must only be stamped once Hader has been told.
-        hader.logPushFailure(err, 'purged');
+        // Keep it pending: authPurgedAt must only be stamped once the platform has been told.
+        platform.logPushFailure(err, 'purged');
       }
     }
   }
@@ -166,7 +166,7 @@ class SessionPool {
         }
 
         // Then re-derive authority from the system of record.
-        const authorised = await hader.fetchAuthorisedGrants();
+        const authorised = await platform.fetchAuthorisedGrants();
         this.lastHeartbeatOkAt = Date.now();
         const live = new Set(authorised.map((g) => g.grantId));
         for (const grantId of [...this.sessions.keys()]) {
@@ -180,7 +180,7 @@ class SessionPool {
         // Dead-man switch: if this keeps failing we lose authority and tear everything
         // down inside isStillAuthorised(), rather than capturing blind.
         if (Date.now() - this.lastHeartbeatOkAt > env.HEARTBEAT_FAIL_LIMIT_MS && this.sessions.size) {
-          logger.error('lost contact with Hader beyond the limit — tearing down all sessions');
+          logger.error('lost contact with the platform beyond the limit — tearing down all sessions');
           for (const grantId of [...this.sessions.keys()]) {
             const s = this.sessions.get(grantId);
             if (s) await s.stop();

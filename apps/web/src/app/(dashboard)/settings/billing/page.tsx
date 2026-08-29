@@ -125,7 +125,7 @@ export default function BillingPage() {
     <>
       <PageHeader
         title="Plan"
-        description="Your current plan and usage. To change your plan, contact ALIGNED."
+        description="Your current plan and usage. To change your plan, contact support."
         actions={
           <Button variant="secondary" asChild>
             <Link href="/settings">

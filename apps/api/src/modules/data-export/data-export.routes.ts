@@ -18,8 +18,8 @@ import { badRequest, forbidden, notFound } from '../../lib/errors.js';
 import { getDataExportQueue } from '../../lib/queues.js';
 import { presignGetUrl } from '../../lib/storage.js';
 
-// Per-tenant access control: ALIGNED-admin can turn self-service export off.
-// (ALIGNED admins can still export any org's data from the admin panel.)
+// Per-tenant access control: super-admin can turn self-service export off.
+// (super-admins can still export any org's data from the admin panel.)
 async function ensureExportsEnabled(orgId: string): Promise<void> {
   const org = await withRlsBypass((tx) =>
     tx.organization.findUnique({ where: { id: orgId }, select: { disabledFeatures: true } }),
@@ -27,7 +27,7 @@ async function ensureExportsEnabled(orgId: string): Promise<void> {
   if (org?.disabledFeatures?.includes('exports')) {
     throw forbidden(
       ApiErrorCode.FEATURE_DISABLED,
-      'Data export is turned off for this workspace. Contact ALIGNED support if you need an export.',
+      'Data export is turned off for this workspace. Contact support if you need an export.',
     );
   }
 }

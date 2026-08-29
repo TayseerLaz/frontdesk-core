@@ -4,7 +4,7 @@
 // key missing, rate-limited, or a provider error), the reply STILL goes out
 // (fail-open, per the engine doctrine) — but the tenant is quietly running on a
 // weaker model and nobody knows. This surfaces it: once per tenant per day,
-// notify every ALIGNED admin. Entirely fire-and-forget — any error in here must
+// notify every super-admin. Entirely fire-and-forget — any error in here must
 // never touch or slow the reply path.
 
 import { prisma } from './db.js';
@@ -16,7 +16,7 @@ function dayKey(): string {
 }
 
 /**
- * Alert ALIGNED admins that `orgId` (on the `plan` tier) degraded to `actualModel`.
+ * Alert super-admins that `orgId` (on the `plan` tier) degraded to `actualModel`.
  * Deduped to one alert per tenant per day via Redis SET NX. Best-effort.
  */
 export async function reportModelDegrade(

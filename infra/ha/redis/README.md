@@ -22,7 +22,7 @@ redis-cli CONFIG REWRITE                        # persist to redis.conf
 - **3 Sentinels** (co-located with etcd: app-1, db-1, db-2) watch the primary and
   auto-promote the replica on failure (`quorum 2`).
 - The app connects via the Sentinel-aware client (ioredis supports
-  `{ sentinels: [...], name: 'aligned-redis' }`) so it always finds the current
+  `{ sentinels: [...], name: 'platform-redis' }`) so it always finds the current
   primary. **App change required:** point `REDIS_URL`/client at Sentinels — small,
   isolated change in `apps/*/src/lib/redis.ts`.
 

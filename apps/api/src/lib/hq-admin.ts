@@ -1,20 +1,20 @@
 import { prisma } from './db.js';
 
-// The ALIGNED HQ organization is identified by this slug. Being an ACTIVE admin
+// The HQ organization is identified by this slug. Being an ACTIVE admin
 // of it grants platform-wide HQ access (User.isSuperAdmin) — the same access
 // as the owner account. Kept as a constant (not an env) so it's obvious +
 // greppable; change here if the HQ org is ever re-slugged.
-export const HQ_ORG_SLUG = 'aligned';
+export const HQ_ORG_SLUG = 'platform';
 
 /**
  * Keep User.isSuperAdmin in lockstep with HQ-org admin membership: an ACTIVE
- * admin of the ALIGNED org IS a platform HQ admin (same access as the owner);
+ * admin of the the platform org IS a platform HQ admin (same access as the owner);
  * demote / deactivate / remove them and the flag is revoked, so HQ access never
  * goes stale.
  *
  * NO-OP unless the membership change happened IN the HQ org — so editing
  * memberships in any OTHER org can never touch a user's HQ flag (a manually
- * granted HQ admin who isn't a member of the ALIGNED org is left alone). Uses
+ * granted HQ admin who isn't a member of the the platform org is left alone). Uses
  * the owner client because users + memberships are global (not org-scoped).
  */
 export async function syncHqAdminForOrgChange(

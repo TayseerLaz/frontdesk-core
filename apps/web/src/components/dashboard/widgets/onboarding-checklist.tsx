@@ -51,7 +51,7 @@ export function OnboardingChecklistWidget() {
   return (
     <div
       role="region"
-      aria-label="Set up Hader"
+      aria-label="Set up your workspace"
       className="relative overflow-hidden rounded-lg border border-border bg-surface"
     >
       <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">

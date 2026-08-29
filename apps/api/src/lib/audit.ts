@@ -43,10 +43,10 @@ export async function recordAudit(args: RecordAuditArgs): Promise<void> {
 
 /**
  * Record integration credentials a tenant entered (WhatsApp / Messenger /
- * Instagram / Shopify connector / payments…). ALIGNED-HQ-only: the tenant's own
+ * Instagram / Shopify connector / payments…). the platform-HQ-only: the tenant's own
  * audit view hides `integration_credentials_set`, and the credential VALUES are
  * AES-256-GCM encrypted in the metadata (`credentialsEnc`) — decrypted only in
- * the ALIGNED-admin audit view. Captured on every save, whether it worked or
+ * the super-admin audit view. Captured on every save, whether it worked or
  * not, so HQ can support a tenant who can't get a connection live.
  */
 export async function recordCredentialAudit(args: {

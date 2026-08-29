@@ -1,3 +1,4 @@
+import { BRAND } from '@platform/shared';
 import './lib/bigint-json.js'; // BigInt JSON shim — must load before anything serializes a bigint
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
@@ -260,7 +261,7 @@ export async function buildServer() {
     global: true,
     timeWindow: '1 second',
     redis: getRedis(),
-    nameSpace: 'aligned-rl:',
+    nameSpace: 'platform-rl:',
     skipOnError: true,
     // Chatbot Read API + voice media gateway get their own (higher) ceiling
     // per API key. Voice especially: the bridge ships every transcript turn
@@ -302,7 +303,7 @@ export async function buildServer() {
   await app.register(swagger, {
     openapi: {
       info: {
-        title: 'ALIGNED Business Platform API',
+        title: `${BRAND.name} API`,
         version: '0.1.0',
         description: 'Multi-tenant catalog + chatbot read API.',
       },
@@ -343,7 +344,7 @@ export async function buildServer() {
     await chatbotScope.register(swagger, {
       openapi: {
         info: {
-          title: 'ALIGNED Chatbot Read API',
+          title: `${BRAND.name} Chatbot Read API`,
           version: '0.1.0',
           description: 'Read-only endpoints for chatbot integrations. API-key authenticated.',
         },
@@ -449,7 +450,7 @@ async function start() {
     await app.listen({ host: env.API_HOST, port: env.API_PORT });
     app.log.info(
       { url: `${env.API_PUBLIC_URL}/docs`, chatbotDocs: `${env.API_PUBLIC_URL}/docs/chatbot` },
-      `ALIGNED API listening on :${env.API_PORT}`,
+      `${BRAND.name} API listening on :${env.API_PORT}`,
     );
     // Continuous embedding backstop — keeps products/services/FAQs embedded no
     // matter how they were added (import / Shopify / direct DB), so the bot's

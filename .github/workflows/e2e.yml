@@ -33,12 +33,12 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: aligned
-          POSTGRES_PASSWORD: aligned
-          POSTGRES_DB: aligned
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U aligned -d aligned"
+          --health-cmd "pg_isready -U platform -d platform"
           --health-interval 5s --health-timeout 3s --health-retries 20
 
       redis:
@@ -72,8 +72,8 @@ jobs:
           cat > .env <<EOF
           NODE_ENV=development
           LOG_LEVEL=warn
-          DATABASE_URL=postgresql://aligned:aligned@localhost:5432/aligned
-          DIRECT_DATABASE_URL=postgresql://aligned:aligned@localhost:5432/aligned
+          DATABASE_URL=postgresql://platform:platform@localhost:5432/platform
+          DIRECT_DATABASE_URL=postgresql://platform:platform@localhost:5432/platform
           REDIS_URL=redis://localhost:6379
           JWT_ACCESS_SECRET=e2e-access-secret-at-least-32-characters-long-please
           JWT_REFRESH_SECRET=e2e-refresh-secret-at-least-32-characters-long-please
@@ -84,7 +84,7 @@ jobs:
           RATE_LIMIT_AUTH_PER_MINUTE=500
           RATE_LIMIT_API_PER_SECOND=200
           RATE_LIMIT_READ_API_PER_SECOND=400
-          EMAIL_FROM="ALIGNED <noreply@aligned.local>"
+          EMAIL_FROM="Platform <noreply@platform.local>"
           EMAIL_DEV_SMTP_HOST=localhost
           EMAIL_DEV_SMTP_PORT=1025
           API_HOST=0.0.0.0
@@ -93,7 +93,7 @@ jobs:
           WEB_PUBLIC_URL=http://localhost:3000
           CORS_ORIGINS=http://localhost:3000
           NEXT_PUBLIC_API_URL=http://localhost:4000
-          NEXT_PUBLIC_APP_NAME="ALIGNED Business Platform"
+          NEXT_PUBLIC_APP_NAME="the platform"
           EOF
           ln -sf .env .env.development
           cp .env apps/api/.env || true
@@ -107,27 +107,27 @@ jobs:
 
       - name: Apply Prisma migrations
         env:
-          DATABASE_URL: postgresql://aligned:aligned@localhost:5432/aligned
-          DIRECT_DATABASE_URL: postgresql://aligned:aligned@localhost:5432/aligned
+          DATABASE_URL: postgresql://platform:platform@localhost:5432/platform
+          DIRECT_DATABASE_URL: postgresql://platform:platform@localhost:5432/platform
         run: pnpm --filter @platform/db exec prisma migrate deploy
 
       - name: Apply RLS policies
         env:
-          PGPASSWORD: aligned
+          PGPASSWORD: platform
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           # Create app_user role (RLS bypass target) as superuser first.
-          PGPASSWORD=aligned psql -h localhost -U aligned -d aligned -c \
+          PGPASSWORD=platform psql -h localhost -U platform -d platform -c \
             "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN CREATE ROLE app_user NOLOGIN; END IF; END \$\$;"
-          # Seed grant so aligned can SET ROLE app_user later.
-          PGPASSWORD=aligned psql -h localhost -U aligned -d aligned -c "GRANT app_user TO aligned;" || true
-          PGPASSWORD=aligned psql -h localhost -U aligned -d aligned -v ON_ERROR_STOP=1 \
+          # Seed grant so platform can SET ROLE app_user later.
+          PGPASSWORD=platform psql -h localhost -U platform -d platform -c "GRANT app_user TO platform;" || true
+          PGPASSWORD=platform psql -h localhost -U platform -d platform -v ON_ERROR_STOP=1 \
             -f packages/db/prisma/rls.sql
 
       - name: Seed demo data
         env:
-          DATABASE_URL: postgresql://aligned:aligned@localhost:5432/aligned
-          DIRECT_DATABASE_URL: postgresql://aligned:aligned@localhost:5432/aligned
+          DATABASE_URL: postgresql://platform:platform@localhost:5432/platform
+          DIRECT_DATABASE_URL: postgresql://platform:platform@localhost:5432/platform
         run: pnpm --filter @platform/db exec prisma db seed
 
       - name: Build shared/db (required by api and web)

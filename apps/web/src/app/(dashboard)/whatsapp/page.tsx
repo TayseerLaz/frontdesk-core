@@ -944,7 +944,7 @@ function TestSendForm({
 
 // ---------------------------------------------------------------------------
 // Post-connect visibility for coexistence tenants: is the one-shot history
-// import still flowing, and until when may Hader learn from conversations.
+// import still flowing, and until when may the platform learn from conversations.
 // Renders NOTHING for orgs with no grant and no history payloads — which is
 // most of the fleet — so it costs one silent GET and zero pixels elsewhere.
 interface CoexistenceStatus {

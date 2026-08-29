@@ -55,7 +55,7 @@ test.describe('/business-info Profile tab', () => {
     await expect(page.getByRole('tab', { name: /profile/i })).toBeVisible();
 
     // Fill profile fields.
-    await page.getByLabel('Legal name').fill('Aligned QA Inc.');
+    await page.getByLabel('Legal name').fill('Platform QA Inc.');
     await page.getByLabel('Tagline').fill('The chatbot for your catalog.');
     await page.getByLabel('About').fill('We are a QA fixture business.');
 
@@ -81,7 +81,7 @@ test.describe('/business-info Profile tab', () => {
       [orgId],
     );
     expect(rows.length).toBe(1);
-    expect(rows[0].legal_name).toBe('Aligned QA Inc.');
+    expect(rows[0].legal_name).toBe('Platform QA Inc.');
     expect(rows[0].tagline).toBe('The chatbot for your catalog.');
     expect(rows[0].about).toBe('We are a QA fixture business.');
     expect(rows[0].operating_hours.monday).toEqual([{ open: '09:00', close: '17:00' }]);

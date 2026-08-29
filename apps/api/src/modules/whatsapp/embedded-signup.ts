@@ -86,7 +86,7 @@ export function discoverEmbeddedSignupWaba(
       message:
         candidates.length === 0
           ? 'Meta did not identify a WhatsApp Business Account in the granted token.'
-          : 'Meta granted more than one WhatsApp Business Account, so Hader cannot choose one safely.',
+          : 'Meta granted more than one WhatsApp Business Account, so we cannot choose one safely.',
       candidates,
     };
   }

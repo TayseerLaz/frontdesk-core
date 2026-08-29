@@ -398,7 +398,7 @@ export default function ContactsPage() {
               aria-pressed={sourceFilter === s}
               className={`shrink-0 rounded-[5px] border px-1.5 py-px text-[10.5px] font-medium transition-colors ${
                 sourceFilter === s
-                  ? 'border-[#360516] bg-[#360516] text-[#FCFBFA]'
+                  ? 'border-[#11334d] bg-[#11334d] text-[#FCFBFA]'
                   : 'border-[#E6DCCB] bg-[#F3ECE0] text-[#4A1525] hover:bg-[#E6DCCB]/70'
               }`}
             >
@@ -418,7 +418,7 @@ export default function ContactsPage() {
                 aria-pressed={tagFilter === t.tag}
                 className={`shrink-0 rounded-[5px] border px-1.5 py-px text-[10.5px] font-medium transition-colors ${
                   tagFilter === t.tag
-                    ? 'border-[#360516] bg-[#360516] text-[#FCFBFA]'
+                    ? 'border-[#11334d] bg-[#11334d] text-[#FCFBFA]'
                     : 'border-[#E6DCCB] bg-[#F3ECE0] text-[#4A1525] hover:bg-[#E6DCCB]/70'
                 }`}
               >
@@ -428,7 +428,7 @@ export default function ContactsPage() {
             {tagFilter ? (
               <button
                 onClick={() => setTagFilter(null)}
-                className="shrink-0 text-xs text-[#7A6F69] hover:text-[#360516]"
+                className="shrink-0 text-xs text-[#7A6F69] hover:text-[#11334d]"
               >
                 <X className="inline size-3" /> clear
               </button>

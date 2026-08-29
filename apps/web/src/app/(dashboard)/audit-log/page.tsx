@@ -42,8 +42,8 @@ const ENTITY_TYPES = [
 ];
 
 const ACTION_LABELS: Record<string, string> = {
-  aligned_admin_accessed: 'ALIGNED HQ accessed your workspace',
-  aligned_admin_exited: 'ALIGNED HQ left your workspace',
+  hq_admin_accessed: 'HQ accessed your workspace',
+  hq_admin_exited: 'HQ left your workspace',
   contact_unsubscribed: 'Contact unsubscribed',
 };
 const humanAction = (s: string) =>

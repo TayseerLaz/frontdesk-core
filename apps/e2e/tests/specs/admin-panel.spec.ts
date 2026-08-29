@@ -42,20 +42,20 @@ test.afterAll(async () => {
   await closePool();
 });
 
-test.describe('ALIGNED admin panel (/hq)', () => {
+test.describe('super-admin panel (/hq)', () => {
   test.beforeAll(async () => {
     // Confirm the seed admin has is_super_admin=true, otherwise the spec assumptions fail.
     const rows = await query<{ is_super_admin: boolean }>(
       `SELECT is_super_admin FROM users WHERE email = $1`,
       [env.SEED_ADMIN_EMAIL.toLowerCase()],
     );
-    expect(rows[0]?.is_super_admin, 'seed admin must be an ALIGNED admin').toBe(true);
+    expect(rows[0]?.is_super_admin, 'seed admin must be an super-admin').toBe(true);
   });
 
-  test('page loads for seed ALIGNED admin and shows Organisations list', async ({ page, seedAdminLogin }) => {
+  test('page loads for seed super-admin and shows Organisations list', async ({ page, seedAdminLogin }) => {
     await seedAdminLogin(page);
     await page.goto('/hq');
-    await expect(page.getByRole('heading', { name: /aligned admin/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /platform admin/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /^organisations$/i })).toBeVisible();
     await expect(page.getByText(/queue/i).first()).toBeVisible();
     // Demo org row should be listed.
@@ -70,7 +70,7 @@ test.describe('ALIGNED admin panel (/hq)', () => {
     const first = await asUser.login(fresh.email, fresh.password);
     expect(first.organizationId).toBe(fresh.orgId);
 
-    // Suspend via ALIGNED admin API (logged in as seed admin).
+    // Suspend via super-admin API (logged in as seed admin).
     await api.login(env.SEED_ADMIN_EMAIL, env.SEED_ADMIN_PASSWORD);
     const suspend = await api.patch(`/api/v1/hq/orgs/${fresh.orgId}`, {
       status: 'suspended',
@@ -113,7 +113,7 @@ test.describe('ALIGNED admin panel (/hq)', () => {
     await deleteUserByEmail(fresh.email);
   });
 
-  test('non-ALIGNED admin visiting /hq sees "role required" message', async ({
+  test('non-super-admin visiting /hq sees "role required" message', async ({
     page,
     uiLogin,
   }) => {
@@ -121,8 +121,8 @@ test.describe('ALIGNED admin panel (/hq)', () => {
     try {
       await uiLogin(page, fresh.email, fresh.password);
       await page.goto('/hq');
-      // The page component renders a card with "ALIGNED admin role required." for non-admins.
-      await expect(page.getByText(/ALIGNED admin role required/i)).toBeVisible({ timeout: 5_000 });
+      // The page component renders a card with "super-admin role required." for non-admins.
+      await expect(page.getByText(/super-admin role required/i)).toBeVisible({ timeout: 5_000 });
       // And the API gate must refuse.
       const api = new ApiClient();
       await api.login(fresh.email, fresh.password);

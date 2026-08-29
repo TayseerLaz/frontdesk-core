@@ -48,8 +48,8 @@ export function WalletBalanceBanner() {
         <p className="text-sm font-semibold">
           {message ??
             (empty
-              ? 'WhatsApp sending is paused — your balance is empty. Contact ALIGNED to top up.'
-              : 'WhatsApp balance running low. Contact ALIGNED to top up.')}
+              ? 'WhatsApp sending is paused — your balance is empty. Contact support to top up.'
+              : 'WhatsApp balance running low. Contact support to top up.')}
         </p>
       </div>
     </div>

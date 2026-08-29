@@ -1,4 +1,4 @@
-# Hader / Alignbot — Architecture
+# the platform / Alignbot — Architecture
 
 > **Status:** written 2026-07-22 from a full read of the repo at `4e334f6`.
 > **Scope at the time:** 677 tracked files, 121,338 lines of TS/TSX, 79 Prisma models, 97 migrations.
@@ -32,7 +32,7 @@
 
 ## 1. What this is
 
-Hader is a multi-tenant SaaS whose core product is an **AI customer-service bot** that
+the platform is a multi-tenant SaaS whose core product is an **AI customer-service bot** that
 talks to a business's customers on WhatsApp Cloud API, Facebook Messenger, Instagram DM
 and a phone line — grounded exclusively in that tenant's own catalog, services, FAQs and
 business info — and which captures real commerce (carts → orders, bookings, payment
@@ -64,13 +64,13 @@ citations, hallucinations, tokens, latency).
 
 ```
                     Caddy (prod box, hand-edited /etc/caddy/Caddyfile)
-                    ├── hader.ai/app*  → 127.0.0.1:3000   Next portal
-                    ├── hader.ai/*     → static marketing SPA
-                    └── api.hader.ai   → 127.0.0.1:4000   Fastify   (/metrics hard-403)
+                    ├── example.com/app*  → 127.0.0.1:3000   Next portal
+                    ├── example.com/*     → static marketing SPA
+                    └── api.example.com   → 127.0.0.1:4000   Fastify   (/metrics hard-403)
                                               │
         ┌─────────────────────────────────────┼─────────────────────────────────┐
         │                                     │                                 │
-   apps/api (systemd aligned-api)      apps/worker (aligned-worker)     apps/web (aligned-web)
+   apps/api (systemd platform-api)      apps/worker (platform-worker)     apps/web (platform-web)
    47 route modules                    9 queues + 8 ticks               100% client-rendered
    + 2 in-process ticks:               /metrics on :9100                zero DB access
      embed-backfill, wallet-alert
@@ -86,12 +86,12 @@ PostgreSQL 16      Redis 7              Wasabi (S3)         External services
                    AI-msg counters                          ElevenLabs / Google TTS
 pgcrypto,          SSE nonces                               Stripe / MyFatoorah / PayPal
 citext,            tick locks                               Shopify Admin REST
-pg_trgm            uptime ZSET                              Alinia (RS256 SSO + mirror)
+pg_trgm            uptime ZSET                              a partner (RS256 SSO + mirror)
                                                             SES SMTP, Sentry
 ```
 
 **Postgres carries real logic**, not just storage: RLS policies, pg_trgm GIN indexes with
-trigger-maintained `search_text`, an append-only audit-log hash chain, and the Alinia
+trigger-maintained `search_text`, an append-only audit-log hash chain, and the a partner
 read-only mirror-row guard trigger.
 
 **Connection strings.** `DATABASE_URL` goes through PgBouncer (`?pgbouncer=true`);
@@ -119,7 +119,7 @@ Everything funnels through three wrappers in
 |---|---|---|
 | `withTenant(orgId, fn)` :38 | `SET LOCAL ROLE app_user` **+** `app.current_org_id` | Every authenticated request |
 | `withRlsBypass(fn)` :55 | `app.bypass_rls = 'on'` | HQ cross-tenant ops + auth bootstrap. Caller MUST be gated by `requireSuperAdmin` |
-| `withAliniaSync(orgId, fn)` :78 | tenant scope **+** `app.alinia_sync = 'on'` | Only the Alinia→Hader mirror sync |
+| `witha partnerSync(orgId, fn)` :78 | tenant scope **+** `app.partner_sync = 'on'` | Only the a partner→the platform mirror sync |
 
 The policy, applied by the `_apply_tenant_rls` macro at
 [rls.sql:60-72](../packages/db/prisma/rls.sql#L60):
@@ -161,7 +161,7 @@ read org B both at the HTTP layer and by rebinding the Postgres connection direc
 |---|---|---|
 | **Tenancy & RLS** | The one seam; `withTenant` + two escape hatches | `lib/db.ts`, `prisma/rls.sql`, `test/tenant-isolation.test.ts`, `worker/jobs/db.ts` |
 | **Data model** | 79 models / 39 enums + 97 migrations carrying RLS, triggers and partial unique indexes Prisma can't express | `schema.prisma`, `migrations/20260421082152_rls_helpers/`, `migrations/20260623120000_multi_number_whatsapp/`, `db/src/secret-crypto.ts` |
-| **Auth / RBAC** | HS256 access JWT + rotating httpOnly refresh cookie with a device-bound grace window; 3 roles + an HQ `isSuperAdmin` flag; TOTP; Alinia SSO; impersonation | `auth/auth.service.ts`, `plugins/auth.ts`, `lib/jwt.ts`, `lib/hq-admin.ts` |
+| **Auth / RBAC** | HS256 access JWT + rotating httpOnly refresh cookie with a device-bound grace window; 3 roles + an HQ `isSuperAdmin` flag; TOTP; a partner SSO; impersonation | `auth/auth.service.ts`, `plugins/auth.ts`, `lib/jwt.ts`, `lib/hq-admin.ts` |
 | **AI bot engine** | `gatherBotData` → hybrid retrieval → sectioned prompt (split for Anthropic caching) → plan-routed completion → validators → gate → provenance | `lib/bot-engine.ts`, `lib/openai.ts`, `lib/reply-validators.ts`, `lib/grounding-gate.ts` |
 | **Retrieval & embeddings** | Trigram sparse + 1536-d dense, RRF-fused; content-hash-idempotent embed-on-write + a 3-min cross-tenant backfill tick inside the API | `lib/retrieval.ts`, `lib/embedding.ts`, `lib/embed-backfill-tick.ts` |
 | **AI safety & audit** | 10-step validator pipeline, shadow/enforce grounding gate, one `MessageProvenance` row per reply | `lib/reply-validators.ts`, `lib/provenance-scanner.ts`, `lib/provenance.ts`, `lib/pipeline-timer.ts` |
@@ -177,7 +177,7 @@ read org B both at the HTTP layer and by rebinding the Postgres connection direc
 | **Broadcasts & sequences** | CSV/segment/manual audiences fanned out to per-recipient rows, sent under a per-`phone_number_id` token bucket with opt-out + send-window + wallet gates | `worker/jobs/broadcast-fanout.ts`, `worker/jobs/broadcast-send.ts`, `worker/jobs/sequence-tick.ts` |
 | **Ingestion** | Streaming CSV/XLSX import, cron+webhook connectors, Shopify scrape→review→commit, Playwright crawler — all converging on one org-scoped upsert | `worker/jobs/import.ts`, `worker/jobs/shared-upsert.ts`, `worker/jobs/shopify.ts`, `worker/jobs/sync.ts` |
 | **Read API & webhooks** | Public tenant-data API keyed by `X-Api-Key` with per-key rate limits + org-prefixed Redis cache; HMAC-signed outbound webhooks with backoff + auto-disable | `read/read.routes.ts`, `lib/read-cache.ts`, `lib/webhooks.ts`, `worker/jobs/webhook-delivery.ts` |
-| **HQ admin & partner** | Cross-tenant admin panel (orgs, features, wallets, AI cost, provenance browser, exports, eval dashboard, copilot) + a shared-secret partner surface for Alinia | `admin/admin.routes.ts`, `partner/partner.routes.ts`, `lib/admin-copilot.ts` |
+| **HQ admin & partner** | Cross-tenant admin panel (orgs, features, wallets, AI cost, provenance browser, exports, eval dashboard, copilot) + a shared-secret partner surface for a partner | `admin/admin.routes.ts`, `partner/partner.routes.ts`, `lib/admin-copilot.ts` |
 | **Eval harness** | Golden sets + deterministic scorers + a binary LLM judge running the **real** engine, persisted to an HQ-only `eval_runs` table | `eval/runner.ts`, `eval/scorers.ts`, `eval/README.md` |
 | **Build / CI / deploy** | Turborepo (only shared/db/web compile), CI with 9 hard gates and everything else `continue-on-error`, manual pull-based systemd deploy with health-check auto-rollback | `infra/scripts/redeploy.sh`, `.github/workflows/ci.yml`, `infra/systemd/`, `apps/api/src/server.ts` |
 
@@ -285,10 +285,10 @@ which also flushes the compiled voice persona → next `gatherBotData` sees the 
 ### 5.9 Deploy
 
 `git push origin main` → SSH to the box → `bash infra/scripts/redeploy.sh` in
-`/opt/aligned/app` → ensure 4G swap → `git reset --hard origin/main` → diff against
+`/opt/platform/app` → ensure 4G swap → `git reset --hard origin/main` → diff against
 `.last-deployed-sha` → conditional `pnpm install` → `prisma generate` (3 retries) → wipe
 and rebuild `@platform/db` + `@platform/shared` dist → `prisma migrate deploy` → conditional
-`next build` (3 retries, 2GB heap) → `systemctl restart aligned-api/-worker` (+web if
+`next build` (3 retries, 2GB heap) → `systemctl restart platform-api/-worker` (+web if
 rebuilt) → poll `/health` 20×3s → **on failure auto-rollback** to the last known-good SHA.
 
 ### 5.10 Coexistence connect → handset reply *(the newest path, and the least proven)*
@@ -409,10 +409,10 @@ Rules that must never break. Each names where it is enforced.
     tokens; AES-256-GCM for TOTP secrets and integration credentials. The transparent Prisma
     extension covers **only** `whatsAppChannel.accessToken/appSecret` — every other secret is
     encrypted by an explicit call at its own call site — `db/src/secret-crypto.ts:125,165-176`.
-31. Rows with `source_system='alinia'` on products/services are immutable outside
-    `withAliniaSync`, enforced by a trigger that **RETURNs NULL** (silently cancels the
+31. Rows with `source_system='partner'` on products/services are immutable outside
+    `witha partnerSync`, enforced by a trigger that **RETURNs NULL** (silently cancels the
     write) — which even a superuser cannot bypass —
-    `migrations/20260713131000_alinia_readonly_trigger/migration.sql:27-39`.
+    `migrations/20260713131000_partner_readonly_trigger/migration.sql:27-39`.
     *Corollary: never backfill `price_minor` for mirror rows; RE price lives in `attributes`.*
 32. `audit_logs` is append-only and hash-chained per org by a BEFORE INSERT trigger under a
     per-org advisory lock. The application must never set `prev_hash`/`hash`; `recordAudit`
@@ -613,7 +613,7 @@ substitution · `:3600-3621` SSE hook) · `hq/new-tenant/page.tsx`.
 
 Ship: **`infra/scripts/redeploy.sh` every line — this IS the deploy** ·
 `.github/workflows/ci.yml` (note which steps are `continue-on-error` and which are hard
-gates) · `infra/systemd/README.md` + `aligned-api.service` · `infra/caddy/Caddyfile` ·
+gates) · `infra/systemd/README.md` + `platform-api.service` · `infra/caddy/Caddyfile` ·
 `docs/RUNBOOK.md` (treat the Docker sections as obsolete) ·
 `docs/SECURITY-AUDIT-2026-05-26.md` (skim) · `docs/ai-upgrade-plan.md` (skim — it defines
 the shadow→enforce doctrine).
@@ -661,7 +661,7 @@ it; name the two surfaces where one shared secret or one admin flag grants cross
   back**, including the trailing wallet tables. One-line fix, never made.
 - **Partner routes take the org id from the request body.**
   [partner.routes.ts:225,317,356](../apps/api/src/modules/partner/partner.routes.ts#L225)
-  pass a body-supplied `haderOrgId` straight into `withAliniaSync`/`withRlsBypass`,
+  pass a body-supplied `platformOrgId` straight into `witha partnerSync`/`withRlsBypass`,
   authenticated by one platform-wide shared secret. RLS provides **zero** protection because
   the org id *is* the input — and `/reset` destructively deletes any org's mirror. This
   directly contradicts the rule written at [db.ts:74-76](../apps/api/src/lib/db.ts#L74).
@@ -771,8 +771,8 @@ supports no 3-decimal currency.
   `whatsapp.routes.ts` and `lib/cart-flow.ts` (used by Messenger and voice). `cart-flow` uses
   `toBig()` on every money write; `whatsapp.routes.ts:4515` passes plain JS numbers into
   BigInt columns. **Every fix must be made twice.**
-- **`_alinia_guard_mirror_row` fails silently by design** — it RETURNs NULL, so a bulk UPDATE
-  touching Alinia mirror rows reports success and changes nothing. Superusers do **not**
+- **`_partner_guard_mirror_row` fails silently by design** — it RETURNs NULL, so a bulk UPDATE
+  touching a partner mirror rows reports success and changes nothing. Superusers do **not**
   bypass triggers. Anyone debugging "my UPDATE did nothing" must check `source_system` first.
 - **Transparent secret encryption covers exactly one model and two fields**
   (`whatsAppChannel.accessToken/appSecret`). Every other secret is encrypted by an explicit
@@ -785,8 +785,8 @@ supports no 3-decimal currency.
 - **Impersonation sessions have no time-box.** `isImpersonation` is sticky on the session row
   and `refreshSession` keeps synthesizing `role='admin'` for the life of the sliding 30-day
   refresh token; only `switch-org` ends it.
-- **Two incompatible user-tombstone conventions exist** and neither clears `aliniaSubject`, so
-  re-provisioning a disconnected Alinia agency returns the dead user and org.
+- **Two incompatible user-tombstone conventions exist** and neither clears `partnerSubject`, so
+  re-provisioning a disconnected a partner agency returns the dead user and org.
 
 **Toolchain**
 - **`pnpm lint` is non-functional.** ESLint 9 (flat-config-only) is pinned and every package
@@ -844,7 +844,7 @@ These need a human; the code cannot answer them.
 
 1. **What Postgres role does production connect as?** The entire RLS guarantee depends on the
    app being able to `SET LOCAL ROLE app_user` — which today works only because the
-   connection role is a superuser (dev compose creates `aligned` as `POSTGRES_USER`). There is
+   connection role is a superuser (dev compose creates `platform` as `POSTGRES_USER`). There is
    no `GRANT app_user TO <role>` anywhere outside `.github/workflows/e2e.yml:123`. So
    either prod is superuser (meaning every non-`withTenant` query is unfiltered) or the grant
    was made by hand and is undocumented. `docs/PHASE_1_OVERVIEW.md:393` and
@@ -884,7 +884,7 @@ These need a human; the code cannot answer them.
     highest-blast-radius credential in the system.
 13. **Is `infra/ha/` an active plan or a shelved design?** (Patroni + HAProxy + WAL-G + Redis
     Sentinel.) It is the only documented path off the current single-box single-point-of-failure.
-14. **What is the intended relationship between `aligned-design-system/`** (lavender/coral,
+14. **What is the intended relationship between `design-system/`** (lavender/coral,
     ported verbatim into `apps/web/src/styles/globals.css`) **and `docs/UX-REDESIGN-PLAN.md`**
     (neutral-minimal oxblood)? The two directions conflict, and nothing imports the directory
     at build time — so it is easy to delete by accident.

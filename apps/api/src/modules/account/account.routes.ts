@@ -162,7 +162,7 @@ export default async function accountRoutes(app: FastifyInstance) {
         metadata: { event: 'account_export_downloaded' },
       });
 
-      const filename = `aligned-account-${userId.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
+      const filename = `account-${userId.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
       reply
         .header('Content-Type', 'application/json; charset=utf-8')
         .header('Content-Disposition', `attachment; filename="${filename}"`);
@@ -198,7 +198,7 @@ export default async function accountRoutes(app: FastifyInstance) {
         for (const m of adminMemberships) {
           await tx.$executeRawUnsafe(
             `SELECT pg_advisory_xact_lock(hashtext($1))`,
-            `aligned:admin-check:${m.organizationId}`,
+            `platform:admin-check:${m.organizationId}`,
           );
         }
         for (const m of adminMemberships) {
@@ -233,7 +233,7 @@ export default async function accountRoutes(app: FastifyInstance) {
           where: { id: userId },
           data: {
             status: 'disabled',
-            email: `deleted-${userId}@aligned.invalid`,
+            email: `deleted-${userId}@platform.invalid`,
             firstName: null,
             lastName: null,
             avatarUrl: null,

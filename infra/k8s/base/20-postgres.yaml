@@ -13,12 +13,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: hader-postgres
-  namespace: hader
+  name: platform-postgres
+  namespace: platform
 spec:
   clusterIP: None
   selector:
-    app: hader-postgres
+    app: platform-postgres
   ports:
     - name: postgres
       port: 5432
@@ -27,19 +27,19 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: hader-postgres
-  namespace: hader
+  name: platform-postgres
+  namespace: platform
 spec:
-  serviceName: hader-postgres
+  serviceName: platform-postgres
   # Never raise this. Two Postgres pods on one PVC corrupt the data directory.
   replicas: 1
   selector:
     matchLabels:
-      app: hader-postgres
+      app: platform-postgres
   template:
     metadata:
       labels:
-        app: hader-postgres
+        app: platform-postgres
     spec:
       terminationGracePeriodSeconds: 60
       securityContext:
@@ -51,13 +51,13 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_USER
-              value: aligned
+              value: platform
             - name: POSTGRES_DB
-              value: aligned
+              value: platform
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: hader-secrets
+                  name: platform-secrets
                   key: POSTGRES_PASSWORD
             # The image only runs initdb when the data dir is empty; pointing
             # at a subdirectory keeps lost+found on the PV from blocking it.
@@ -65,12 +65,12 @@ spec:
               value: /var/lib/postgresql/data/pgdata
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "aligned", "-d", "aligned"]
+              command: ["pg_isready", "-U", "platform", "-d", "platform"]
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "aligned", "-d", "aligned"]
+              command: ["pg_isready", "-U", "platform", "-d", "platform"]
             initialDelaySeconds: 30
             periodSeconds: 15
           resources:
@@ -95,11 +95,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: hader-pgbouncer
-  namespace: hader
+  name: platform-pgbouncer
+  namespace: platform
 spec:
   selector:
-    app: hader-pgbouncer
+    app: platform-pgbouncer
   ports:
     - name: pgbouncer
       port: 5432
@@ -108,17 +108,17 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hader-pgbouncer
-  namespace: hader
+  name: platform-pgbouncer
+  namespace: platform
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: hader-pgbouncer
+      app: platform-pgbouncer
   template:
     metadata:
       labels:
-        app: hader-pgbouncer
+        app: platform-pgbouncer
     spec:
       containers:
         - name: pgbouncer
@@ -127,15 +127,15 @@ spec:
             - containerPort: 5432
           env:
             - name: DB_HOST
-              value: hader-postgres
+              value: platform-postgres
             - name: DB_NAME
-              value: aligned
+              value: platform
             - name: DB_USER
-              value: aligned
+              value: platform
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: hader-secrets
+                  name: platform-secrets
                   key: POSTGRES_PASSWORD
             - name: POOL_MODE
               value: transaction

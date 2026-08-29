@@ -426,7 +426,7 @@ async function downloadErrorsCsv(jobId: string) {
   const blob = await res.blob();
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `aligned-import-${jobId.slice(0, 8)}-errors.csv`;
+  a.download = `import-${jobId.slice(0, 8)}-errors.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();

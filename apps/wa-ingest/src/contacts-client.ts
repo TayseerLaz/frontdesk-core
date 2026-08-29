@@ -4,9 +4,9 @@ import { env } from './env.js';
 import { logger } from './logger.js';
 
 /**
- * Hader client for the CONTACT-SYNC feature.
+ * the platform client for the CONTACT-SYNC feature.
  *
- * Deliberately separate from hader-client.ts and signed with a DIFFERENT secret. Sales
+ * Deliberately separate from platform-client.ts and signed with a DIFFERENT secret. Sales
  * Scan's capture half is gated behind 16 open blockers; if both features shared one
  * credential, switching on contact sync would silently hand this process the ability to
  * act on the capture seam too. Two features with very different readiness do not share a
@@ -22,7 +22,7 @@ function sign(body: string): { ts: string; sig: string } {
 async function post<T>(pathname: string, payload: unknown): Promise<T> {
   const body = JSON.stringify(payload);
   const { ts, sig } = sign(body);
-  const res = await fetch(`${env.HADER_API_URL}${pathname}`, {
+  const res = await fetch(`${env.PLATFORM_API_URL}${pathname}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -32,7 +32,7 @@ async function post<T>(pathname: string, payload: unknown): Promise<T> {
     body,
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) throw new Error(`hader ${pathname} -> ${res.status}`);
+  if (!res.ok) throw new Error(`platform ${pathname} -> ${res.status}`);
   return (await res.json()) as T;
 }
 

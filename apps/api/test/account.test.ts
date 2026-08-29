@@ -96,7 +96,7 @@ describe('account delete', () => {
 describe('cross-tenant audit log gate', () => {
   it('403s for a non-admin user', async () => {
     const app = getApp();
-    const me = await seedOrgAndLogin(app, 'notaligned');
+    const me = await seedOrgAndLogin(app, 'notplatform');
 
     const res = await app.inject({
       method: 'GET',
@@ -106,18 +106,18 @@ describe('cross-tenant audit log gate', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('returns rows for an ALIGNED super-admin', async () => {
+  it('returns rows for an super-admin', async () => {
     const app = getApp();
     // Promote the user to isSuperAdmin directly in the DB, then re-login
     // so the new JWT carries the claim.
-    const me = await seedOrgAndLogin(app, 'adminaligned');
+    const me = await seedOrgAndLogin(app, 'adminsuper');
     await prisma.$executeRawUnsafe(`SET app.bypass_rls = 'on'`);
     await prisma.user.update({ where: { id: me.userId }, data: { isSuperAdmin: true } });
 
     const login = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
-      payload: { email: 'adminaligned@example.com', password: 'TestPassword1!' },
+      payload: { email: 'adminsuper@example.com', password: 'TestPassword1!' },
     });
     const body = login.json() as { accessToken: string };
 

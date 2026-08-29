@@ -166,7 +166,7 @@ function normaliseModelKey(modelLabel: string): ChatModelKey | null {
 }
 
 // Per-plan model label — what the bot-engine should record on
-// MessageProvenance.model for downstream cost roll-ups. Keep aligned
+// MessageProvenance.model for downstream cost roll-ups. Keep platform
 // with the dispatch in lib/openai.ts complete() to avoid drift.
 export function modelLabelForPlan(plan: 'basic' | 'middle' | 'max' | 'ultra'): string {
   switch (plan) {

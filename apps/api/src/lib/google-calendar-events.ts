@@ -17,8 +17,8 @@ export interface RemoteEvent {
   startIso: string;
   endIso: string;
   allDay: boolean;
-  /** Set when Hader created this event — i.e. it mirrors one of our bookings. */
-  haderBookingId: string | null;
+  /** Set when the platform created this event — i.e. it mirrors one of our bookings. */
+  platformBookingId: string | null;
   /** Marked "free" in Google, or declined by this account. Never blocks a slot. */
   free: boolean;
   htmlLink: string | null;
@@ -60,7 +60,7 @@ export function normalizeEvent(e: GoogleEventResource): RemoteEvent | null {
     startIso: start.toISOString(),
     endIso: end.toISOString(),
     allDay,
-    haderBookingId: e.extendedProperties?.private?.haderBookingId ?? null,
+    platformBookingId: e.extendedProperties?.private?.platformBookingId ?? null,
     free: e.transparency === 'transparent' || declined,
     htmlLink: e.htmlLink ?? null,
   };
@@ -76,7 +76,7 @@ export interface BusyInterval {
  * The subset of events that should stop a slot being offered.
  *
  * Three deliberate exclusions:
- *  • Hader's own events — a booking must not block the slot it occupies.
+ *  • the platform's own events — a booking must not block the slot it occupies.
  *    (Without this, every booking would immediately block its own time and,
  *    at capacity > 1, the second seat could never be sold.)
  *  • Events marked "free" in Google, or ones this account declined.
@@ -88,7 +88,7 @@ export interface BusyInterval {
 export function toBusyIntervals(events: RemoteEvent[]): BusyInterval[] {
   const out: BusyInterval[] = [];
   for (const e of events) {
-    if (e.haderBookingId || e.free || e.allDay) continue;
+    if (e.platformBookingId || e.free || e.allDay) continue;
     const start = Date.parse(e.startIso);
     const end = Date.parse(e.endIso);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;

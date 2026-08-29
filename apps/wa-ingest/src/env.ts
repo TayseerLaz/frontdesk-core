@@ -16,21 +16,21 @@ export const env = {
   AUTH_DIR: path.join(DATA_DIR, 'auth'),
 
   /**
-   * Hader API base. This service runs on the AlignDesk box (the Baileys host), NOT on
-   * the Hader box, so this is a PUBLIC https URL: https://api.hader.ai
+   * the platform API base. This service runs on the AlignDesk box (the Baileys host), NOT on
+   * the the platform box, so this is a PUBLIC https URL: https://api.example.com
    *
-   * Why off-box: the Hader box has a documented `next build` OOM history that has taken
+   * Why off-box: the the platform box has a documented `next build` OOM history that has taken
    * the whole server down, and Baileys sessions sharing that headroom was the weakest
    * part of the same-box plan. Running here also keeps an unofficial WhatsApp client off
    * the host serving the official Meta Cloud API integration, and stops a Baileys leak
-   * from being able to OOM Hader's Postgres.
+   * from being able to OOM the platform's Postgres.
    *
-   * Consequence: the Hader-side receiver is internet-facing, so HMAC alone is not
+   * Consequence: the the platform-side receiver is internet-facing, so HMAC alone is not
    * enough — it needs timestamp-skew + a replay nonce (same hardening as the
    * MyFatoorah webhook).
    */
-  HADER_API_URL: required('HADER_API_URL'),
-  /** Shared secret for both directions (Hader -> ingest admin, ingest -> Hader receiver). */
+  PLATFORM_API_URL: required('PLATFORM_API_URL'),
+  /** Shared secret for both directions (the platform -> ingest admin, ingest -> the platform receiver). */
   INGEST_SECRET: required('WA_INGEST_SECRET'),
 
   /**

@@ -1,5 +1,5 @@
 // ============================================================================
-// ALIGNED Business Platform — Prisma schema (Day 1: org / user / auth core)
+// the platform — Prisma schema (Day 1: org / user / auth core)
 // Day 2 will extend with Product, Service, BusinessInfo, FAQ, etc.
 // All tenant-scoped tables MUST have organization_id and matching RLS policy
 // (see prisma/rls.sql, applied after every migrate via `pnpm rls:apply`).
@@ -95,10 +95,10 @@ enum AuditAction {
   refresh_token_reuse_detected
   // H-01 — refresh-token grace-window re-issue (observability for replays)
   refresh_token_grace_reissue
-  // ALIGNED HQ impersonation — transparent to the tenant in their audit log.
-  aligned_admin_accessed
-  aligned_admin_exited
-  // Integration credentials a tenant entered — ALIGNED-HQ-only (hidden from the
+  // HQ impersonation — transparent to the tenant in their audit log.
+  hq_admin_accessed
+  hq_admin_exited
+  // Integration credentials a tenant entered — the platform-HQ-only (hidden from the
   // tenant's own audit view); the values are stored encrypted in the metadata.
   integration_credentials_set
   // A contact unsubscribed (STOP / template opt-out button). Tenant + HQ visible.
@@ -163,9 +163,9 @@ enum AuditAction {
   cart_created
   cart_updated
   cart_deleted
-  // AI plan tier (basic / middle / max) changed by an ALIGNED admin.
+  // AI plan tier (basic / middle / max) changed by an super-admin.
   ai_plan_changed
-  // ALIGNED admin edited the tenant's admin-only bot system-prompt addendum.
+  // super-admin edited the tenant's admin-only bot system-prompt addendum.
   bot_prompt_updated
   // Phone integrations (voice gateway)
   phone_integration_created
@@ -399,19 +399,19 @@ model Organization {
   // `max` = Anthropic Claude Sonnet; `ultra` = Haiku-assisted Sonnet with
   // per-contact persona memory). Editable from /hq.
   aiPlan              AiPlan    @default(basic) @map("ai_plan")
-  // ALIGNED-admin-set monthly AI-message allowance for this tenant. One AI
+  // super-admin-set monthly AI-message allowance for this tenant. One AI
   // message = one bot reply (chat) or one bot turn (voice). When the month's
   // count reaches this cap, the bot pauses (leaves chats for a human) until the
   // 1st. Tenants see ONLY messages (never tokens). null = UNLIMITED (admin
   // opt-out of metering); the column default seeds new/existing tenants at 2000.
   monthlyAiMessageCap Int?      @default(2000) @map("monthly_ai_message_cap")
-  // ALIGNED-admin per-tenant access control. Feature keys listed here are
+  // super-admin per-tenant access control. Feature keys listed here are
   // DISABLED for this org: their portal pages are hidden + route-guarded, and
   // 'ai' additionally turns off the bot's auto-reply (manual inbox only — a
   // pure social-media handler). Empty = full access. See ORG_FEATURES in shared.
   disabledFeatures    String[]  @default([]) @map("disabled_features")
-  // What this tenant pays ALIGNED per month (USD), entered manually by an
-  // ALIGNED admin. Drives the per-tenant Billing & overview (paid vs cost).
+  // What this tenant pays the platform per month (USD), entered manually by an
+  // super-admin. Drives the per-tenant Billing & overview (paid vs cost).
   monthlyPaidUsd      Float?    @map("monthly_paid_usd")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
@@ -448,7 +448,7 @@ model Organization {
   // Day 4
   catalogRevisions         CatalogRevision[]
   notifications            Notification[]
-  // Hader mobile app — push-notification device registrations.
+  // the platform mobile app — push-notification device registrations.
   deviceTokens             DeviceToken[]
   // Raw Meta webhook payloads no handler consumes yet (Coexistence history/smb_*).
   metaWebhookEvents        MetaWebhookEvent[]
@@ -554,7 +554,7 @@ model User {
   // Phase 8 — provenance feedback authorship
   provenanceSuppressionsCreated ProvenanceSuppression[]  @relation("ProvenanceSuppressionAuthor")
   provenanceFlagDecisionsMade   ProvenanceFlagDecision[] @relation("ProvenanceFlagDecider")
-  // Hader mobile app — push-notification device registrations.
+  // the platform mobile app — push-notification device registrations.
   deviceTokens                  DeviceToken[]
 
   @@index([status])
@@ -573,7 +573,7 @@ model Membership {
   isActive       Boolean  @default(true) @map("is_active")
   // Protected/owner membership: cannot have its role changed, be deactivated,
   // or be removed by ANYONE (even another admin). Used to lock the primary
-  // ALIGNED HQ owner account so a second admin can't demote or remove it.
+  // HQ owner account so a second admin can't demote or remove it.
   isProtected    Boolean  @default(false) @map("is_protected")
   // Phase 3 §5.1.1 — skill-based routing. Free-form lowercase tags
   // (e.g. ["billing", "spanish", "tier-2"]). Threads with a
@@ -619,7 +619,7 @@ model Session {
   // useQuery 401-retry on a hard reload) rather than malicious replay.
   // Outside the window: keep the existing revoke-and-audit behaviour.
   previousTokenRotatedAt DateTime? @map("previous_token_rotated_at")
-  // Sprint 1 H-3 — set to true only for ALIGNED-admin impersonation sessions
+  // Sprint 1 H-3 — set to true only for super-admin impersonation sessions
   // (POST /hq/orgs/:id/impersonate). Regular logins / switch-org
   // leave this false. The refresh handler uses this flag to decide whether
   // the no-membership admin-role synthesis is legitimate.
@@ -1701,10 +1701,10 @@ model WhatsAppThread {
   /// When the business last answered this thread FROM THEIR OWN HANDSET, under
   /// Coexistence (Meta's `smb_message_echoes`). Meta's timestamp, not now().
   ///
-  /// This exists because a handset reply produces no HTTP request to Hader, so
+  /// This exists because a handset reply produces no HTTP request to the platform, so
   /// `assignedToUserId` — the only thing that pauses the bot for a human — is
   /// never set and the bot would answer a customer the owner just answered by
-  /// hand. There is no Hader user to assign, and inventing one would put a lie
+  /// hand. There is no the platform user to assign, and inventing one would put a lie
   /// in the data, so the fact gets its own column and its own gate.
   ///
   /// Compared against the INBOUND message's timestamp, never against now():
@@ -1839,7 +1839,7 @@ model Booking {
   // Stamped by the follow-up tick after the post-appointment check-in sends
   // (BotConfig.followUps.afterBooking) — one follow-up per booking, ever.
   followUpSentAt     DateTime? @map("follow_up_sent_at")
-  // Google Calendar one-way sync (Hader → Calendar). googleEventId = the event
+  // Google Calendar one-way sync (the platform → Calendar). googleEventId = the event
   // id in the tenant's connected calendar; googleSyncedAt = last successful push
   // (the sync tick re-pushes bookings whose updatedAt is newer than this).
   googleEventId      String?   @map("google_event_id")
@@ -1873,7 +1873,7 @@ model GoogleCalendarConnection {
   accessToken    String?   @map("access_token")
   refreshToken   String    @map("refresh_token")
   tokenExpiresAt DateTime? @map("token_expires_at")
-  // Booking → calendar behaviour. pushBookings off = bookings stay in Hader.
+  // Booking → calendar behaviour. pushBookings off = bookings stay in the platform.
   // meetingMode 'online' attaches a Google Meet link; 'onsite' sends the
   // business address instead. autoConfirm lets the bot confirm the booking
   // itself, which keeps the confirmation inside WhatsApp's 24-hour window.
@@ -2095,10 +2095,10 @@ model BotConfig {
   // Personality preset name + free-form override.
   personality             String? // 'formal' | 'casual' | 'friendly' | 'clinical' | custom
   customPersonality       String?   @map("custom_personality")
-  // ALIGNED-admin-only prompt addendum. Free-form instructions injected VERBATIM
+  // super-admin-only prompt addendum. Free-form instructions injected VERBATIM
   // into the bot's system prompt (after the core rules, before the catalog) for
   // this tenant. NOT exposed or editable via the tenant-facing /bot routes —
-  // only set from the ALIGNED admin org-detail "AI" section. Same string shown
+  // only set from the super-admin org-detail "AI" section. Same string shown
   // in the admin compiled-prompt preview (single source of truth).
   adminSystemPromptAppend String?   @map("admin_system_prompt_append")
   // Detected by the LLM during analysis. Used to seed the personality picker.
@@ -3057,7 +3057,7 @@ model SequenceEnrollment {
 // Every outbound bot reply gets one MessageProvenance row capturing exactly
 // what we fed the LLM (system prompt hash + candidate catalog/business-info
 // rows + history) and what the LLM cited / fabricated in its reply. Lets
-// ALIGNED admins audit "where did the bot get this answer from?" for any
+// super-admins audit "where did the bot get this answer from?" for any
 // message in the inbox.
 //
 // The system prompt is content-addressed via SystemPromptSnapshot so we
@@ -3156,7 +3156,7 @@ model MessageProvenance {
 // for tenant-specific noise (e.g. their own brand name overlapping with
 // an English word) and org_id-nullable for GLOBAL entries that apply to
 // every tenant (e.g. order-summary labels like "Subtotal", currency
-// codes, etc.). ALIGNED admins can promote per-org rows to global.
+// codes, etc.). super-admins can promote per-org rows to global.
 //
 // ProvenanceFlagDecision — every click on the ✓ Not a problem / ⚠ Yes
 // wrong / 🤷 Skip buttons writes a row here. Drives precision metrics
@@ -3353,7 +3353,7 @@ model VoiceCallTurn {
 }
 
 /// HQ-only bot-eval run (WS3). One run spans EVERY golden set at once, so it
-/// carries NO organization_id and NO RLS — it is ALIGNED infrastructure, read
+/// carries NO organization_id and NO RLS — it is the platform infrastructure, read
 /// only through `requireSuperAdmin`, never tenant data. Populated by the eval
 /// runner's `--persist` flag (pre-deploy / manual runs against prod) and
 /// surfaced on /hq/eval.
@@ -3670,7 +3670,7 @@ model ContactSyncSession {
   @@map("contact_sync_sessions")
 }
 
-// Hader mobile app — FCM push-notification device registrations (2026-08-03).
+// the platform mobile app — FCM push-notification device registrations (2026-08-03).
 // One row per (user, FCM token). organizationId = the org the user was signed
 // into at registration; the app re-registers on every login/app-start, so a
 // user who switches org gets their token re-pointed. Pruned when FCM reports

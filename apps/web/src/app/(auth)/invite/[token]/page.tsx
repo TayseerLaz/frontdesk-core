@@ -53,8 +53,8 @@ export default function AcceptInvitePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-[#cfc0a9]">Accept your invitation</h1>
-        <p className="mt-1 text-sm text-[#cfc0a9]/70">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#cddfee]">Accept your invitation</h1>
+        <p className="mt-1 text-sm text-[#cddfee]/70">
           Set up your account to join the organization.
         </p>
       </div>
@@ -62,18 +62,18 @@ export default function AcceptInvitePage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="firstName" className="text-[#cfc0a9]">First name</Label>
+            <Label htmlFor="firstName" className="text-[#cddfee]">First name</Label>
             <Input id="firstName" {...form.register('firstName')} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="lastName" className="text-[#cfc0a9]">Last name</Label>
+            <Label htmlFor="lastName" className="text-[#cddfee]">Last name</Label>
             <Input id="lastName" {...form.register('lastName')} />
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-[#cfc0a9]">Password</Label>
+          <Label htmlFor="password" className="text-[#cddfee]">Password</Label>
           <Input id="password" type="password" autoComplete="new-password" {...form.register('password')} />
-          <p className="text-xs text-[#cfc0a9]/60">
+          <p className="text-xs text-[#cddfee]/60">
             12+ characters with uppercase, lowercase, and a number.
           </p>
           {form.formState.errors.password ? (

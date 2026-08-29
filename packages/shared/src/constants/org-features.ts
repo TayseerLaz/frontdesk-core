@@ -1,4 +1,4 @@
-// ALIGNED-admin per-tenant access control.
+// super-admin per-tenant access control.
 //
 // Each feature maps to a set of portal routes (hidden + route-guarded when
 // disabled). The 'ai' feature additionally turns off the bot's auto-reply, so
@@ -89,7 +89,7 @@ export const ORG_FEATURES = [
     key: 'exports',
     label: 'Data export',
     description:
-      'Self-service GDPR data export (the /settings/data-export page). Turn OFF to remove it for the tenant — ALIGNED admins can still export this org’s data from the admin panel at any time.',
+      'Self-service GDPR data export (the /settings/data-export page). Turn OFF to remove it for the tenant — super-admins can still export this org’s data from the admin panel at any time.',
     hrefs: ['/settings/data-export'],
   },
   {
@@ -134,7 +134,7 @@ export const ORG_FEATURES = [
     key: 'sales_scan',
     label: 'Teach the bot with your own data',
     description:
-      "Let the tenant link the sales WhatsApp number they already use, capture one week of their real customer conversations (both directions), then show them a summary of those chats and an analysis of how they speak. Opt-in: OFF by default — an ALIGNED admin enables it per tenant once the upgrade is agreed.",
+      "Let the tenant link the sales WhatsApp number they already use, capture one week of their real customer conversations (both directions), then show them a summary of those chats and an analysis of how they speak. Opt-in: OFF by default — an super-admin enables it per tenant once the upgrade is agreed.",
     // Gated like every other paged feature: hidden when off, visible when on.
     //
     // This used to be the ONE exception — `hrefs: []` kept the Settings card visible
@@ -157,7 +157,7 @@ export const ORG_FEATURES = [
     key: 'stock_watch',
     label: 'Back-in-stock alerts',
     description:
-      'When a customer asks the bot about an out-of-stock product or service, they are flagged automatically (visible on their contact profile); when it comes back in stock, they get a WhatsApp notification — free text inside the 24h window, otherwise via the approved back_in_stock template. Respects opt-outs and wallet metering. Opt-in: OFF by default — an ALIGNED admin enables it per tenant.',
+      'When a customer asks the bot about an out-of-stock product or service, they are flagged automatically (visible on their contact profile); when it comes back in stock, they get a WhatsApp notification — free text inside the 24h window, otherwise via the approved back_in_stock template. Respects opt-outs and wallet metering. Opt-in: OFF by default — an super-admin enables it per tenant.',
     // Surfaces live on the contact profile + product pages — no dedicated
     // route to hide; capture + tick both re-check this flag per org.
     hrefs: [],
@@ -169,7 +169,7 @@ export const ORG_FEATURES = [
     key: 'inbox_teamwork',
     label: 'Inbox teamwork (assignment & alerts)',
     description:
-      'Mine/Unassigned inbox tabs, assign-to-teammate menu, admin takeover of an assigned chat, assignment permission rules, and the assigned-to-you notification + sound. Opt-in: OFF by default — an ALIGNED admin enables it per tenant.',
+      'Mine/Unassigned inbox tabs, assign-to-teammate menu, admin takeover of an assigned chat, assignment permission rules, and the assigned-to-you notification + sound. Opt-in: OFF by default — an super-admin enables it per tenant.',
     hrefs: [],
     // Opt-in: backfilled by migrations/20260829130000_hide_roadmap_features.
     defaultDisabled: true,
@@ -223,7 +223,7 @@ export const ORG_FEATURES = [
     key: 'feedback',
     label: 'Conversation feedback (CSAT)',
     description:
-      'After an operator resolves a WhatsApp conversation, the customer is asked to rate it 1-5 (within the 24h session window only). Ratings are stored with an AI-vs-human handler split for reporting. Opt-in: OFF by default — an ALIGNED admin enables it per tenant, then the tenant turns it on in the AI bot builder.',
+      'After an operator resolves a WhatsApp conversation, the customer is asked to rate it 1-5 (within the 24h session window only). Ratings are stored with an AI-vs-human handler split for reporting. Opt-in: OFF by default — an super-admin enables it per tenant, then the tenant turns it on in the AI bot builder.',
     // The config card lives on /bot, which every tenant has — no dedicated
     // route to hide; the card self-gates on the session's disabledFeatures.
     hrefs: [],
@@ -235,7 +235,7 @@ export const ORG_FEATURES = [
     key: 'follow_ups',
     label: 'Automated follow-ups',
     description:
-      'Automated WhatsApp template follow-ups: chase customers who inquired but went silent (24h/72h no-reply cadence), post-booking check-ins after appointments, and casual re-engagement of idle customers. Every send uses an approved Meta template and respects opt-outs. Opt-in: OFF by default — an ALIGNED admin enables it per tenant.',
+      'Automated WhatsApp template follow-ups: chase customers who inquired but went silent (24h/72h no-reply cadence), post-booking check-ins after appointments, and casual re-engagement of idle customers. Every send uses an approved Meta template and respects opt-outs. Opt-in: OFF by default — an super-admin enables it per tenant.',
     // The config card lives on /bot (bot behaviour), which every tenant has —
     // no dedicated route to hide, so the card self-gates on the session's
     // disabledFeatures and the worker tick re-checks the flag per org.
@@ -253,7 +253,7 @@ export const ORG_FEATURE_KEYS = ORG_FEATURES.map((f) => f.key) as OrgFeatureKey[
 /**
  * Opt-in features: keys that should be DISABLED by default for every org (new
  * tenants start with these in `disabledFeatures`; existing orgs are backfilled
- * by the feature's migration). An ALIGNED admin enables them per tenant.
+ * by the feature's migration). An super-admin enables them per tenant.
  */
 export const ORG_FEATURE_DEFAULT_DISABLED = ORG_FEATURES.filter(
   (f) => 'defaultDisabled' in f && f.defaultDisabled,

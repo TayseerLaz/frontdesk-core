@@ -26,16 +26,16 @@ const accessKeyId = need('WASABI_ACCESS_KEY_ID');
 const secretAccessKey = need('WASABI_SECRET_ACCESS_KEY');
 
 // Build the allowed origins from the portal's current + previous host(s).
-// Keep the legacy aligned-tech host on the list so old browser tabs don't
+// Keep the legacy example host on the list so old browser tabs don't
 // suddenly fail mid-session. Localhost added unconditionally for dev.
 const primary = process.env.WEB_DOMAIN
   ? `https://${process.env.WEB_DOMAIN}`
-  : 'https://hader.ai';
+  : 'https://example.com';
 const AllowedOrigins = Array.from(
   new Set([
     primary,
-    'https://hader.ai',
-    'https://alignbot.aligned-tech.com',
+    'https://example.com',
+    'https://alignbot.example.com',
     'http://localhost:3000',
   ]),
 );

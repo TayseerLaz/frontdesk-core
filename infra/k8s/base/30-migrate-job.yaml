@@ -20,27 +20,27 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: hader-migrate
-  namespace: hader
+  name: platform-migrate
+  namespace: platform
 spec:
   backoffLimit: 2
   ttlSecondsAfterFinished: 3600
   template:
     metadata:
       labels:
-        app: hader-migrate
+        app: platform-migrate
     spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: ghcr.io/tayseerlaz/hader-api:latest
+          image: ghcr.io/tayseerlaz/platform-api:latest
           # The image WORKDIR is apps/api; the --filter needs the workspace root.
           command: ["sh", "-c", "cd /app && pnpm --filter @platform/db migrate:deploy"]
           envFrom:
             - configMapRef:
-                name: hader-config
+                name: platform-config
             - secretRef:
-                name: hader-secrets
+                name: platform-secrets
           resources:
             requests: { cpu: "200m", memory: "512Mi" }
             limits:   { memory: "2Gi" }

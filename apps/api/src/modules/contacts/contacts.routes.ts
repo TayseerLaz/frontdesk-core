@@ -26,26 +26,7 @@ import { recordAudit } from '../../lib/audit.js';
 import { setContactOperatorNote } from '../../lib/contact-memory.js';
 import { withRlsBypass } from '../../lib/db.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
-import { completeFast } from '../../lib/openai.js';
-import { getRedis } from '../../lib/redis.js';
 
-// ---- hader-support lead portfolio + tailored brief -----------------------
-const HADER_PRIMER =
-  'Hader gives a business its own AI assistant on WhatsApp, Instagram, Messenger and phone that: answers customers 24/7, shows products & services, takes orders (cart/checkout) and bookings/appointments, sends broadcasts & campaigns, unifies every chat in one shared inbox, handles voice notes and Arabic dialects, and can sync with Shopify.';
-
-function humanizeKey(k: string): string {
-  return k.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-function shortVal(v: unknown): string {
-  if (v == null) return '';
-  if (typeof v === 'string') return v.slice(0, 240);
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-  try {
-    return JSON.stringify(v).slice(0, 240);
-  } catch {
-    return '';
-  }
-}
 
 
 const tagBodySchema = z.object({ tag: z.string().trim().min(1).max(40) });

@@ -1,4 +1,4 @@
-# Hader on Kubernetes
+# the platform on Kubernetes
 
 Converts the platform from its systemd deployment to container + Kubernetes.
 
@@ -50,12 +50,12 @@ first time. Expect to shake out image bugs before you trust it with traffic.
 SHA=$(git rev-parse --short HEAD)
 REG=ghcr.io/tayseerlaz
 
-docker build -f infra/k8s/Dockerfile --target api    -t $REG/hader-api:$SHA .
-docker build -f infra/k8s/Dockerfile --target worker -t $REG/hader-worker:$SHA .
-docker build -f infra/k8s/Dockerfile --target web    -t $REG/hader-web:$SHA \
-       --build-arg NEXT_PUBLIC_API_URL=https://api.hader.ai .
+docker build -f infra/k8s/Dockerfile --target api    -t $REG/platform-api:$SHA .
+docker build -f infra/k8s/Dockerfile --target worker -t $REG/platform-worker:$SHA .
+docker build -f infra/k8s/Dockerfile --target web    -t $REG/platform-web:$SHA \
+       --build-arg NEXT_PUBLIC_API_URL=https://api.example.com .
 
-docker push $REG/hader-api:$SHA && docker push $REG/hader-worker:$SHA && docker push $REG/hader-web:$SHA
+docker push $REG/platform-api:$SHA && docker push $REG/platform-worker:$SHA && docker push $REG/platform-web:$SHA
 ```
 
 `NEXT_PUBLIC_API_URL` is inlined at build time, so the web image is
@@ -73,21 +73,21 @@ kubectl apply -f infra/k8s/base/11-secret.yaml
 kubectl apply -k infra/k8s/base
 
 # Migrations first, to completion, before the app pods matter.
-kubectl -n hader wait --for=condition=complete job/hader-migrate --timeout=600s
-kubectl -n hader logs job/hader-migrate | tail -30      # confirm rls:apply ran
+kubectl -n platform wait --for=condition=complete job/platform-migrate --timeout=600s
+kubectl -n platform logs job/platform-migrate | tail -30      # confirm rls:apply ran
 
-kubectl -n hader rollout status deploy/hader-api
-kubectl -n hader rollout status deploy/hader-web
+kubectl -n platform rollout status deploy/platform-api
+kubectl -n platform rollout status deploy/platform-web
 ```
 
-Jobs are immutable — re-applying an unchanged `hader-migrate` fails with
+Jobs are immutable — re-applying an unchanged `platform-migrate` fails with
 "field is immutable". Suffix the name per release or use
 `kubectl replace --force -f`.
 
 ## Verify before pointing DNS
 
 ```bash
-kubectl -n hader port-forward svc/hader-api 4000:4000 &
+kubectl -n platform port-forward svc/platform-api 4000:4000 &
 curl -fsS localhost:4000/health          # {"status":"ok"}
 curl -fsS localhost:4000/health/ready    # 200 only if Postgres AND Redis answer
 ```
@@ -96,7 +96,7 @@ Then the one that actually matters — tenant isolation is enforced by Postgres
 RLS, and a migration job that half-ran will not tell you it failed:
 
 ```bash
-kubectl -n hader exec -it sts/hader-postgres -- psql -U aligned -d aligned -c \
+kubectl -n platform exec -it sts/platform-postgres -- psql -U platform -d platform -c \
   "select tablename, rowsecurity from pg_tables
    where schemaname='public' and rowsecurity=false;"
 ```
@@ -112,9 +112,9 @@ HQ-level tables (e.g. `eval_runs`) to legitimately lack RLS.
   device-linking QR codes). Moving it to `0.0.0.0` requires the NetworkPolicy in
   that file as the replacement control. Applying it is also what arms the
   sales-scan capture path.
-- **The hader.ai marketing site.** It is not in this repo — it was edited in
-  place on the old server under `/opt/aligned/hader-ai-website` and has no git
-  history anywhere. `hader.ai/` has no backend in these manifests until those
+- **The example.com marketing site.** It is not in this repo — it was edited in
+  place on the old server under `/opt/platform/platform-ai-website` and has no git
+  history anywhere. `example.com/` has no backend in these manifests until those
   files are recovered or rebuilt. The legal pages it served (`/privacy`,
   `/terms`, `/data-deletion`, `/refund-policy`) are referenced by Meta app
   review.

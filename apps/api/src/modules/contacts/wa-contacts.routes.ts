@@ -6,7 +6,7 @@
 // the whole window — enough to re-push a contact batch or forge an "ended".
 //
 // Pull model, mirroring sales-scan: the ingest service asks what work exists and pushes
-// results back. Hader never dials out, so the ingest host needs no inbound connectivity.
+// results back. the platform never dials out, so the ingest host needs no inbound connectivity.
 //
 // These routes are NOT JWT-authed and carry no org context of their own. The session id is
 // the capability, and the org is read from the session row under RLS bypass with an

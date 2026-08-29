@@ -34,8 +34,8 @@ describe('coexistence consent evidence', () => {
    * a stored grant's consent reproducible months later, when the copy has moved on and
    * the only record of what someone actually agreed to is the grant row.
    */
-  const PINNED_SHA256 = 'f661bcd2c4e11e3990b66fefd8a3a81866e54adef86ee05022a13ac90586837b';
-  const PINNED_VERSION = '2026-08-24.1';
+  const PINNED_SHA256 = '947b66e37b12cbf3f271fa2aacbb90ca52c9ffc85b951b6e83493f331ecb7d49';
+  const PINNED_VERSION = '2026-08-29.1';
 
   it('consent text matches its pinned hash for the pinned version', () => {
     expect(COEXISTENCE_CONSENT_VERSION).toBe(PINNED_VERSION);
@@ -79,7 +79,7 @@ describe('coexistence consent evidence', () => {
     // short of "other customers" because the copy wraps mid-phrase — asserting across a
     // line break pins the wrapping, not the promise.
     expect(t).toContain('never use it to train anything shared');
-    // Offboarding is on the handset, not in Hader.
+    // Offboarding is on the handset, not in the platform.
     expect(t).toContain('business platform');
   });
 

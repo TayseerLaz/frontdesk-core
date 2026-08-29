@@ -9,7 +9,7 @@ import {
 
 export default fp(async function metricsPlugin(app: FastifyInstance) {
   const registry = new Registry();
-  registry.setDefaultLabels({ app: 'aligned-api' });
+  registry.setDefaultLabels({ app: 'platform-api' });
   collectDefaultMetrics({ register: registry });
 
   const httpRequests = new Counter({

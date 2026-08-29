@@ -6,14 +6,14 @@
 #     NEW_WASABI_*, NEW_GOOGLE_TTS_*, NEW_ELEVENLABS_*, NEW_WEB_DOMAIN,
 #     NEW_API_DOMAIN, NEW_ACME_EMAIL — feed the .env.production sync step
 #   - INITIAL_ADMIN_EMAIL, INITIAL_ADMIN_PASSWORD — feed the super-admin seed
-#     and the /opt/aligned/secrets/super-admin.txt write
+#     and the /opt/platform/secrets/super-admin.txt write
 #
 # This file lives in the repo (not generated) so the GitHub Actions
 # expression-length limit (21 000 chars per ${{ }} block) doesn't apply.
 # Edit here, push, deploy.
 
 set -euo pipefail
-cd /opt/aligned/app
+cd /opt/platform/app
 
 echo "=== sync env vars from GH secrets/vars into .env.production (idempotent) ==="
 # Updates existing lines in place; appends if missing. Empty
@@ -27,7 +27,7 @@ DEFAULTS = {
     'EMAIL_SMTP_HOST': 'email-smtp.us-east-1.amazonaws.com',
     'EMAIL_SMTP_PORT': '587',
     'EMAIL_SMTP_SECURE': 'false',
-    'EMAIL_FROM': 'ALIGNED <noreply@alignbot.aligned-tech.com>',
+    'EMAIL_FROM': 'Platform <noreply@example.com>',
     'WASABI_BUCKET': 'alignbotbucket',
     'WASABI_REGION': 'eu-central-1',
     'WASABI_ENDPOINT': 'https://s3.eu-central-1.wasabisys.com',
@@ -35,9 +35,9 @@ DEFAULTS = {
     'GOOGLE_TTS_DEFAULT_VOICE_EN': 'en-US-Neural2-J',
     'GOOGLE_TTS_DEFAULT_VOICE_AR': 'ar-XA-Wavenet-B',
     'ELEVENLABS_MODEL': 'eleven_multilingual_v2',
-    'WEB_DOMAIN': 'hader.ai',
-    'API_DOMAIN': 'api.hader.ai',
-    'ACME_EMAIL': 'ops@hader.ai',
+    'WEB_DOMAIN': 'example.com',
+    'API_DOMAIN': 'api.example.com',
+    'ACME_EMAIL': 'ops@example.com',
 }
 web_domain = os.environ.get('NEW_WEB_DOMAIN', '') or DEFAULTS['WEB_DOMAIN']
 api_domain = os.environ.get('NEW_API_DOMAIN', '') or DEFAULTS['API_DOMAIN']
@@ -76,7 +76,7 @@ updates = {
     'WEB_DOMAIN':       web_domain,
     'API_DOMAIN':       api_domain,
     'ACME_EMAIL':       os.environ.get('NEW_ACME_EMAIL', '') or DEFAULTS['ACME_EMAIL'],
-    # Derived from web/api domain — keep these aligned so we
+    # Derived from web/api domain — keep these platform so we
     # never end up with a CORS or cookie scope mismatch.
     # NOTE: the portal runs under Next.js basePath '/app' (next.config.ts),
     # so all email/redirect links the API mints must carry the /app prefix.
@@ -216,7 +216,7 @@ INITIAL_ADMIN_PASSWORD="$INITIAL_ADMIN_PASSWORD" \
 pnpm --filter @platform/db exec tsx ./seed/super-admin.ts
 
 echo "=== voice inbound audit (which message types are actually reaching us) ==="
-# Counts of every inbound message_type the ALIGNED org has
+# Counts of every inbound message_type the the platform org has
 # ever received. If audio/voice = 0, Meta isn't routing
 # voice notes to our webhook — most likely Meta-side
 # webhook subscription doesn't include media events.
@@ -227,12 +227,12 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$POSTGRES_USER" -d "$POSTG
          MAX(received_at) AS most_recent
   FROM whatsapp_messages m
   JOIN organizations o ON o.id = m.organization_id
-  WHERE m.direction = 'inbound' AND lower(o.name) = 'aligned'
+  WHERE m.direction = 'inbound' AND lower(o.name) = 'platform'
   GROUP BY message_type
   ORDER BY total DESC;
 " || echo "[voice-inbound-audit] query failed (non-fatal)"
 echo ""
-echo "--- last 5 inbound audio rows on ALIGNED (id, when, body-preview, body-bytes) ---"
+echo "--- last 5 inbound audio rows on the platform (id, when, body-preview, body-bytes) ---"
 PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=0 -At -c "
   SELECT
     LEFT(m.id::text, 8),
@@ -245,13 +245,13 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$POSTGRES_USER" -d "$POSTG
   JOIN organizations o ON o.id = m.organization_id
   WHERE m.direction = 'inbound'
     AND m.message_type IN ('audio','voice')
-    AND lower(o.name) = 'aligned'
+    AND lower(o.name) = 'platform'
   ORDER BY m.received_at DESC
   LIMIT 5;
 " || echo "[voice-inbound-audit] follow-up query failed (non-fatal)"
 echo ""
 
-echo "--- bot_config.replyMode + ttsProvider on ALIGNED (the actual saved values) ---"
+echo "--- bot_config.replyMode + ttsProvider on the platform (the actual saved values) ---"
 # Tells us whether the operator's chosen reply mode actually
 # persisted. If reply_mode='text' here, the bot will ALWAYS
 # send text regardless of inbound type — switch to
@@ -265,11 +265,11 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$POSTGRES_USER" -d "$POSTG
     CASE WHEN bc.deployed_at IS NULL THEN 'no' ELSE 'yes' END AS deployed
   FROM bot_configs bc
   JOIN organizations o ON o.id = bc.organization_id
-  WHERE lower(o.name) = 'aligned';
+  WHERE lower(o.name) = 'platform';
 " || echo "[bot-config-audit] query failed (non-fatal)"
 echo ""
 
-echo "--- last 10 inbound+next-outbound on ALIGNED (did audio inbound → audio out?) ---"
+echo "--- last 10 inbound+next-outbound on the platform (did audio inbound → audio out?) ---"
 # Pairs each recent inbound with the bot's very next outbound
 # so we can see at-a-glance whether audio inbounds are getting
 # audio replies. The 'match' column is the smoking gun:
@@ -280,7 +280,7 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$POSTGRES_USER" -d "$POSTG
     SELECT m.id, m.received_at, m.message_type, m.from_number, m.organization_id
     FROM whatsapp_messages m
     JOIN organizations o ON o.id = m.organization_id
-    WHERE m.direction = 'inbound' AND lower(o.name) = 'aligned'
+    WHERE m.direction = 'inbound' AND lower(o.name) = 'platform'
     ORDER BY m.received_at DESC LIMIT 10
   )
   SELECT
@@ -304,7 +304,7 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$POSTGRES_USER" -d "$POSTG
 " || echo "[bot-reply-pairing] query failed (non-fatal)"
 echo ""
 
-echo "--- last 10 AUDIO inbounds on ALIGNED + their next bot reply ---"
+echo "--- last 10 AUDIO inbounds on the platform + their next bot reply ---"
 # Filtered version that only looks at audio/voice inbounds.
 # If 'bot_reply' shows 'audio' the TTS path worked end-to-end.
 # If it shows 'text' the bot fell back — TTS or transcode
@@ -317,7 +317,7 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$POSTGRES_USER" -d "$POSTG
     JOIN organizations o ON o.id = m.organization_id
     WHERE m.direction = 'inbound'
       AND m.message_type IN ('audio','voice')
-      AND lower(o.name) = 'aligned'
+      AND lower(o.name) = 'platform'
     ORDER BY m.received_at DESC LIMIT 10
   )
   SELECT
@@ -422,10 +422,10 @@ if [ -f /etc/caddy/Caddyfile ] && [ -n "${WEB_DOMAIN:-}" ] && [ -n "${API_DOMAIN
     # here whenever you switch domains again so older live
     # files can still be auto-upgraded.
     sudo sed -i \
-      -e "s/alignbot\.aligned-tech\.com/$WEB_DOMAIN/g" \
-      -e "s/api\.aligned-tech\.com/$API_DOMAIN/g" \
-      -e "s/app\.aligned\.example/$WEB_DOMAIN/g" \
-      -e "s/api\.aligned\.example/$API_DOMAIN/g" \
+      -e "s/alignbot\.example\.com/$WEB_DOMAIN/g" \
+      -e "s/api\.example\.com/$API_DOMAIN/g" \
+      -e "s/app\.platform\.example/$WEB_DOMAIN/g" \
+      -e "s/api\.platform\.example/$API_DOMAIN/g" \
       /etc/caddy/Caddyfile
     if sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
       sudo systemctl reload caddy || sudo systemctl restart caddy
@@ -439,17 +439,17 @@ if [ -f /etc/caddy/Caddyfile ] && [ -n "${WEB_DOMAIN:-}" ] && [ -n "${API_DOMAIN
 fi
 
 echo "=== restart services ==="
-sudo systemctl restart aligned-api aligned-worker aligned-web
+sudo systemctl restart platform-api platform-worker platform-web
 sleep 5
-sudo systemctl is-active aligned-api aligned-worker aligned-web
+sudo systemctl is-active platform-api platform-worker platform-web
 
-echo "=== update /opt/aligned/secrets/super-admin.txt ==="
+echo "=== update /opt/platform/secrets/super-admin.txt ==="
 umask 077
-cat > /opt/aligned/secrets/super-admin.txt <<EOF
-ALIGNED super-admin — last updated by deploy at $(date -u +%FT%TZ)
+cat > /opt/platform/secrets/super-admin.txt <<EOF
+super-admin — last updated by deploy at $(date -u +%FT%TZ)
 Portal: https://${WEB_DOMAIN}
 Email:  ${INITIAL_ADMIN_EMAIL}
 Pass:   ${INITIAL_ADMIN_PASSWORD}
 Change the password from /settings/profile once signed in.
 EOF
-chmod 600 /opt/aligned/secrets/super-admin.txt
+chmod 600 /opt/platform/secrets/super-admin.txt

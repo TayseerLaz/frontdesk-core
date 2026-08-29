@@ -139,13 +139,13 @@ The **grant**, not the tenant, is the unit of capture lifetime.
 
 ## 5. Handset replies — the stream that works
 
-Under coexistence the owner keeps answering from their phone. Those replies never reach Hader's
+Under coexistence the owner keeps answering from their phone. Those replies never reach the platform's
 servers, so without this the inbox shows the thread as unanswered and **the bot sends a second,
 different answer from the same number seconds later** — the 2026-08-09 double-reply shape, with a
 human as one of the two speakers.
 
 The only gate that pauses the bot for human involvement is `assigned_to_user_id`, and both its
-writers are authenticated portal routes. **A handset reply produces no HTTP request to Hader at
+writers are authenticated portal routes. **A handset reply produces no HTTP request to the platform at
 all**, so nothing sets it and that gate can never fire.
 
 [handset-echo.ts](../apps/api/src/lib/handset-echo.ts) consumes `value.message_echoes[]` and
@@ -153,7 +153,7 @@ stamps `whatsapp_threads.handset_replied_at` (migration `20260824120000`).
 
 ### Three decisions to preserve
 
-- **Its own column, not `assigned_to_user_id`.** A handset reply has no Hader user behind it; a
+- **Its own column, not `assigned_to_user_id`.** A handset reply has no the platform user behind it; a
   sentinel id would be a lie every other reader of that column would have to know about.
 - **Compared against the inbound message's own timestamp, never `now()`.** The question is *"did
   the owner already answer **this**?"* — so a customer who writes again still gets a reply, and one
@@ -323,7 +323,7 @@ Two follow-ups remain:
   operational — it registers per-WABA override callbacks — and will break on 24 September.
 - The send path (`POST /{phone-number-id}/messages`) was **not** tested on v25.0, because testing
   it means messaging a real customer. **Do one test-send after the next deploy** and watch
-  `/var/log/aligned-api.log`.
+  `/var/log/platform-api.log`.
 
 `connect/page.tsx`'s `/v20.0/dialog/oauth` reference is deliberately left — it is a historical
 incident record, and rewriting it to a version that was never involved would falsify it.
@@ -332,7 +332,7 @@ incident record, and rewriting it to a version that was never involved would fal
 
 Conditions, from the Meta-side doc:
 
-- A number **ALIGNED owns** — never a tenant's — live in the WhatsApp Business app (2.24.17+) and
+- A number **the platform owns** — never a tenant's — live in the WhatsApp Business app (2.24.17+) and
   in genuine use for about a week.
 - Accept that its WhatsApp Web and desktop access will be lost; **WhatsApp for Windows cannot be
   re-linked at all.**

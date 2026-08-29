@@ -2,6 +2,7 @@
 // client-facing analytics. Bundled in one module because the surface is
 // small per feature and they're all tenant-authed and read/write the
 // same models the existing routes already touch.
+import { BRAND } from '@platform/shared';
 import { promises as dns } from 'node:dns';
 
 import { listEnvelopeSchema, itemEnvelopeSchema, successSchema, uuidSchema } from '@platform/shared';
@@ -59,7 +60,7 @@ const META_STEPS: { key: string; title: string; description: string }[] = [
   },
   {
     key: 'paste_credentials',
-    title: 'Paste credentials into ALIGNED',
+    title: `Paste credentials into ${BRAND.name}`,
     description: 'WhatsApp page in this portal — WABA ID, phone number ID, app secret, access token.',
   },
   {

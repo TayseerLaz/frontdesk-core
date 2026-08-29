@@ -196,7 +196,7 @@ const messageDtoSchema = z.object({
   // Phase 8 / 1.5 — for image-type bot messages, the source: either the
   // greeting image set on /bot, or a product image identified by SKU.
   // The inline inbox UI renders an attribution line under image bubbles
-  // for ALIGNED admins so they can verify the right image fired.
+  // for super-admins so they can verify the right image fired.
   imageSource: z
     .object({
       kind: z.enum(['greeting', 'product']),
@@ -1237,7 +1237,7 @@ export default async function inboxRoutes(app: FastifyInstance) {
       if (thread.channel === 'whatsapp') {
         throw badRequest(ApiErrorCode.VALIDATION_ERROR, 'Use /whatsapp/send for WhatsApp threads.');
       }
-      // Per-channel access control: if ALIGNED-admin turned this channel off,
+      // Per-channel access control: if super-admin turned this channel off,
       // operators can't send on it either (inbound is still stored + visible).
       if (thread.channel === 'messenger' || thread.channel === 'instagram') {
         const org = await app.tenant(req, (tx) =>
@@ -2133,7 +2133,7 @@ export default async function inboxRoutes(app: FastifyInstance) {
   );
 
   // ===================================================================
-  // PROVENANCE — ALIGNED-admin only. Phase 8 / 1.3.
+  // PROVENANCE — Super-admin only. Phase 8 / 1.3.
   //
   // Returns the full audit trail for one outbound bot message:
   //   • inputs we fed the LLM (system prompt body via the snapshot table,
@@ -2144,14 +2144,14 @@ export default async function inboxRoutes(app: FastifyInstance) {
   //     so the UI can render names without a second hop.
   //
   // Gated by requireSuperAdmin (regular org admins do NOT see this).
-  // Uses withRlsBypass so an ALIGNED admin can audit any tenant's reply.
+  // Uses withRlsBypass so an super-admin can audit any tenant's reply.
   // ===================================================================
   r.get(
     '/inbox/messages/:messageId/provenance',
     {
       schema: {
         tags: ['inbox'],
-        summary: 'ALIGNED-admin only — fetch the AI message provenance audit trail.',
+        summary: 'Super-admin only — fetch the AI message provenance audit trail.',
         params: z.object({ messageId: uuidSchema }),
       },
       preHandler: [app.requireSuperAdmin],
@@ -2270,13 +2270,13 @@ export default async function inboxRoutes(app: FastifyInstance) {
   // ---------- GET /inbox/threads/flagged-summary -----------------------
   // Returns a Map<threadId, hallucinationCount> across all open threads.
   // Used by the inbox list to render the per-thread red-dot when an
-  // ALIGNED admin opens /inbox. One round-trip; no N+1.
+  // super-admin opens /inbox. One round-trip; no N+1.
   r.get(
     '/inbox/threads/flagged-summary',
     {
       schema: {
         tags: ['inbox'],
-        summary: 'ALIGNED-admin only — per-thread hallucination counts for the inbox list.',
+        summary: 'Super-admin only — per-thread hallucination counts for the inbox list.',
       },
       preHandler: [app.requireSuperAdmin],
     },
@@ -2307,13 +2307,13 @@ export default async function inboxRoutes(app: FastifyInstance) {
   // ---------- GET /inbox/threads/:id/flagged-counts --------------------
   // Returns the count of message_provenances with non-empty hallucinations
   // on this thread. Used by the inbox list to render the red-dot badge
-  // when threads have flagged bot replies. ALIGNED-admin only.
+  // when threads have flagged bot replies. Super-admin only.
   r.get(
     '/inbox/threads/:id/flagged-counts',
     {
       schema: {
         tags: ['inbox'],
-        summary: 'ALIGNED-admin only — count of bot replies on this thread with hallucination flags.',
+        summary: 'Super-admin only — count of bot replies on this thread with hallucination flags.',
         params: z.object({ id: uuidSchema }),
       },
       preHandler: [app.requireSuperAdmin],
@@ -2346,7 +2346,7 @@ export default async function inboxRoutes(app: FastifyInstance) {
   //
   // POST /inbox/messages/:messageId/flags/:flagIndex/decide
   //
-  // ALIGNED-admin clicks one of the buttons on a hallucination row:
+  // super-admin clicks one of the buttons on a hallucination row:
   //   ✓ Not a problem  → decision='false_positive', auto-suppress the
   //                      phrase for this org so the scanner stops
   //                      flagging it on future replies
@@ -2360,7 +2360,7 @@ export default async function inboxRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['inbox'],
-        summary: 'ALIGNED-admin only — mark a hallucination as fp/tp/skip.',
+        summary: 'Super-admin only — mark a hallucination as fp/tp/skip.',
         params: z.object({
           messageId: uuidSchema,
           flagIndex: z.coerce.number().int().min(0),

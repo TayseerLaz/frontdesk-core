@@ -187,7 +187,7 @@ export default async function messengerRoutes(app: FastifyInstance) {
           entityId: row.id,
           metadata: { event: 'messenger_channel_updated', isActive: row.isActive },
         });
-        // ALIGNED-HQ-only credential trail (encrypted; hidden from the tenant).
+        // the platform-HQ-only credential trail (encrypted; hidden from the tenant).
         // Covers Facebook Messenger AND Instagram (same channel/creds).
         await recordCredentialAudit({
           organizationId: orgId,
@@ -715,7 +715,7 @@ async function maybeReplyOnMessenger(
     return;
   }
 
-  // ALIGNED-admin per-tenant access control: 'ai' disabled → manual replies
+  // super-admin per-tenant access control: 'ai' disabled → manual replies
   // only (the DM is stored + shown in the inbox; the bot stays silent).
   const orgFeatures = await withRlsBypass((tx) =>
     tx.organization.findUnique({ where: { id: orgId }, select: { disabledFeatures: true } }),
@@ -725,7 +725,7 @@ async function maybeReplyOnMessenger(
     return;
   }
 
-  // Per-channel access control: ALIGNED-admin can turn Messenger and Instagram
+  // Per-channel access control: super-admin can turn Messenger and Instagram
   // on/off independently. When the inbound channel is disabled the DM is still
   // stored + shown in the inbox; the bot just stays silent on that channel.
   if (channelKind === 'messenger' && orgFeatures?.disabledFeatures?.includes('messenger')) {

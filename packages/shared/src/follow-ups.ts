@@ -194,7 +194,7 @@ export function idleCheckinDue(
 
 /** True when a template body carries the single positional {{1}} placeholder
  * (the only variable shape follow-ups support — filled with the customer's
- * name). Mirrors hader-lead-outreach's gate. */
+ * name). Mirrors platform-lead-outreach's gate. */
 export function templateWantsName(bodyText: string | null | undefined): boolean {
   return /\{\{\s*1\s*\}\}/.test(bodyText ?? '');
 }

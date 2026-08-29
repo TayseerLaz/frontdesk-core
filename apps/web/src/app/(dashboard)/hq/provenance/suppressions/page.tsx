@@ -1,6 +1,6 @@
 'use client';
 
-// Phase 8 / 1.7 — ALIGNED-admin provenance suppression manager.
+// Phase 8 / 1.7 — super-admin provenance suppression manager.
 // Shows GLOBAL + per-org rows in one table, lets the admin manually
 // add new ones, delete, or promote a per-org entry to global so every
 // tenant benefits.
@@ -133,7 +133,7 @@ export default function SuppressionsPage() {
         <PageHeader backHref="/hq/provenance" backLabel="Provenance" title="Suppression list" />
         <Card>
           <CardContent className="p-6 text-sm text-foreground-muted">
-            ALIGNED admin role required.
+            Super-admin role required.
           </CardContent>
         </Card>
       </>

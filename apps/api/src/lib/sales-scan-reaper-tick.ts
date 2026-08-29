@@ -2,7 +2,7 @@ import { withRlsBypass } from './db.js';
 import { requestIngestStop } from './sales-scan-ingest.js';
 
 /**
- * Hader-side safety net for Sales Scan windows. Three jobs, all of which exist because the
+ * the platform-side safety net for Sales Scan windows. Three jobs, all of which exist because the
  * capture service is the thing most likely to be broken when we need it most.
  *
  * 1. EXPIRY. The capture service enforces its own deadline, but if it is down/wedged a
@@ -63,7 +63,7 @@ async function sweepExpired(log: { warn: (o: unknown, m: string) => void }): Pro
         data: { status: 'expired', endedAt: now, endReason: 'window_expired_reaper' },
       }),
     );
-    log.warn({ grantId: g.id }, '[sales-scan] window expired — terminated from Hader side');
+    log.warn({ grantId: g.id }, '[sales-scan] window expired — terminated from the platform side');
     // Ask the capture service to disconnect + purge. If it is unreachable the purge sweep
     // below keeps retrying.
     await requestIngestStop(g.id, 'window_expired_reaper').catch(() => undefined);

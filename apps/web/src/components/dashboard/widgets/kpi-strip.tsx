@@ -46,7 +46,7 @@ import { useEditMode } from '../edit-mode-context';
 const KPI_QUERY_KEY = ['dashboard', 'kpi-strip'] as const;
 
 // Per-tile accent icon (the soft chip top-right) — gives each KPI card the
-// polished SaaS look while staying on Hader's restrained palette.
+// polished SaaS look while staying on the platform's restrained palette.
 const KPI_ICON: Record<string, LucideIcon> = {
   products: Package,
   services: Sparkles,

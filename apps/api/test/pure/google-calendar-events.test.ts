@@ -1,4 +1,4 @@
-// Pure-logic gate for the Google Calendar → Hader direction. Runs with NO
+// Pure-logic gate for the Google Calendar → the platform direction. Runs with NO
 // database and NO environment (vitest.pure.config.ts), so it's runnable on a
 // developer machine before pushing.
 //
@@ -24,7 +24,7 @@ const EVENT = (over: Partial<RemoteEvent> = {}): RemoteEvent => ({
   startIso: '2026-08-10T09:00:00.000Z',
   endIso: '2026-08-10T10:00:00.000Z',
   allDay: false,
-  haderBookingId: null,
+  platformBookingId: null,
   free: false,
   htmlLink: null,
   ...over,
@@ -96,19 +96,19 @@ describe('normalizeEvent', () => {
     expect(otherDeclined.free).toBe(false);
   });
 
-  it('surfaces the Hader booking id so our own events can be excluded', () => {
+  it('surfaces the the platform booking id so our own events can be excluded', () => {
     const e = normalizeEvent({
       id: 'a',
       start: { dateTime: '2026-08-10T09:00:00Z' },
-      extendedProperties: { private: { haderBookingId: 'b-123' } },
+      extendedProperties: { private: { platformBookingId: 'b-123' } },
     } as GoogleEventResource)!;
-    expect(e.haderBookingId).toBe('b-123');
+    expect(e.platformBookingId).toBe('b-123');
   });
 });
 
 describe('toBusyIntervals', () => {
-  it("never blocks on Hader's own events — a booking must not block its own slot", () => {
-    expect(toBusyIntervals([EVENT({ haderBookingId: 'b-1' })])).toEqual([]);
+  it("never blocks on the platform's own events — a booking must not block its own slot", () => {
+    expect(toBusyIntervals([EVENT({ platformBookingId: 'b-1' })])).toEqual([]);
   });
 
   it('ignores free / declined events', () => {

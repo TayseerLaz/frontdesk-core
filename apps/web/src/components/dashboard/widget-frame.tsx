@@ -31,7 +31,7 @@ export interface WidgetFrameProps {
   title: string;
   icon: LucideIcon;
   accent?: WidgetAccent;
-  /** Right-aligned content inside the card header (e.g. a tooltip toggle). */
+  /** right-aligned content inside the card header (e.g. a tooltip toggle). */
   headerExtra?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -59,7 +59,7 @@ export function WidgetFrame({
     <Card
       className={cn(
         ACCENT_BORDER[accent],
-        // Softer SaaS card: roomier radius + a whisper of oxblood-tinted shadow
+        // Softer SaaS card: roomier radius + a whisper of brand-panel-tinted shadow
         // that lifts on hover. Matches the KPI strip so the panel reads cohesive.
         'h-full rounded-lg border-border',
         className,

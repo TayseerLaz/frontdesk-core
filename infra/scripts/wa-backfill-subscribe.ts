@@ -4,11 +4,11 @@
 // the WABA → Meta delivers nothing). Idempotent — skips channels already
 // pointing at the right callback.
 //
-//   cd /opt/aligned/app && set -a; . ./.env.production; set +a
+//   cd /opt/platform/app && set -a; . ./.env.production; set +a
 //   pnpm --filter @platform/api exec tsx --conditions=source infra/scripts/wa-backfill-subscribe.ts
 import { prisma } from '@platform/db';
 
-const apiBase = (process.env.API_PUBLIC_URL || 'https://api.hader.ai').replace(/\/$/, '');
+const apiBase = (process.env.API_PUBLIC_URL || 'https://api.example.com').replace(/\/$/, '');
 
 async function main() {
   const channels = await prisma.whatsAppChannel.findMany({

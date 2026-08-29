@@ -3,13 +3,13 @@ import path from 'node:path';
 
 import { env } from './env.js';
 import { logger } from './logger.js';
-import * as hader from './contacts-client.js';
+import * as platform from './contacts-client.js';
 import { ContactsSession } from './contacts-session.js';
 
 /**
  * Drives the WhatsApp contact-sync sessions.
  *
- * Pull model, same as the capture side: Hader is asked what work exists and results are
+ * Pull model, same as the capture side: the platform is asked what work exists and results are
  * pushed back, so this process needs no inbound connectivity and can stay bound to
  * localhost.
  *
@@ -27,9 +27,9 @@ const MAX_CONCURRENT = Number(process.env.WA_CONTACTS_MAX_CONCURRENT ?? 2);
 const active = new Map<string, ContactsSession>();
 
 async function tick(): Promise<void> {
-  const pending = await hader.fetchPendingSessions();
+  const pending = await platform.fetchPendingSessions();
 
-  // RECONCILE DOWN FIRST. Hader is the system of record for what may run here, so a
+  // RECONCILE DOWN FIRST. the platform is the system of record for what may run here, so a
   // session it no longer lists must not keep a WhatsApp socket open — whether it was
   // revoked, expired, or the row was removed. Starting only what is authorised is half
   // the job; the half that gets forgotten is stopping what no longer is.
@@ -42,7 +42,7 @@ async function tick(): Promise<void> {
     if (authorised.has(sessionId)) continue;
     logger.info({ sessionId }, 'session no longer authorised — tearing down');
     // finish(null) is the clean path: log out, release the device slot, delete creds.
-    // No 'ended' report — Hader already stopped listing it, so it knows.
+    // No 'ended' report — the platform already stopped listing it, so it knows.
     await session.finish(null).catch((err) => logger.error({ err, sessionId }, 'teardown failed'));
     active.delete(sessionId);
   }

@@ -1,5 +1,6 @@
 'use client';
 
+import { brand } from '@/lib/brand';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -67,7 +68,7 @@ function VerifyEmailInner() {
         <>
           <h1 className="text-2xl font-semibold tracking-tight">Email verified</h1>
           <p className="text-sm text-foreground-muted">
-            You're all set. You can now sign in to Hader AI.
+            You&apos;re all set. You can now sign in to {brand.name}.
           </p>
           <Button asChild>
             <Link href="/login">Continue to sign in</Link>

@@ -2,7 +2,7 @@
 //
 // A tenant links their WhatsApp account as a device (Settings -> Linked Devices) and we
 // read the CONTACT LIST ONLY — never messages. The pairing is done by the wa-ingest
-// service, which polls Hader for work and pushes results back, so Hader never dials out
+// service, which polls the platform for work and pushes results back, so the platform never dials out
 // to it and the ingest host needs no inbound connectivity.
 //
 // THIS RUNS ON ITS OWN SECRET. Sales Scan's capture half is gated behind 16 open blockers

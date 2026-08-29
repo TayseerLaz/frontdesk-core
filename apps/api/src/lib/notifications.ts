@@ -39,7 +39,7 @@ export async function createNotification(args: CreateNotificationArgs): Promise<
         },
       });
     });
-    // Hader mobile app: mirror the notification as an FCM push. Fire-and-forget
+    // the platform mobile app: mirror the notification as an FCM push. Fire-and-forget
     // and no-op without FIREBASE_SERVICE_ACCOUNT_JSON — never load-bearing.
     const { sendPushForNotification } = await import('./push.js');
     void sendPushForNotification({

@@ -167,7 +167,7 @@ export default async function billingRoutes(app: FastifyInstance) {
             .findFirst({ where: { organizationId: orgId, yearMonth: ym, kind: 'import_started' } })
             .then((r) => r?.count ?? 0),
         ]);
-        // ALIGNED-admin-operated orgs render as a synthetic "Unlimited
+        // super-admin-operated orgs render as a synthetic "Unlimited
         // (admin)" plan with null caps so the UI knows there's nothing
         // to throttle. The actual subscription row is left intact so
         // demoting the admin later snaps things back.
@@ -426,7 +426,7 @@ export default async function billingRoutes(app: FastifyInstance) {
         const sub = await tx.subscription.findUnique({ where: { organizationId: orgId } });
         const org = await tx.organization.findUnique({ where: { id: orgId } });
         const user = await tx.user.findUnique({ where: { id: req.auth!.userId } });
-        return { plan, sub, orgName: org?.name ?? 'Aligned', userEmail: user?.email ?? '' };
+        return { plan, sub, orgName: org?.name ?? 'Platform', userEmail: user?.email ?? '' };
       });
 
       // Reuse Stripe customer if we have one, else let Checkout create.

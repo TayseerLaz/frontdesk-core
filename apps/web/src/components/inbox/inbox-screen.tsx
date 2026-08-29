@@ -159,7 +159,7 @@ interface Message {
 }
 
 // Phase 8 / 1.3 — shape returned by GET /inbox/messages/:id/provenance.
-// Only ALIGNED admins ever fetch this.
+// Only super-admins ever fetch this.
 interface MessageProvenance {
   messageId: string;
   organizationId: string;
@@ -369,10 +369,10 @@ export function InboxScreen({ fullscreen = false }: { fullscreen?: boolean }) {
   });
 
   // Phase 8 / 1.3 — per-thread hallucination counts for the red-dot.
-  // Only fetched for ALIGNED admins. One round-trip across all threads.
+  // Only fetched for super-admins. One round-trip across all threads.
   const isAdmin = session?.user.isSuperAdmin === true;
   // Per-channel access control — hide Messenger/Instagram from the channel
-  // filter when ALIGNED-admin turned them off for this workspace.
+  // filter when super-admin turned them off for this workspace.
   const disabledFeatures = session?.organization?.disabledFeatures ?? [];
   // Roadmap features are opt-in (owner directive 2026-08-29): hide the
   // teamwork tabs until HQ enables inbox_teamwork for this org.
@@ -582,7 +582,7 @@ export function InboxScreen({ fullscreen = false }: { fullscreen?: boolean }) {
                   onClick={() => setFilterView(v)}
                   className={`flex-1 whitespace-nowrap rounded-md px-2 py-1 font-medium ${
                     filterView === v
-                      ? 'bg-[#360516] text-[#FCFBFA]'
+                      ? 'bg-[#11334d] text-[#FCFBFA]'
                       : 'text-[#6C625C] hover:bg-[#E6DCCB]/60'
                   }`}
                 >
@@ -702,7 +702,7 @@ function ThreadList({
   activeId: string | null;
   onSelect: (id: string) => void;
   loading: boolean;
-  // Phase 8 / 1.3 — ALIGNED-admin only: map of threadId → hallucination
+  // Phase 8 / 1.3 — super-admin only: map of threadId → hallucination
   // count. Renders a red dot on flagged threads. Empty map when the user
   // isn't an admin (the parent never fetches the summary).
   flaggedByThread: Map<string, number>;
@@ -760,7 +760,7 @@ function ThreadList({
               <div className="min-w-0 flex-1">
                 {/* Line 1 — name + time */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold text-[#360516]">
+                  <span className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold text-[#11334d]">
                     {/* Unread mark — a new customer message we haven't opened. */}
                     {t.unread ? (
                       <span
@@ -771,7 +771,7 @@ function ThreadList({
                     <span className={cn('truncate', t.unread && 'font-bold')}>
                       {t.customerName ?? t.customerWhatsappName ?? t.customerPhone}
                     </span>
-                    {/* ALIGNED-admin only — red dot for flagged bot replies. */}
+                    {/* super-admin only — red dot for flagged bot replies. */}
                     {(flaggedByThread.get(t.id) ?? 0) > 0 ? (
                       <span
                         className="inline-flex size-2 shrink-0 rounded-full bg-rose-500"
@@ -791,7 +791,7 @@ function ThreadList({
                     status + needs-reply + contact tags. No count clutter. */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {!t.assignedToName && t.status === 'open' ? (
-                    <span className="rounded-[5px] bg-[#360516] px-1.5 py-px text-[10.5px] font-medium text-[#FCFBFA]">
+                    <span className="rounded-[5px] bg-[#11334d] px-1.5 py-px text-[10.5px] font-medium text-[#FCFBFA]">
                       AI replying
                     </span>
                   ) : null}
@@ -866,7 +866,7 @@ function ThreadView({
   currentUserId: string | null;
 }) {
   const queryClient = useQueryClient();
-  // Phase 8 / 1.3 — only ALIGNED admins see the AI provenance affordance
+  // Phase 8 / 1.3 — only super-admins see the AI provenance affordance
   // on bot bubbles. Regular org users get a clean chat surface.
   const { session } = useSession();
   const isSuperAdmin = session?.user.isSuperAdmin === true;
@@ -884,12 +884,12 @@ function ThreadView({
     staleTime: 30_000,
   });
   const botDeployed = !!botCfg.data?.data?.deployedAt;
-  // When the tenant has the 'ai' feature disabled (ALIGNED-admin toggle), this
+  // When the tenant has the 'ai' feature disabled (super-admin toggle), this
   // is a manual-only social-media handler: the bot never replies, so hide ALL
   // AI affordances in the inbox (the "deploy on /bot" banner + the per-thread
   // AI toggle) — surfacing them would be misleading for a tenant without AI.
   const aiEnabled = !(session?.organization?.disabledFeatures ?? []).includes('ai');
-  // F3/F4 — org admins (and ALIGNED admins) may assign anyone / take over
+  // F3/F4 — org admins (and super-admins) may assign anyone / take over
   // a teammate's thread; editors only claim/release their own (the API
   // enforces the same matrix — this just shapes the UI).
   const paneTeamworkOn = !(session?.organization?.disabledFeatures ?? []).includes('inbox_teamwork');
@@ -1495,7 +1495,7 @@ function ThreadHeader({
           <Button
             size="sm"
             variant="ghost"
-            className="shrink-0 border border-[#D6C9B4] bg-white text-[#360516] hover:bg-[#F3ECE0]"
+            className="shrink-0 border border-[#D6C9B4] bg-white text-[#11334d] hover:bg-[#F3ECE0]"
             onClick={onShowInfo}
             title="Add or edit tags (opens the customer panel)"
           >
@@ -1505,7 +1505,7 @@ function ThreadHeader({
             <Button
               size="sm"
               variant="ghost"
-              className="shrink-0 border border-[#D6C9B4] bg-white text-[#360516] hover:bg-[#F3ECE0]"
+              className="shrink-0 border border-[#D6C9B4] bg-white text-[#11334d] hover:bg-[#F3ECE0]"
               onClick={() => onStatusChange('open')}
               title="Reopen this conversation"
             >
@@ -1515,7 +1515,7 @@ function ThreadHeader({
             <Button
               size="sm"
               variant="ghost"
-              className="shrink-0 border border-[#D6C9B4] bg-white text-[#360516] hover:bg-[#F3ECE0]"
+              className="shrink-0 border border-[#D6C9B4] bg-white text-[#11334d] hover:bg-[#F3ECE0]"
               onClick={() => onStatusChange('resolved')}
               title="Mark this conversation resolved"
             >
@@ -1527,7 +1527,7 @@ function ThreadHeader({
             <Button
               size="sm"
               variant="ghost"
-              className="shrink-0 gap-1 border border-[#360516] bg-[#360516] text-[#F3ECE0] hover:bg-[#4A1525] hover:text-[#F3ECE0]"
+              className="shrink-0 gap-1 border border-[#11334d] bg-[#11334d] text-[#F3ECE0] hover:bg-[#4A1525] hover:text-[#F3ECE0]"
               onClick={onUnassign}
               title={
                 aiEnabled
@@ -1948,12 +1948,12 @@ function Bubble({
   transcriptionEnabled: boolean;
 }) {
   const isOut = message.direction === 'outbound';
-  // Phase 8 / 1.3 — ALIGNED-admin only: click any bot bubble to inline
+  // Phase 8 / 1.3 — super-admin only: click any bot bubble to inline
   // the message provenance panel underneath. Regular users see nothing.
   const isBotMessage = isOut && message.sentBy === 'bot';
   // Phase 8 / 1.5 — image bubbles have no LLM provenance row, but we
   // still surface their upstream source inline (greeting image on /bot
-  // vs product image keyed by SKU). Visible to ALIGNED admins only.
+  // vs product image keyed by SKU). Visible to Super-admins only.
   const hasImageSource =
     isSuperAdmin && isBotMessage && message.imageSource != null;
   // Image bubbles never call the LLM, so the "AI source" button +
@@ -2047,8 +2047,8 @@ function Bubble({
           isOut
             ? isBotMessage
               ? 'rounded-br-sm bg-[#E53E34] text-white'
-              : 'rounded-br-sm bg-[#360516] text-[#F3ECE0]'
-            : 'rounded-bl-sm border border-[#E3DBCE] bg-white text-[#360516]',
+              : 'rounded-br-sm bg-[#11334d] text-[#F3ECE0]'
+            : 'rounded-bl-sm border border-[#E3DBCE] bg-white text-[#11334d]',
           // Subtle red ring when the scanner flagged hallucinations.
           canAudit && flaggedCount > 0 ? 'ring-2 ring-rose-400/70' : '',
         )}
@@ -2111,7 +2111,7 @@ function Bubble({
             rel="noopener noreferrer"
             className={cn(
               'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium underline-offset-2 hover:underline',
-              isOut ? 'border-white/30 text-white' : 'border-[#D6C9B4] text-[#360516]',
+              isOut ? 'border-white/30 text-white' : 'border-[#D6C9B4] text-[#11334d]',
             )}
           >
             <FileText className="size-4 shrink-0" />
@@ -2330,7 +2330,7 @@ function Bubble({
                   ? 'bg-white/10 hover:bg-white/20'
                   : 'bg-foreground/10 hover:bg-foreground/20',
               )}
-              title="Hader admin — view AI provenance"
+              title="Super-admin — view AI provenance"
             >
               {open ? 'Hide' : 'AI source'}
               {flaggedCount > 0 ? (
@@ -2362,7 +2362,7 @@ function Bubble({
 }
 
 // Phase 8 / 1.5 — inline attribution shown under image bubbles for
-// ALIGNED admins. Tells the admin EXACTLY which catalog row or config
+// super-admins. Tells the admin EXACTLY which catalog row or config
 // field the image came from + links straight to the editor.
 function ImageSourceAttribution({
   source,
@@ -2396,7 +2396,7 @@ function ImageSourceAttribution({
 }
 
 // Phase 8 / 1.3 — inline provenance panel rendered under a bot bubble in
-// /inbox when an ALIGNED admin clicks "AI source". Four tabs:
+// /inbox when an super-admin clicks "AI source". Four tabs:
 //   • Sources         — citations + dereferenced rows
 //   • Hallucinations  — flagged phrases
 //   • LLM call        — model / tokens / latency
@@ -3433,8 +3433,8 @@ function ReplyBox({
           className={cn(
             'border-b-2 px-0.5 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E53E34]/50',
             mode === 'reply'
-              ? 'border-[#E53E34] text-[#360516]'
-              : 'border-transparent text-[#6C625C] hover:text-[#360516]',
+              ? 'border-[#E53E34] text-[#11334d]'
+              : 'border-transparent text-[#6C625C] hover:text-[#11334d]',
           )}
         >
           Reply
@@ -3446,8 +3446,8 @@ function ReplyBox({
           className={cn(
             'border-b-2 px-0.5 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E53E34]/50',
             mode === 'note'
-              ? 'border-[#E53E34] text-[#360516]'
-              : 'border-transparent text-[#6C625C] hover:text-[#360516]',
+              ? 'border-[#E53E34] text-[#11334d]'
+              : 'border-transparent text-[#6C625C] hover:text-[#11334d]',
           )}
         >
           <StickyNote className="mr-1 inline size-3" /> Internal note
@@ -3614,7 +3614,7 @@ function ReplyBox({
         <Textarea
           ref={taRef}
           rows={3}
-          className="rounded-xl border-[#D6C9B4] bg-white text-[#360516] placeholder:text-[#7A6F69] focus-visible:ring-[#E53E34]/25"
+          className="rounded-xl border-[#D6C9B4] bg-white text-[#11334d] placeholder:text-[#7A6F69] focus-visible:ring-[#E53E34]/25"
           placeholder={
             mode === 'reply'
               ? pendingAttachment

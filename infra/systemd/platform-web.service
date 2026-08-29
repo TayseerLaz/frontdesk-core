@@ -1,14 +1,14 @@
-# Canonical unit for the ALIGNED web portal (Next.js, `next start`). The web app
+# Canonical unit for the the platform web portal (Next.js, `next start`). The web app
 # is compiled by `next build` during deploy, so it does not use the
 # --conditions=source mechanism (that's only for the tsx-run api/worker).
 [Unit]
-Description=ALIGNED Web (Next.js)
+Description=the platform Web (Next.js)
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/aligned/app/apps/web
-EnvironmentFile=/opt/aligned/app/.env.production
+WorkingDirectory=/opt/platform/app/apps/web
+EnvironmentFile=/opt/platform/app/.env.production
 ExecStart=/usr/bin/env pnpm start
 Restart=always
 RestartSec=3

@@ -8,12 +8,12 @@
    NOT the OS preference. Bind Tailwind's `dark:` variant to that class so
    `dark:*` utilities track the in-app theme toggle instead of prefers-color-
    scheme (otherwise a light app on a dark-OS machine wrongly gets dark styles —
-   e.g. the oxblood sidebar showing as white). */
+   e.g. the brand-coloured sidebar showing as white). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ----------------------------------------------------------------------------
    shadcn/ui canonical token bridge.
-   Maps shadcn's expected color tokens onto the existing Oxblood ramp via var()
+   Maps shadcn's expected color tokens onto the existing brand panel ramp via var()
    references, so ANY canonical shadcn component (bg-background, bg-primary,
    bg-card, border-input, ring-ring, text-muted-foreground …) renders on-brand
    and flips correctly in dark mode — the referenced --color-* tokens are
@@ -58,18 +58,19 @@
 }
 
 /* ============================================================================
-   Hader AI design tokens — Oxblood + Sand + Signal palette.
-   Brand book at /Hader AI Brand Book _standalone_.html:
-     --serif:   Fraunces           (display + headings)
-     --sans:    Plus Jakarta Sans  (body)
-     --mono:    JetBrains Mono     (code, IDs, SKUs)
-     --oxblood: #360516            (primary brand)
-     --sand:    #cfc0a9            (warm secondary)
-     --signal:  #e53e34            (accent / CTA / alert)
-     bg cream:  #faf9f5
-     near-blk:  #0a0b0e
-   The semantic Tailwind tokens below (brand-*, coral-*, etc.) keep their
-   names so no component has to be touched — only their hex values change.
+   DESIGN TOKENS — this is the one file to edit for a visual rebrand.
+
+   Every component references the SEMANTIC names below (brand-*, coral-*,
+   surface-*, foreground-*). Change the hex values here and the whole portal
+   follows; no component ever needs touching.
+
+   The default is a neutral slate-blue that reads as "software", deliberately
+   unopinionated so a new brand starts from something clean rather than from
+   someone else's identity. Replace the brand-* ramp with your own — keep 500
+   as the primary and let the ramp lighten/darken around it.
+
+   Keep `--color-on-brand` in step: it is the text colour used ON TOP of
+   bg-brand-500, and it flips in the .dark block below.
    ============================================================================ */
 
 @theme {
@@ -102,56 +103,55 @@
   --dur:      180ms;
 
   /* "On-brand" — the text/icon colour to use ON TOP of bg-brand-500.
-     Light mode: white (over oxblood). Dark mode flips this to oxblood
+     Light mode: white (over brand-500). Dark mode flips this to brand-500
      in the .dark block below (over white). Use text-on-brand wherever
      you have bg-brand-500. */
   --color-on-brand: #ffffff;
 
-  /* Brand — Oxblood ramp (anchored at 500 = #360516). Top half desaturates
-     into dusty rose so light surfaces, hover tints, and focus rings have
-     enough contrast against the cream background. */
-  --color-brand-50:  #faf0f1;
-  --color-brand-100: #f0d8de;
-  --color-brand-200: #d9aebb;
-  --color-brand-300: #b87a8d;
-  --color-brand-400: #844758;
-  --color-brand-500: #360516;
-  --color-brand-600: #2c0412;
-  --color-brand-700: #25030f;
-  --color-brand-800: #1c020c;
-  --color-brand-900: #110108;
+  /* Brand ramp — anchored at 500. The top half desaturates so light surfaces,
+     hover tints and focus rings keep contrast against the page background. */
+  --color-brand-50:  #eef4f9;
+  --color-brand-100: #d8e6f1;
+  --color-brand-200: #b0cbe0;
+  --color-brand-300: #7fa9c8;
+  --color-brand-400: #4a83ab;
+  --color-brand-500: #1f5e8c;
+  --color-brand-600: #1a5079;
+  --color-brand-700: #164263;
+  --color-brand-800: #11334d;
+  --color-brand-900: #0c2437;
 
-  /* Coral — Signal red ramp (anchored at 500 = #e53e34). Used for escalation,
+  /* Coral — Signal red ramp (anchored at 500 = #e05252). Used for escalation,
      CTA emphasis, and the brand's "alert" accent in the brand book. */
   --color-coral-50:  #fdecea;
   --color-coral-100: #fbd6d3;
   --color-coral-200: #f7adab;
   --color-coral-300: #f17b78;
   --color-coral-400: #ed5751;
-  --color-coral-500: #e53e34;
+  --color-coral-500: #e05252;
   --color-coral-600: #c1342c;
   --color-coral-700: #9c2a24;
 
-  /* Sand — warm secondary, used for soft fills, dividers, and the
+  /* panel-ink — warm secondary, used for soft fills, dividers, and the
      "warm neutral" badge variant. Not part of the existing ramp so
      it's exposed as flat tokens. */
-  --color-sand-50:  #f9f5ee;
-  --color-sand-100: #f0e8d8;
-  --color-sand-200: #e5d8c1;
-  --color-sand-300: #cfc0a9;
-  --color-sand-500: #b39d7f;
-  --color-sand-700: #6f5f48;
+  --color-panel-ink-50:  #f9f5ee;
+  --color-panel-ink-100: #f0e8d8;
+  --color-panel-ink-200: #e5d8c1;
+  --color-panel-ink-300: #cddfee;
+  --color-panel-ink-500: #b39d7f;
+  --color-panel-ink-700: #6f5f48;
 
   /* Surfaces — neutral-minimal (OKLCH). Near-monochrome with only a WHISPER
-     of warmth (chroma ~0.004) so the canvas feels cohesive with oxblood
-     without reading as "cream". Oxblood is demoted to a rare accent. */
+     of warmth (chroma ~0.004) so the canvas feels cohesive with the brand
+     without reading as "cream". brand panel is demoted to a rare accent. */
   --color-surface:          oklch(99.2% 0.003 50);   /* cards / raised */
   --color-surface-muted:    oklch(97.6% 0.004 60);   /* page background */
   --color-surface-elevated: oklch(96.2% 0.005 55);   /* wells / hover fills */
   --color-border:           oklch(91.5% 0.005 55);   /* hairline 1px */
   --color-border-strong:    oklch(85% 0.007 55);
 
-  /* Foreground — neutral ink (NOT oxblood). Very dark warm-gray for body;
+  /* Foreground — neutral ink (NOT the brand hue). Very dark warm-gray for body;
      muted + subtle step up in lightness for secondary/tertiary text. */
   --color-foreground:        oklch(24% 0.01 40);
   --color-foreground-muted:  oklch(46% 0.012 45);
@@ -190,11 +190,11 @@
    are overridden in @theme so every Tailwind utility re-themes automatically.
    ============================================================================ */
 .dark {
-  /* "On-brand" flips to oxblood in dark mode — brand-500 is white here,
+  /* "On-brand" flips to the brand hue in dark mode — brand-500 is white here,
      so text/icons sitting on it need to be dark to stay legible. */
-  --color-on-brand: #360516;
+  --color-on-brand: #1f5e8c;
 
-  /* Brand — anchors on pure white (#ffffff) in dark mode. Oxblood at
+  /* Brand — anchors on pure white (#ffffff) in dark mode. brand panel at
      500 was invisible on a near-black surface, so the action color
      inverts to white instead. Lower stops are progressively darker
      neutrals so brand-tinted backgrounds + hover fills still feel like
@@ -213,25 +213,25 @@
   --color-brand-900: #c8c8c8;
 
   /* Surfaces — neutral near-black (OKLCH), whisper-warm only. Neutral-minimal:
-     no oxblood-tinted chrome; the dark canvas is calm graphite. */
+     no brand-tinted chrome; the dark canvas is calm graphite. */
   --color-surface:          oklch(20% 0.004 60);   /* cards */
   --color-surface-muted:    oklch(16% 0.004 60);   /* page background */
   --color-surface-elevated: oklch(24% 0.005 60);   /* wells / hover */
   --color-border:           oklch(30% 0.005 60);
   --color-border-strong:    oklch(38% 0.006 60);
 
-  /* Foreground — neutral off-whites (not sand). */
+  /* Foreground — neutral off-whites (not panel-ink). */
   --color-foreground:        oklch(95% 0.004 70);
   --color-foreground-muted:  oklch(72% 0.006 65);
   --color-foreground-subtle: oklch(58% 0.006 65);
 
-  /* Sand on dark — pulled darker so it doesn't shout next to the brand. */
-  --color-sand-50:  #2a2620;
-  --color-sand-100: #3a3429;
-  --color-sand-200: #51483a;
-  --color-sand-300: #cfc0a9;
-  --color-sand-500: #b39d7f;
-  --color-sand-700: #6f5f48;
+  /* panel-ink on dark — pulled darker so it doesn't shout next to the brand. */
+  --color-panel-ink-50:  #2a2620;
+  --color-panel-ink-100: #3a3429;
+  --color-panel-ink-200: #51483a;
+  --color-panel-ink-300: #cddfee;
+  --color-panel-ink-500: #b39d7f;
+  --color-panel-ink-700: #6f5f48;
 
   /* Semantic — bumped saturation so they read on dark. */
   --color-success: #4ade80;
@@ -359,7 +359,7 @@
 }
 
 /* ============================================================================
-   ALIGNED design-system class set — direct port of tokens.css. Lets any
+   the platform design-system class set — direct port of tokens.css. Lets any
    component opt into the explicit `.al-btn`, `.al-card`, `.al-badge`, etc.
    without going through Tailwind utilities. Useful when porting straight
    from the design artboards or when a page wants the *exact* shapes.

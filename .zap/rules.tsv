@@ -1,4 +1,4 @@
-# ZAP baseline-scan rule overrides for the ALIGNED platform.
+# ZAP baseline-scan rule overrides for the the platform platform.
 #
 # Format: <RULE_ID>\t<THRESHOLD>\t# comment
 #   THRESHOLD = IGNORE | LOW | MEDIUM | HIGH | INFO

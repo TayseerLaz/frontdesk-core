@@ -89,7 +89,7 @@ Plugins register in `apps/api/src/server.ts:336-342`:
 - `organizationId String @map("organization_id") @db.Uuid` + relation with `onDelete: Cascade`; add the back-relation on `Organization`.
 - Every `@@index`/`@@unique` org-prefixed. `@@map("snake_plural")`, `@map` on every multi-word field.
 - `createdAt`/`updatedAt`; `deletedAt DateTime?` for soft delete + `@@index([organizationId, deletedAt])`.
-- Money = integer minor units (`Int`); `BigInt` when overflow is real (cart money in LBP/IRR; wallet micro-USD). **Never backfill `price_minor` on Alinia mirror rows** — RE prices are display-layer from `attributes`.
+- Money = integer minor units (`Int`); `BigInt` when overflow is real (cart money in LBP/IRR; wallet micro-USD). **Never backfill `price_minor` on a partner mirror rows** — RE prices are display-layer from `attributes`.
 - Secrets: `String?` columns encrypted via `encryptSecret`/`encryptJsonSecret` (`packages/db/src/secret-crypto.ts`) at the call site (only `whatsAppChannel` is auto-crypted by the client extension).
 
 ### Migration rules
@@ -132,7 +132,7 @@ Plugins register in `apps/api/src/server.ts:336-342`:
 
 ## 7. Deploy
 
-Pull-based: commit + push to `origin/main`, then `infra/scripts/redeploy.sh` **on the server** (`aligned@91.92.108.178:269`, `/opt/aligned/app`) — resets to origin/main, rebuilds db+shared, `prisma migrate deploy` (+ rls.sql), rebuilds web (swap-backed), restarts, health-checks. Multiple concurrent chats may share this working tree — **commit early and often**; uncommitted work is not safe.
+Pull-based: commit + push to `origin/main`, then `infra/scripts/redeploy.sh` **on the server** (`platform@91.92.108.178:269`, `/opt/platform/app`) — resets to origin/main, rebuilds db+shared, `prisma migrate deploy` (+ rls.sql), rebuilds web (swap-backed), restarts, health-checks. Multiple concurrent chats may share this working tree — **commit early and often**; uncommitted work is not safe.
 
 ## 8. Known gotchas / latent gaps
 

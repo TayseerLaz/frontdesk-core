@@ -133,7 +133,7 @@ export const whatsappEmbeddedSignupConfigSchema = z.object({
     text: z.string(),
     /**
      * Whether to offer the history opt-in at all. False when this org does not have the
-     * `sales_scan` feature switched on by an ALIGNED admin — there is no product that
+     * `sales_scan` feature switched on by an super-admin — there is no product that
      * consumes the corpus for them, so we do not ask for it. The exchange enforces the
      * same condition server-side; this only decides whether the checkboxes render.
      */

@@ -29,7 +29,7 @@ export interface SessionOrganization {
   slug: string;
   name: string;
   role: OrgRole;
-  // ALIGNED-admin per-tenant access control (disabled feature keys). Absent on
+  // super-admin per-tenant access control (disabled feature keys). Absent on
   // availableOrganizations entries (only the active org carries it).
   disabledFeatures?: string[];
   // F1 — this member's page whitelist (null/absent = full access for role).

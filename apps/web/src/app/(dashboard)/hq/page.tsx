@@ -94,7 +94,7 @@ interface SystemHealth {
   redis: { connected: boolean; opsPerSec: number | null };
 }
 
-export default function AlignedAdminPage() {
+export default function PlatformAdminPage() {
   const { session, switchOrg } = useSession();
   // The admin's own org(s) are protected: access/suspend/delete are disabled so
   // an admin can't lock themselves out of (or restrict) their own admin account.
@@ -106,7 +106,7 @@ export default function AlignedAdminPage() {
   // The admin's REAL account org(s) = their memberships (NOT a tenant they're
   // currently controlling). Used to pin + highlight the admin-account row.
   const adminOrgIds = new Set<string>((session?.availableOrganizations ?? []).map((o) => o.id));
-  // "Controlling" a tenant: an aligned admin whose ACTIVE org isn't one of their
+  // "Controlling" a tenant: an platform admin whose ACTIVE org isn't one of their
   // memberships (impersonation mints a no-membership session for the tenant).
   const isControlling =
     !!session?.user.isSuperAdmin &&
@@ -220,7 +220,7 @@ export default function AlignedAdminPage() {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <p className="text-sm text-foreground-muted">ALIGNED admin role required.</p>
+          <p className="text-sm text-foreground-muted">Super-admin role required.</p>
         </CardContent>
       </Card>
     );
@@ -237,7 +237,7 @@ export default function AlignedAdminPage() {
   return (
     <>
       <PageHeader
-        title="ALIGNED admin"
+        title="Platform admin"
         description="Cross-tenant operations and system health."
         actions={
           <div className="flex items-center gap-2">

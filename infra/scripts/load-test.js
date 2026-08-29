@@ -4,7 +4,7 @@
 // with p95 < 200 ms and zero error rate. Mirrors the spec's NFR.
 //
 // Usage:
-//   API_KEY=ak_live_… BASE_URL=https://api.aligned.example k6 run load-test.js
+//   API_KEY=ak_live_… BASE_URL=https://api.platform.example k6 run load-test.js
 //
 // Tip: warm the cache by running once with `--vus 1 --iterations 5` first so the
 // 60s cache window is full when the real load starts.
@@ -32,8 +32,8 @@ export const options = {
   },
 };
 
-const errorRate = new Rate('aligned_errors');
-const lat = new Trend('aligned_latency_ms', true);
+const errorRate = new Rate('platform_errors');
+const lat = new Trend('platform_latency_ms', true);
 
 const ENDPOINTS = [
   '/api/v1/read/products?limit=25',

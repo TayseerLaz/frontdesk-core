@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Deploy hader-wa-ingest (Sales Scan capture service) — run ON the AlignDesk box.
+# Deploy platform-wa-ingest (Sales Scan capture service) — run ON the AlignDesk box.
 #
 #   ssh -o KexAlgorithms=curve25519-sha256 -i ~/.ssh/id_ed25519 -p 7777 aladmin@88.80.145.157
-#   bash ~/hader-wa-ingest/infra/scripts/deploy-wa-ingest.sh
+#   bash ~/platform-wa-ingest/infra/scripts/deploy-wa-ingest.sh
 #
 # Pull-based and git-based, same shape as infra/scripts/redeploy.sh: reset the checkout to
 # a ref, rebuild, restart, health-check, and auto-roll-back to the last known-good SHA if
@@ -12,7 +12,7 @@
 # ⚠ THIS BOX ALSO RUNS SOMEONE ELSE'S PRODUCTION.
 #   `qr_whatsapp` (~/qr_whatsapp, 127.0.0.1:4100) is a DIFFERENT product serving a paying
 #   customer's live WhatsApp bot. This script never cd's into that directory, never runs a
-#   command there, and scopes every docker call to the `hader-wa-ingest` compose project.
+#   command there, and scopes every docker call to the `platform-wa-ingest` compose project.
 #   The only thing it does with qr_whatsapp is a read-only `docker ps` at the end, to prove
 #   it is still up.
 #
@@ -21,14 +21,14 @@
 #   · No `sudo` — aladmin is in the docker group; nothing here needs root.
 #   · No migrations / no dist builds — this service owns no schema and compiles nothing
 #     (it runs via tsx from source, so the image build IS the whole build).
-#   · An extra pre-flight the Hader box doesn't need: recreating this container DROPS every
+#   · An extra pre-flight the the platform box doesn't need: recreating this container DROPS every
 #     live Baileys session, so the script refuses to run mid-capture unless told to.
 set -euo pipefail
 
-APP_DIR=${APP_DIR:-$HOME/hader-wa-ingest}
+APP_DIR=${APP_DIR:-$HOME/platform-wa-ingest}
 DEPLOY_REF=${DEPLOY_REF:-origin/main}
-PROJECT=hader-wa-ingest
-CONTAINER=hader-wa-ingest
+PROJECT=platform-wa-ingest
+CONTAINER=platform-wa-ingest
 SERVICE=wa-ingest
 
 say()  { printf '%s\n' "$*"; }
@@ -38,10 +38,10 @@ die()  { printf '✗ %s\n' "$*" >&2; exit 1; }
 case "$APP_DIR" in
   *qr_whatsapp*)
     die "APP_DIR points inside qr_whatsapp ($APP_DIR). That is a different product's live
-    deployment — this script must never operate there. Expected ~/hader-wa-ingest." ;;
-  /opt/aligned/app*)
-    die "APP_DIR is the HADER box path ($APP_DIR). This script is for the AlignDesk box
-    (88.80.145.157); the Hader box uses infra/scripts/redeploy.sh." ;;
+    deployment — this script must never operate there. Expected ~/platform-wa-ingest." ;;
+  /opt/platform/app*)
+    die "APP_DIR is the PLATFORM box path ($APP_DIR). This script is for the AlignDesk box
+    (88.80.145.157); the the platform box uses infra/scripts/redeploy.sh." ;;
 esac
 
 [ -d "$APP_DIR/.git" ] || die "$APP_DIR is not a git checkout. First-time setup: see
@@ -54,7 +54,7 @@ COMPOSE_DIR="$APP_DIR/apps/wa-ingest"
 # Fail before touching git if the secret file is missing: `git reset --hard` leaves the
 # untracked .env alone, but there is no point rebuilding toward a container that cannot boot.
 [ -f "$COMPOSE_DIR/.env" ] || die "missing $COMPOSE_DIR/.env — copy .env.example, fill
-    HADER_API_URL + WA_INGEST_SECRET, chmod 600. See README.md."
+    PLATFORM_API_URL + WA_INGEST_SECRET, chmod 600. See README.md."
 
 command -v docker >/dev/null 2>&1 || die "docker not on PATH"
 docker compose version >/dev/null 2>&1 || die "docker compose v2 not available (this file
@@ -70,7 +70,7 @@ PORT=$(sed -n 's/^[[:space:]]*WA_INGEST_PORT[[:space:]]*=[[:space:]]*//p' "$COMP
 PORT=${PORT:-4200}
 HEALTH_URL="http://127.0.0.1:${PORT}/health"
 
-say "▶ Deploying hader-wa-ingest"
+say "▶ Deploying platform-wa-ingest"
 say "  host      : $(hostname) ($(id -un))"
 say "  checkout  : $APP_DIR"
 say "  ref       : $DEPLOY_REF"
@@ -197,6 +197,6 @@ docker ps --filter "name=qr_whatsapp" --format '  qr_whatsapp: {{.Status}}' 2>/d
 echo "$NEW" > "$APP_DIR/.last-deployed-sha"
 say "✓ Deploy complete: $NEW"
 say ""
-say "Reminder: Hader reaches this service through the reverse SSH tunnel. If /connect on the"
+say "Reminder: the platform reaches this service through the reverse SSH tunnel. If /connect on the"
 say "portal reports the ingest unreachable, check the tunnel, not this container:"
-say "  systemctl status hader-wa-ingest-tunnel"
+say "  systemctl status platform-wa-ingest-tunnel"

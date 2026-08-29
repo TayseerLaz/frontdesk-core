@@ -1,3 +1,4 @@
+export * from './brand.js';
 export * from './enums/index.js';
 export * from './constants/org-features.js';
 export * from './constants/export-sections.js';

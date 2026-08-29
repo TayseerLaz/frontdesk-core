@@ -18,7 +18,7 @@ interface ThemeCtx {
 
 const Ctx = React.createContext<ThemeCtx | null>(null);
 
-const STORAGE_KEY = 'aligned:theme';
+const STORAGE_KEY = 'platform:theme';
 
 function getSystem(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light';

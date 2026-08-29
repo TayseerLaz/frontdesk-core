@@ -12,12 +12,12 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: aligned
-          POSTGRES_PASSWORD: aligned
-          POSTGRES_DB: aligned_test
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U aligned -d aligned_test"
+          --health-cmd "pg_isready -U platform -d platform_test"
           --health-interval 5s --health-timeout 3s --health-retries 10
       redis:
         image: redis:7-alpine
@@ -27,8 +27,8 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://aligned:aligned@localhost:5432/aligned_test
-      DIRECT_DATABASE_URL: postgresql://aligned:aligned@localhost:5432/aligned_test
+      DATABASE_URL: postgresql://platform:platform@localhost:5432/platform_test
+      DIRECT_DATABASE_URL: postgresql://platform:platform@localhost:5432/platform_test
       REDIS_URL: redis://localhost:6379
       JWT_ACCESS_SECRET: test-access-secret-change-me-in-production-please-32+chars
       JWT_REFRESH_SECRET: test-refresh-secret-change-me-in-production-please-32+chars
@@ -48,6 +48,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # Runs FIRST and needs no install: this template names no product, so a
+      # hard-coded brand word is a regression — usually re-introduced by porting
+      # a fix across from the upstream repo.
+      - name: Brand-leak gate (HARD)
+        run: bash infra/scripts/brand-check.sh
+
       - uses: pnpm/action-setup@v4
         with:
           version: 9.12.0

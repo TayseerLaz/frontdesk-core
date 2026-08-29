@@ -46,7 +46,7 @@ export function AiBudgetWidget() {
 function Body({ data }: { data: NonNullable<ReturnType<typeof useQuery<Awaited<ReturnType<typeof getAiBudgetToday>>>>['data']> }) {
   // Tenant-facing widget: ONLY percentages + messages used. We deliberately do
   // NOT render token counts or dollar cost — those are admin-only and live on
-  // the tenant details page in the ALIGNED admin panel.
+  // the tenant details page in the super-admin panel.
   const unlimited = data.plan === 'Unlimited' || data.messageCap == null;
   const percentUsed = unlimited ? 0 : Math.min(100, Math.max(0, data.messagePct ?? 0));
 

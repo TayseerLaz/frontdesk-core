@@ -6,16 +6,16 @@ export const env = {
   DATABASE_URL:
     process.env.E2E_DATABASE_URL ??
     process.env.DATABASE_URL ??
-    'postgresql://aligned:aligned@localhost:5432/aligned',
+    'postgresql://platform:platform@localhost:5432/platform',
   MAILPIT_URL: process.env.E2E_MAILPIT_URL ?? 'http://localhost:8025',
-  SEED_ADMIN_EMAIL: process.env.E2E_SEED_ADMIN_EMAIL ?? 'admin@aligned.local',
-  SEED_ADMIN_PASSWORD: process.env.E2E_SEED_ADMIN_PASSWORD ?? 'Aligned123!',
+  SEED_ADMIN_EMAIL: process.env.E2E_SEED_ADMIN_EMAIL ?? 'admin@platform.local',
+  SEED_ADMIN_PASSWORD: process.env.E2E_SEED_ADMIN_PASSWORD ?? 'Platform123!',
   SEED_ORG_SLUG: process.env.E2E_SEED_ORG_SLUG ?? 'demo',
 };
 
 export function uniqueEmail(label = 'qa'): string {
   const n = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  return `${label}+${n}@aligned.local`;
+  return `${label}+${n}@platform.local`;
 }
 
 export function uniqueSlug(prefix = 'qa'): string {

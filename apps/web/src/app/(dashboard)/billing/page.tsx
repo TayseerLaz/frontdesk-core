@@ -300,7 +300,7 @@ function BalanceCard({ data }: { data: WalletOverview }) {
 
         {/* How top-ups work */}
         <p className="text-xs text-foreground-subtle">
-          Top-ups are added by the ALIGNED team. Contact your account manager to add balance.
+          Top-ups are added by the platform team. Contact your account manager to add balance.
         </p>
       </CardContent>
     </Card>
@@ -395,7 +395,7 @@ function PlanUsageCard({
 
         <p className="text-xs text-foreground-subtle">
           These are your plan limits. When a bar reaches 100% that activity pauses until the next
-          month or a plan upgrade — contact ALIGNED to change your plan.
+          month or a plan upgrade — contact support to change your plan.
         </p>
       </CardContent>
     </Card>

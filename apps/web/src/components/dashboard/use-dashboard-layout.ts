@@ -23,8 +23,8 @@ import { DEFAULT_LAYOUT, WIDGETS_BY_ID, type WidgetId } from './widget-registry'
 // add/remove/add quickly only triggers one round trip.
 
 const STORAGE_VERSION = 1;
-const STORAGE_PREFIX = 'aligned-dashboard-layout';
-const ONBOARDING_DISMISSED_PREFIX = 'aligned-dashboard-onboarding-dismissed';
+const STORAGE_PREFIX = 'dashboard-layout';
+const ONBOARDING_DISMISSED_PREFIX = 'dashboard-onboarding-dismissed';
 const PUT_DEBOUNCE_MS = 400;
 const LAYOUT_QUERY_KEY = ['dashboard-layout'] as const;
 

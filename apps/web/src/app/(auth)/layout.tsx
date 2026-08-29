@@ -1,19 +1,22 @@
-// Two colours, period — bypassing the theme tokens because brand-500
-// flips to Signal Red in dark mode. These literal hexes lock the
-// auth shell to the brand-book pairing regardless of system theme.
-const OXBLOOD = '#360516';
-const SAND = '#cfc0a9';
+import { brand } from '@/lib/brand';
+
+// Two colours, deliberately literal. The theme tokens are bypassed here
+// because brand-500 inverts in dark mode, and the auth shell must hold the
+// same pairing on any system theme. Rebranding: change these two hexes (and
+// the matching pair in app-shell.tsx) alongside the ramp in globals.css.
+const BRAND_PANEL = '#11334d';
+const BRAND_PANEL_INK = '#cddfee';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="fixed inset-0 flex flex-col overflow-y-auto"
-      style={{ backgroundColor: OXBLOOD, color: SAND }}
+      style={{ backgroundColor: BRAND_PANEL, color: BRAND_PANEL_INK }}
     >
       <header className="flex items-center justify-end px-6 py-6 sm:px-10 lg:px-14">
         <a
-          href="https://hader.ai/"
-          className="rounded-md px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[#cfc0a9]/70 transition hover:bg-[#cfc0a9] hover:text-[#360516]"
+          href="https://example.com/"
+          className="rounded-md px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[#cddfee]/70 transition hover:bg-[#cddfee] hover:text-[#11334d]"
         >
           ← Back to site
         </a>
@@ -27,9 +30,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       <footer
         className="hidden items-center px-14 pb-7 font-mono text-[12px] uppercase tracking-[0.18em] sm:flex"
-        style={{ color: `${SAND}80` }}
+        style={{ color: `${BRAND_PANEL_INK}80` }}
       >
-        <span>Hader AI · Portal</span>
+        <span>{brand.name} · Portal</span>
       </footer>
     </div>
   );

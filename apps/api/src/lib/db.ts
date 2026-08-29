@@ -49,7 +49,7 @@ export async function withTenant<T>(organizationId: string, fn: (tx: Tx) => Prom
 }
 
 /**
- * Bypass RLS — for ALIGNED super-admin cross-tenant ops and auth bootstrap.
+ * Bypass RLS — for super-admin cross-tenant ops and auth bootstrap.
  * Caller MUST gate access with requireSuperAdmin or be in the auth path.
  */
 export async function withRlsBypass<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {

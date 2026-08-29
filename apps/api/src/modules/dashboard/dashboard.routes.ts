@@ -168,7 +168,7 @@ export default async function dashboardRoutes(app: FastifyInstance) {
   // ---------- GET /dashboard/ai-usage -------------------------------------
   // Today's AI token usage for the active org. Powers the small "AI
   // budget remaining" widget on /dashboard. Returns 0% used + unlimited
-  // = true for ALIGNED-admin-operated orgs so the bar reads "Unlimited".
+  // = true for super-admin-operated orgs so the bar reads "Unlimited".
   r.get(
     '/dashboard/ai-usage',
     {
@@ -240,9 +240,9 @@ export default async function dashboardRoutes(app: FastifyInstance) {
           pct: q.pct,
         })),
       };
-      // NOTE: do NOT force-unlimited just because the VIEWER is an ALIGNED admin.
+      // NOTE: do NOT force-unlimited just because the VIEWER is an super-admin.
       // Whether an org is metered is a property of the ORG (isOrgUnlimited →
-      // unlimited only if the org has an active admin member, e.g. ALIGNED HQ),
+      // unlimited only if the org has an active admin member, e.g. HQ),
       // already reflected in `ai.unlimited`. Forcing it on the viewer made every
       // tenant the admin opened (controlling a tenant) read "Unlimited" even
       // though their bot is really capped.
@@ -782,12 +782,12 @@ export default async function dashboardRoutes(app: FastifyInstance) {
     async (req) => {
       const data = await app.tenant(req, async (tx) => {
         const rows = await tx.auditLog.findMany({
-          // Don't surface HQ-only or ALIGNED-admin-access events (an admin
+          // Don't surface HQ-only or super-admin-access events (an admin
           // controlling the workspace) in the tenant's activity feed.
           where: {
             NOT: {
               action: {
-                in: ['integration_credentials_set', 'aligned_admin_accessed', 'aligned_admin_exited'],
+                in: ['integration_credentials_set', 'hq_admin_accessed', 'hq_admin_exited'],
               } as never,
             },
           },

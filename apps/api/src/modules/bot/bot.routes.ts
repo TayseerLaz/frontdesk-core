@@ -571,7 +571,7 @@ export default async function botRoutes(app: FastifyInstance) {
             'replyMode is "match_customer" and TTS is configured, but none of the last 10 inbound messages were audio. The bot only speaks back when the customer speaks first. Send a voice note and retry.';
         } else if (replyMode === 'match_customer' && audioRepliedAsText.length > 0) {
           diagnosis =
-            'TTS is configured + customer sent audio + replyMode is "match_customer" — but the bot replied as text. Likely the TTS call or transcode failed at runtime. Check journalctl -u aligned-api | grep -E "TTS|wantsVoice".';
+            'TTS is configured + customer sent audio + replyMode is "match_customer" — but the bot replied as text. Likely the TTS call or transcode failed at runtime. Check journalctl -u platform-api | grep -E "TTS|wantsVoice".';
         } else {
           diagnosis = 'Voice path looks healthy. Send another voice note and check the result.';
         }

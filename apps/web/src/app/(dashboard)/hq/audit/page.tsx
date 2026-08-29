@@ -46,8 +46,8 @@ const ENTITY_TYPES = [
 
 const ACTION_LABELS: Record<string, string> = {
   integration_credentials_set: 'Integration credentials entered (tenant)',
-  aligned_admin_accessed: 'ALIGNED HQ accessed workspace',
-  aligned_admin_exited: 'ALIGNED HQ left workspace',
+  hq_admin_accessed: 'HQ accessed workspace',
+  hq_admin_exited: 'HQ left workspace',
   contact_unsubscribed: 'Contact unsubscribed',
 };
 const humanAction = (s: string) =>
@@ -140,7 +140,7 @@ export default function AdminAuditPage() {
         backHref="/hq"
         backLabel="Tenants"
         title="Cross-tenant audit"
-        description="Every audit event across every tenant. Gated by ALIGNED super-admin."
+        description="Every audit event across every tenant. Gated by super-admin."
       />
 
       <Card>

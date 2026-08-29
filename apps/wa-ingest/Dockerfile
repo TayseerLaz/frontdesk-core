@@ -1,4 +1,4 @@
-# hader-wa-ingest — Sales Scan capture service.
+# platform-wa-ingest — Sales Scan capture service.
 #
 # Runs on the AlignDesk box (88.80.145.157), fully isolated from the qr_whatsapp
 # container that shares that machine. See ./README.md for topology + bootstrap and
@@ -20,7 +20,7 @@
 #    Net result: zero apt layers.
 #
 # 2. No compile step. The service runs `tsx --conditions=source src/index.ts`, exactly as
-#    aligned-api and aligned-worker run in production. @platform/shared therefore resolves
+#    platform-api and platform-worker run in production. @platform/shared therefore resolves
 #    to its TypeScript source and there is no gitignored `dist` in the image that could go
 #    stale (the 2026-06-22 stale-dist footgun that shipped old Zod schemas).
 #
@@ -61,7 +61,7 @@ COPY apps/wa-ingest/package.json  apps/wa-ingest/
 
 # `<pkg>...` = the package plus its dependencies, so apps/api, apps/web, apps/worker and
 # packages/db are never installed here. This image has no Prisma client and no reason to
-# grow one: the capture service talks to Postgres only through the Hader API.
+# grow one: the capture service talks to Postgres only through the the platform API.
 RUN pnpm install --frozen-lockfile --prod=false --filter @platform/wa-ingest...
 
 # ── source layer ─────────────────────────────────────────────────────────────────────

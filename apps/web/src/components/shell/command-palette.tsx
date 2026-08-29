@@ -81,7 +81,7 @@ function toggleTheme() {
     const root = document.documentElement;
     const isDark = root.classList.toggle('dark');
     root.style.colorScheme = isDark ? 'dark' : 'light';
-    localStorage.setItem('aligned:theme', isDark ? 'dark' : 'light');
+    localStorage.setItem('platform:theme', isDark ? 'dark' : 'light');
   } catch {
     /* noop */
   }
@@ -123,8 +123,8 @@ function Palette({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bool
     ];
     const admin: Command[] = isAdmin
       ? [
-          { id: 'hq-tenants', label: 'HQ · Tenants', group: 'ALIGNED HQ', icon: ShieldCheck, href: '/hq', adminOnly: true },
-          { id: 'hq-system', label: 'HQ · System health', group: 'ALIGNED HQ', icon: ShieldCheck, href: '/hq/system', adminOnly: true },
+          { id: 'hq-tenants', label: 'HQ · Tenants', group: 'HQ', icon: ShieldCheck, href: '/hq', adminOnly: true },
+          { id: 'hq-system', label: 'HQ · System health', group: 'HQ', icon: ShieldCheck, href: '/hq/system', adminOnly: true },
         ]
       : [];
     const orgs: Command[] =

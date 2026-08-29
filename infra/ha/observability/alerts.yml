@@ -1,4 +1,4 @@
-# Prometheus alerting rules for ALIGNED / Hader.
+# Prometheus alerting rules for the platform / the platform.
 # Load via prometheus.yml: rule_files: [ "alerts.yml" ].
 #
 # Signals the platform ALREADY emits:

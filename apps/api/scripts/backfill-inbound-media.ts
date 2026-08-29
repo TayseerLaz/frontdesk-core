@@ -8,7 +8,7 @@
 // the org's primary-channel token themselves).
 //
 // Run on the box:
-//   cd /opt/aligned/app && set -a && . ./.env.production && set +a && \
+//   cd /opt/platform/app && set -a && . ./.env.production && set +a && \
 //   pnpm --filter @platform/api exec tsx --conditions=source scripts/backfill-inbound-media.ts
 //
 // Safe to re-run: only rows still missing mediaAssetId are touched.

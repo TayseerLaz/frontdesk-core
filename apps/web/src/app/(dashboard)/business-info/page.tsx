@@ -45,7 +45,7 @@ export default function BusinessInfoPage() {
   const { session } = useSession();
   const disabledFeatures = session?.organization?.disabledFeatures ?? [];
   // Booking-form tab tracks the 'bookings' feature; Shop-form tab tracks
-  // 'orders'. When ALIGNED-admin turns the feature off the tab is hidden;
+  // 'orders'. When super-admin turns the feature off the tab is hidden;
   // when it's on, the flow is forced enabled (the org toggle is the master).
   const bookingsOn = !disabledFeatures.includes('bookings');
   const ordersOn = !disabledFeatures.includes('orders');

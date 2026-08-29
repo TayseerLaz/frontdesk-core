@@ -184,18 +184,18 @@ describe('buildPhoneSyncUrl', () => {
   // QR resolved to the marketing site — which answered 200 with its own Login button.
   // Nothing errored; the scan just asked the tenant to sign in.
   it('always lands on the /app basePath, whichever way WEB_PUBLIC_URL is set', () => {
-    expect(buildPhoneSyncUrl('https://hader.ai', 'TOK')).toBe('https://hader.ai/app/sync/TOK');
-    expect(buildPhoneSyncUrl('https://hader.ai/', 'TOK')).toBe('https://hader.ai/app/sync/TOK');
+    expect(buildPhoneSyncUrl('https://example.com', 'TOK')).toBe('https://example.com/app/sync/TOK');
+    expect(buildPhoneSyncUrl('https://example.com/', 'TOK')).toBe('https://example.com/app/sync/TOK');
     // Already carries the basePath — must not double it into /app/app.
-    expect(buildPhoneSyncUrl('https://hader.ai/app', 'TOK')).toBe('https://hader.ai/app/sync/TOK');
-    expect(buildPhoneSyncUrl('https://hader.ai/app/', 'TOK')).toBe('https://hader.ai/app/sync/TOK');
+    expect(buildPhoneSyncUrl('https://example.com/app', 'TOK')).toBe('https://example.com/app/sync/TOK');
+    expect(buildPhoneSyncUrl('https://example.com/app/', 'TOK')).toBe('https://example.com/app/sync/TOK');
     expect(buildPhoneSyncUrl('http://localhost:3000', 'TOK')).toBe(
       'http://localhost:3000/app/sync/TOK',
     );
   });
 
   it('never points at a bare /sync path, which the marketing site would swallow', () => {
-    for (const base of ['https://hader.ai', 'https://hader.ai/', 'https://hader.ai/app']) {
+    for (const base of ['https://example.com', 'https://example.com/', 'https://example.com/app']) {
       expect(buildPhoneSyncUrl(base, 'TOK')).toContain('/app/sync/');
       expect(buildPhoneSyncUrl(base, 'TOK')).not.toContain('/app/app/');
     }

@@ -9,7 +9,7 @@
 
 | # | Decision | Consequence |
 |---|---|---|
-| **Architecture** | **New service `hader-wa-ingest`**, forking `WaSession` — **its own systemd unit on the Hader prod box** (`91.92.108.178`), NOT inside `apps/api`/`apps/worker`, NOT on AlignDesk | `redeploy.sh:163` restarts only `aligned-api aligned-worker` (+web), so a Hader deploy never touches the ingest unit — sessions survive deploys. Localhost Postgres for the auth store + message writes; one box to operate; no cross-box webhook hop. **Baileys inside api/worker is ruled out**: every deploy would drop every session → reconnect storm → ban signal. |
+| **Architecture** | **New service `platform-wa-ingest`**, forking `WaSession` — **its own systemd unit on the the platform prod box** (`91.92.108.178`), NOT inside `apps/api`/`apps/worker`, NOT on AlignDesk | `redeploy.sh:163` restarts only `platform-api platform-worker` (+web), so a the platform deploy never touches the ingest unit — sessions survive deploys. Localhost Postgres for the auth store + message writes; one box to operate; no cross-box webhook hop. **Baileys inside api/worker is ruled out**: every deploy would drop every session → reconnect storm → ban signal. |
 | **Session model** | **On-demand, permission-gated, time-boxed.** No tenant has a session by default. Permission grant → session connects → recent history + live capture for a bounded window → **auto-disconnect + purge auth** → learning runs on the corpus. Re-grant to refresh. | Concurrency ceiling, not a customer ceiling. Slots recycle. A tenant's number is attached to an unofficial client only during an active window. Permission expires naturally instead of drifting into a forgotten standing grant. |
 | **Window length** | **7 days** (was open; settled by the owner 2026-07-29) | 15 slots ÷ 1-week windows ≈ **~60 tenant scans/month** through one box. Summary generation fires at window close. |
 | **Gating (hidden when off)** | ~~The card renders for **every** tenant~~ — **REVERSED 2026-08-05 by owner decision.** Sales Scan now matches every other paged feature: the key registers `hrefs: ['/settings/sales-scan']`, so `isHrefDisabled` hides the Settings card and bounces the route when the feature is off. The **API** is gated with `assertOrgFeature` — *except* `GET /sales-scan/status` and the two revocation routes (stop capture, delete captured data), which stay ungated so a tenant whose feature is switched off can still withdraw consent. | No longer a deviation. Pinned by `apps/api/test/pure/sales-scan-invariants.test.ts`. |
@@ -18,7 +18,7 @@
 | **Billing** | **Feature flag + offline payment.** New `ORG_FEATURES` key `sales_scan`, `defaultDisabled: true`, HQ enables per tenant after payment is arranged | Zero billing code for the pilot. **MUST ship the `array_append(disabled_features,'sales_scan')` backfill migration** or `feature-backfill-invariant.test.ts` fails the build. Data model still designed so `OrgAddon` can slot in later. |
 | **Proxies** | **Pilot without, add before rollout** | Accepted risk, but it needs explicit guardrails — see below. |
 
-### Capacity budget (Hader box, verified 2026-07-29)
+### Capacity budget (the platform box, verified 2026-07-29)
 `7.8 GB` total · `1.8 GB` in use (api + worker + web + postgres + redis + caddy) · `5.6 GB` available · 4 CPUs at ~0 load · 20 GB disk free · 4 GB swap.
 
 ```
@@ -29,7 +29,7 @@
 ─────────
  ~2.5 GB for ingest → ~20 sessions @ ~120 MB → CAP AT 15 CONCURRENT
 ```
-- `MemoryMax=2.5G` on the `hader-wa-ingest.service` unit, so a Baileys leak kills the ingest service rather than Postgres.
+- `MemoryMax=2.5G` on the `platform-wa-ingest.service` unit, so a Baileys leak kills the ingest service rather than Postgres.
 - **15 = concurrent active windows, not customers.** At a 14-day window that serves ~30 tenants/month.
 - Text-only ingest in v1 (media is most of the disk; 20 GB free).
 - Past 15 concurrent, move the unit to its own box — trivial, because it's already a separate service with its own port and DB connection.
@@ -88,7 +88,7 @@ the deferred mitigation from [[client-numbers-must-not-be-banned]], now pointed 
 **The ask:** a tenant QR-links **the live sales WhatsApp number they are currently using**; we capture **all DMs,
 incoming and outgoing, for one week**; then we produce **a summary of all chats + an analysis of how they talk**,
 displayed back to them in the portal. Surfaced as a card in the **Integrations** column of `/settings`. Activation
-is flipped **by an ALIGNED HQ admin** per tenant, outside all plans.
+is flipped **by an HQ admin** per tenant, outside all plans.
 
 **Three tenant-visible states — the card is hidden until activated** *(reversed 2026-08-05; it used to be always visible)*:
 | State | What the tenant sees |
@@ -98,7 +98,7 @@ is flipped **by an ALIGNED HQ admin** per tenant, outside all plans.
 | Capturing | Live status + **days remaining** in the 7-day window |
 | Window complete | The **summary + voice analysis** |
 
-⚠️ **This gating is a deliberate DEVIATION from the house pattern.** Hader's `Organization.disabledFeatures` +
+⚠️ **This gating is a deliberate DEVIATION from the house pattern.** the platform's `Organization.disabledFeatures` +
 `isHrefDisabled` mechanism **hides** a feature and bounces its route. Here the card must render for *every* tenant
 and merely change state. See §0 for the resolution.
 
@@ -116,7 +116,7 @@ support.
 ### The AlignDesk server
 | | |
 |---|---|
-| Host | `88.80.145.157`, SSH port **7777**, user **`aladmin`** (NOT `aliadmin` — that's the Alinia box at `.120`) |
+| Host | `88.80.145.157`, SSH port **7777**, user **`aladmin`** (NOT `aliadmin` — that's the a partner box at `.120`) |
 | Key | `~/.ssh/id_ed25519`, needs `-o KexAlgorithms=curve25519-sha256` |
 | Public | `https://qr.aligndesk.ai` → nginx → `127.0.0.1:4100` (LE cert, SSE-friendly) |
 | App dir | `~/qr_whatsapp` — a real git repo tracking `origin/main` |
@@ -160,7 +160,7 @@ if (waMsg.key.fromMe) return;         // ← every OUTGOING message is DROPPED
 | 2 | **Groups only**, DMs dropped | **DMs only** (sales conversations); groups arguably excluded on purpose |
 | 3 | **Inbound only**, `fromMe` dropped | **Both directions** — outgoing is the higher-value half |
 | 4 | `useMultiFileAuthState` → **plaintext files on one box's disk** | Encrypted, DB-backed auth store (memory already flags this: *"must not be used in prod at scale"*); survives box loss |
-| 5 | SQLite + `tenant_id` as a loose optional string | Hader's hard tenancy: `organization_id` + **RLS**, per [ADDING-A-FEATURE.md](ADDING-A-FEATURE.md) |
+| 5 | SQLite + `tenant_id` as a loose optional string | the platform's hard tenancy: `organization_id` + **RLS**, per [ADDING-A-FEATURE.md](ADDING-A-FEATURE.md) |
 
 Plus: ban blast radius changes character completely. Today a ban costs *you* a burner. Here it bans **the client's real sales line** — per [[client-numbers-must-not-be-banned]] that outranks features, scale, and ship speed.
 
@@ -170,9 +170,9 @@ Plus: ban blast radius changes character completely. Today a ban costs *you* a b
 
 **A. Extend `qr_whatsapp` in place** — add a "DM capture mode" + tenant provisioning API to the existing engine.
 *+* Reuses the hardened session layer immediately; one box, one deploy you already know.
-*−* Welds two very different products (auction capture for Zeed/Pierre vs. sales learning for Hader tenants) into one codebase and one blast radius; the partner/number-key layer is auction-shaped; a bad deploy takes down Pierre's live bot1.
+*−* Welds two very different products (auction capture for Zeed/Pierre vs. sales learning for the platform tenants) into one codebase and one blast radius; the partner/number-key layer is auction-shaped; a bad deploy takes down Pierre's live bot1.
 
-**B. New sibling service `hader-wa-ingest` on AlignDesk, forking `WaSession`** ⭐ **recommended**
+**B. New sibling service `platform-wa-ingest` on AlignDesk, forking `WaSession`** ⭐ **recommended**
 *+* Clean separation of concerns and failure domains; free to be DM-first, tenant-first, Postgres-backed, with no auction baggage; reuses the proven session code by copying the one file that matters; deploys independently of Pierre's live traffic.
 *−* Duplicates `WaSession` (accepted — the repo already does deliberate twinning, e.g. `apps/api/src/lib/wallet.ts` ↔ `apps/worker/src/lib/wallet.ts`); two places to patch a Baileys protocol bump.
 
@@ -181,17 +181,17 @@ Plus: ban blast radius changes character completely. Today a ban costs *you* a b
 *−* Another vendor/runtime to operate; less control over the exact ban-avoidance knobs you've already tuned; migration cost if you later want your own.
 **Genuinely worth reconsidering here** — this feature is the *"many tenant numbers"* case that recommendation was written for, which is exactly what qr_whatsapp's `BOT_NUMBERS`-env model is worst at.
 
-**D. Build Baileys into the Hader monorepo (`apps/worker`)**
-*−* **Don't.** Long-lived stateful WebSockets don't belong in a BullMQ worker that gets restarted on every deploy; every Hader deploy would drop every tenant's WhatsApp session. Also drags an unofficial-client dependency into the compliance surface of the Meta Cloud API product.
+**D. Build Baileys into the the platform monorepo (`apps/worker`)**
+*−* **Don't.** Long-lived stateful WebSockets don't belong in a BullMQ worker that gets restarted on every deploy; every the platform deploy would drop every tenant's WhatsApp session. Also drags an unofficial-client dependency into the compliance surface of the Meta Cloud API product.
 
-**Recommendation: B, with C as the fallback** if session ops become a burden. Either way the Hader-side contract is identical (signed webhooks in, REST out) — so B→C is a swap of one service, not a rewrite.
+**Recommendation: B, with C as the fallback** if session ops become a burden. Either way the the platform-side contract is identical (signed webhooks in, REST out) — so B→C is a swap of one service, not a rewrite.
 
 ---
 
 ## 4. Proposed shape
 
 ```
-Tenant browser                Hader (this repo)                  AlignDesk 88.80.145.157
+Tenant browser                the platform (this repo)                  AlignDesk 88.80.145.157
 ─────────────                 ─────────────────                  ────────────────────────
 /settings/sales-scan   ──►  POST /api/v1/sales-scan/connect ──►  POST /admin/v1/sessions
    consent + Connect                                              {orgId, proxy, dmOnly:true}
@@ -213,7 +213,7 @@ Tenant browser                Hader (this repo)                  AlignDesk 88.80
                         └────► review & approve queue ────► BotConfig / FAQs
 ```
 
-### Hader-side data model (sketch)
+### the platform-side data model (sketch)
 All tenant-scoped, `organization_id` + RLS inline in the same migration:
 - **`SalesScanGrant`** — the permission record and the unit of session lifetime (replaces the earlier always-on
   `SalesLineConnection`). `organizationId`, `phoneE164`, `status` (`pending`→`queued`→`linking`→`active`→
@@ -227,7 +227,7 @@ All tenant-scoped, `organization_id` + RLS inline in the same migration:
 - **`SalesInsight`** — the derived artifacts: `kind` (`voice_profile` | `faq_candidate` | `objection` | `phrase`), payload JSONB, `status` (`suggested`/`approved`/`rejected`), `appliedAt`. **Reuse the Shopify `shopify_staged_items` review→approve→import pattern verbatim** — it's the closest precedent in the codebase and tenants already understand it.
 
 ### The learning layer (the actual product)
-1. **Voice profile** — tone, formality, greeting/sign-off habits, emoji use, language mix (Arabic/English/Arabizi — critical for Lebanon), sentence length, how they quote prices, how they push for the close. Output → a persona block appended to `BotConfig.adminSystemPromptAppend` (same lever the hader-support and fatme personas already use). **Show a diff and require approval** — never silently rewrite a live bot's persona.
+1. **Voice profile** — tone, formality, greeting/sign-off habits, emoji use, language mix (Arabic/English/Arabizi — critical for Lebanon), sentence length, how they quote prices, how they push for the close. Output → a persona block appended to `BotConfig.adminSystemPromptAppend` (same lever the support-tenant and fatme personas already use). **Show a diff and require approval** — never silently rewrite a live bot's persona.
 2. **Common questions** — embed + cluster inbound messages, rank clusters by frequency × recency, draft a Q&A per cluster **using the tenant's own best historical answer as the source**, push to the review queue → approved ones become `FAQ` rows (which the existing 3-min embed-backfill tick then embeds automatically, so the bot can retrieve them).
 3. **Free upside, near-zero extra cost:** response-time distribution, unanswered-question rate, peak hours, top products mentioned, objection taxonomy, win/loss phrasing. This is a genuinely sellable analytics page on its own.
 
@@ -248,13 +248,13 @@ This is the client's **real sales number**. Per [[client-numbers-must-not-be-ban
 
 ## 6. Privacy & legal (do not skip — this is the real risk)
 
-Reading a business's entire customer DM history is a materially bigger data-protection surface than anything Hader does today.
-- The **customers on the other end never consented** to Hader. The tenant is data **controller**, Hader is **processor** → you need a **DPA**, a retention policy, and a documented purpose limitation.
+Reading a business's entire customer DM history is a materially bigger data-protection surface than anything the platform does today.
+- The **customers on the other end never consented** to the platform. The tenant is data **controller**, the platform is **processor** → you need a **DPA**, a retention policy, and a documented purpose limitation.
 - **Explicit, specific, logged consent** at connect: what is read (all DMs both directions), why, how long it's kept, who can see it, how to delete. Store `consentVersion` + timestamp + user id. A checkbox that says "I confirm I'm authorised to connect this business number."
 - **Redact before the LLM ever sees it:** OTPs/verification codes, card numbers/IBANs, national IDs. Regex pass on ingest, before storage if you can afford to lose fidelity.
 - **Scope controls:** DMs only (skip groups), tenant-side contact blocklist, and a **date-window cap** on history.
 - **Retention:** short raw retention (30–90 d) + indefinite *derived* artifacts. Minimizing the raw PII you hold is both cheaper and safer. **[DECIDE]**
-- Hader's own [privacy policy + data-deletion page](https://hader.ai/privacy) (shipped 2026-07-28) will need a section covering this.
+- the platform's own [privacy policy + data-deletion page](https://example.com/privacy) (shipped 2026-07-28) will need a section covering this.
 
 ---
 
@@ -277,17 +277,17 @@ There is **no add-on concept in the codebase today** (no `addon`/`add_on` anywhe
 | **2. Wallet charge** | Reuse `TenantWallet` (µ$, already live on 10 orgs) — a one-off activation debit + optional monthly | Money plumbing already exists and is battle-tested; but the wallet is currently framed as *per-WhatsApp-message* metering, so overloading it may confuse the `/billing` page |
 | **3. New `OrgAddon` table** | `organization_id`, `addonKey`, `status`, `priceMicros`, `activatedAt`, `renewsAt` — properly orthogonal to `Plan` | Cleanest long-term and reusable for future add-ons; most new code |
 
-**Recommendation: ship on Option 1 for the pilot, design the data model so Option 3 slots in later.** Whichever you pick — **the `defaultDisabled: true` flag MUST ship with an `array_append(disabled_features, 'sales_scan')` backfill migration**, or `feature-backfill-invariant.test.ts` fails the build. That gate exists precisely because the `alinia_listings` rollout skipped it on 2026-07-20 and mislabelled the entire fleet.
+**Recommendation: ship on Option 1 for the pilot, design the data model so Option 3 slots in later.** Whichever you pick — **the `defaultDisabled: true` flag MUST ship with an `array_append(disabled_features, 'sales_scan')` backfill migration**, or `feature-backfill-invariant.test.ts` fails the build. That gate exists precisely because the `partner_listings` rollout skipped it on 2026-07-20 and mislabelled the entire fleet.
 
 ---
 
 ## 9. Build plan — file by file
 
-### Phase 0 — de-risk (do this FIRST, before any Hader code)
+### Phase 0 — de-risk (do this FIRST, before any the platform code)
 Cheap, and it answers the two unknowns every later estimate depends on: *does DM + `fromMe` capture actually
 work*, and *how much history does WhatsApp really push on link*.
 
-- New scratch repo `hader-wa-ingest`, copy `qr_whatsapp/src/wa/{session,classify,proxy}.ts` + `types.ts` + `logger.ts` + `env.ts`.
+- New scratch repo `platform-wa-ingest`, copy `qr_whatsapp/src/wa/{session,classify,proxy}.ts` + `types.ts` + `logger.ts` + `env.ts`.
 - In the forked `session.ts` `onMessage`, **invert the two filters** — this is the entire point of the fork:
   ```ts
   if (jid.endsWith('@g.us')) return;      // DMs only — skip groups
@@ -303,8 +303,8 @@ work*, and *how much history does WhatsApp really push on link*.
 **Exit criteria:** DMs captured both directions ✓ · history volume measured ✓ · session stable across a
 reconnect ✓. If history turns out to be near-zero, revisit the history decision before Phase 3.
 
-### Phase 1 — ingest service + Hader receiver
-**`hader-wa-ingest` (new service, own systemd unit on the Hader box, port 4200):**
+### Phase 1 — ingest service + the platform receiver
+**`platform-wa-ingest` (new service, own systemd unit on the the platform box, port 4200):**
 - `POST /admin/v1/sessions` `{orgId, grantId, windowDays, proxyUrl?}` → allocate a slot and provision at **runtime**
   (no `BOT_NUMBERS` env, no restart — the key departure from `qr_whatsapp`); returns `queued` when the pool is full.
   `GET /admin/v1/sessions/:id` → status + QR/pairing code. `DELETE` → disconnect + **purge auth** + release slot.
@@ -315,13 +315,13 @@ reconnect ✓. If history turns out to be near-zero, revisit the history decisio
   `packages/db/src/secret-crypto.ts`) — survives a restart mid-window, and makes "purge" a single deletable row
   rather than files scattered on disk.
 - `systemd` unit: `MemoryMax=2.5G`, `Restart=always`, **not** referenced by `redeploy.sh`.
-- Outbound: **HMAC-SHA256 signed batches** to Hader, reusing the `webhook_outbox` durable at-least-once pattern
+- Outbound: **HMAC-SHA256 signed batches** to the platform, reusing the `webhook_outbox` durable at-least-once pattern
   already proven in `qr_whatsapp/src/integration/webhook.ts`. (Localhost, but keep the seam — it's what makes
   moving the service to its own box a config change.)
 - Redact on ingest, before persistence: OTPs, card numbers, IBANs.
 - **No `sendText`/`sendMedia` at all** — read-only is structural, not a config flag.
 
-**Hader side (this repo), per [ADDING-A-FEATURE.md](ADDING-A-FEATURE.md):**
+**the platform side (this repo), per [ADDING-A-FEATURE.md](ADDING-A-FEATURE.md):**
 | File | What |
 |---|---|
 | `packages/db/prisma/schema.prisma` | `SalesScanGrant`, `SalesMessage`, `SalesInsightRun`, `SalesInsight` — all `organizationId` |

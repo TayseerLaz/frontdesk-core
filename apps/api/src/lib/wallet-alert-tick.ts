@@ -3,7 +3,7 @@
 // HQ configures per-tenant % thresholds (50/75/80/90/100 of the last top-up
 // used). This tick runs in the API process every few minutes, and when a
 // metered tenant's balance crosses one of its thresholds it fires ONE
-// notification (to the tenant + every ALIGNED admin) for the highest new level.
+// notification (to the tenant + every super-admin) for the highest new level.
 // Dedup is a Redis set `walletalert:{org}` of already-fired thresholds, which is
 // cleared on the next top-up (see wallet.rearmLowBalance) so alerts re-arm each
 // cycle. Cheap + idempotent: steady-state ticks send nothing.
@@ -54,7 +54,7 @@ function toWallet(r: WalletModelRow): Wallet {
   };
 }
 
-async function notifyAlignedAdmins(severity: 'warning' | 'error', title: string, body: string): Promise<void> {
+async function notifySuperAdmins(severity: 'warning' | 'error', title: string, body: string): Promise<void> {
   const admins = await prisma.user.findMany({
     where: { isSuperAdmin: true },
     select: { id: true, memberships: { select: { organizationId: true }, take: 1 } },
@@ -112,7 +112,7 @@ async function tick(): Promise<void> {
       body: st.message ?? '',
       link: '/billing',
     });
-    await notifyAlignedAdmins(
+    await notifySuperAdmins(
       isEmpty ? 'error' : 'warning',
       isEmpty
         ? `${org?.name ?? 'A tenant'}: WhatsApp balance empty (sending paused)`

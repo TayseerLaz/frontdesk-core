@@ -30,7 +30,7 @@ import { prisma } from './jobs/db.js';
 
 const log = pino({
   level: env.LOG_LEVEL,
-  name: 'aligned-worker',
+  name: 'platform-worker',
   transport:
     env.NODE_ENV === 'development'
       ? { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } }
@@ -120,7 +120,7 @@ async function main() {
 
   // Prometheus metrics on a tiny HTTP server (separate port from API).
   const registry = new Registry();
-  registry.setDefaultLabels({ app: 'aligned-worker' });
+  registry.setDefaultLabels({ app: 'platform-worker' });
   collectDefaultMetrics({ register: registry });
   const jobsCompleted = new Counter({
     name: 'worker_jobs_completed_total',
@@ -189,7 +189,7 @@ async function main() {
   log.info({ name: draftCartTtlTick.name }, 'tick started');
   // Phase 8 / 1.4 — daily provenance digest. Aggregates the prior 24h of
   // flagged bot replies across all tenants and emails the summary to every
-  // ALIGNED admin. Silent when there are zero flagged replies in the window.
+  // super-admin. Silent when there are zero flagged replies in the window.
   const provenanceDigestTick = startProvenanceDigestTick();
   log.info({ name: provenanceDigestTick.name }, 'tick started');
   // Inbox consistency: every 15 min, re-link any orphaned (thread-less)

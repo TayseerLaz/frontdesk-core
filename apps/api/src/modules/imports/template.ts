@@ -1,5 +1,6 @@
 // Generates downloadable XLSX import templates per entity kind, with
 // header row, sample data row, and a column mapping cheat-sheet on a second sheet.
+import { BRAND } from '@platform/shared';
 import type { ImportEntityKind, ImportFieldHint } from '@platform/shared';
 import ExcelJS from 'exceljs';
 
@@ -111,10 +112,10 @@ export const TEMPLATES: Record<ImportEntityKind, TemplateSpec> = {
       { field: 'currency', label: 'Currency', required: false },
     ],
     sample: {
-      legalName: 'Aligned Demo, Inc.',
+      legalName: 'Platform Demo, Inc.',
       tagline: 'Aligning technology with your business',
       about: 'A short business description.',
-      websiteUrl: 'https://aligned.example',
+      websiteUrl: 'https://platform.example',
       timezone: 'UTC',
       currency: 'USD',
     },
@@ -124,7 +125,7 @@ export const TEMPLATES: Record<ImportEntityKind, TemplateSpec> = {
 export async function buildTemplateXlsx(kind: ImportEntityKind): Promise<Buffer> {
   const spec = TEMPLATES[kind];
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'ALIGNED Business Platform';
+  wb.creator = BRAND.name;
   wb.created = new Date();
 
   const sheet = wb.addWorksheet(kind);

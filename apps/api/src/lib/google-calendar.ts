@@ -1,5 +1,5 @@
 // Google Calendar — per-tenant, two-way: bookings are pushed to the tenant's
-// calendar, and that calendar is read back so its events show up in Hader's
+// calendar, and that calendar is read back so its events show up in the platform's
 // booking calendar and can block booking slots.
 //
 // Design notes:
@@ -13,6 +13,7 @@
 //    the one-way version keep working without a re-consent. Deliberately NOT
 //    using freebusy.query — it needs a wider scope and returns no titles, and
 //    we want titles for the calendar overlay.
+import { BRAND } from '@platform/shared';
 import crypto from 'node:crypto';
 
 import { decryptSecret, encryptSecret } from '@platform/db';
@@ -60,7 +61,7 @@ function stateKey(): Buffer {
     const ikm = env.GOOGLE_CLIENT_SECRET ?? 'unconfigured';
     const salt = env.SECRET_ENCRYPTION_KEY ?? '';
     cachedStateKey = Buffer.from(
-      crypto.hkdfSync('sha256', ikm, salt, 'aligned:google-oauth-state:v1', 32),
+      crypto.hkdfSync('sha256', ikm, salt, 'platform:google-oauth-state:v1', 32),
     );
   }
   return cachedStateKey;
@@ -259,7 +260,7 @@ function eventBody(
     ...detailLines,
     b.notes ? `Notes: ${b.notes}` : '',
     '',
-    'Booked via Hader',
+    `Booked via ${BRAND.name}`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -268,8 +269,8 @@ function eventBody(
     description,
     start: { dateTime: start.toISOString() },
     end: { dateTime: end.toISOString() },
-    // Stable tag so we can recognise Hader-created events.
-    extendedProperties: { private: { haderBookingId: b.id } },
+    // Stable tag so we can recognise the platform-created events.
+    extendedProperties: { private: { platformBookingId: b.id } },
   };
   if (opts.location) body.location = opts.location;
   // Inviting the customer makes Google email them the appointment, which is
@@ -280,7 +281,7 @@ function eventBody(
     // on every update. The booking id is exactly that.
     body.conferenceData = {
       createRequest: {
-        requestId: `hader-${b.id}`,
+        requestId: `platform-${b.id}`,
         conferenceSolutionKey: { type: 'hangoutsMeet' },
       },
     };

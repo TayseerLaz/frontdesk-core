@@ -122,7 +122,7 @@ export function startWebhookDeliveryWorker() {
         const res = await safePostWithBody(endpoint.url, {
           headers: {
             'content-type': 'application/json',
-            'user-agent': 'Aligned-Webhooks/1.0',
+            'user-agent': 'Platform-Webhooks/1.0',
             'x-webhook-event': delivery.eventKind,
             'x-webhook-delivery': delivery.id,
             'x-webhook-timestamp': String(timestamp),

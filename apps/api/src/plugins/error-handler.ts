@@ -75,7 +75,7 @@ export default fp(async function errorHandler(app: FastifyInstance) {
     }
 
     // Unknown — 500. Log full stack always; surface the underlying
-    // message to ALIGNED super-admins so they can diagnose without
+    // message to super-admins so they can diagnose without
     // needing SSH access to the systemd journal. Regular users still
     // see the generic "Internal server error." text.
     req.log.error({ err, requestId, route: req.routeOptions?.url }, 'unhandled error');

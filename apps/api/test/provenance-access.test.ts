@@ -3,7 +3,7 @@
 // The message provenance store contains the *exact* system prompt sent to the
 // LLM, full conversation history, candidate KB rows, and hallucination scan
 // results for every bot reply. It must NEVER be readable by:
-//   • a regular org admin (only ALIGNED super-admins),
+//   • a regular org admin (only super-admins),
 //   • an unauthenticated client.
 //
 // Both surfaces are checked:

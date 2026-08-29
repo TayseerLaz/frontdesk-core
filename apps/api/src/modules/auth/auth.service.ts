@@ -536,7 +536,7 @@ export async function refreshSession(refreshToken: string, meta: RequestMeta) {
   // Sprint 1 H-3 — the no-membership admin-role synthesis is now gated on the
   // session being an explicit impersonation session (POST /hq/
   // orgs/:id/impersonate sets is_impersonation = true). Regular sessions for
-  // ALIGNED admins still require an active membership, so removing them from
+  // super-admins still require an active membership, so removing them from
   // org X via the members page invalidates their access to X on next refresh.
   let effectiveRole: OrgRole;
   if (membership && membership.isActive) {
@@ -964,7 +964,7 @@ export async function acceptInvitation(args: {
 
     return { user, invitation: invite, isNewUser };
   });
-  // If they just accepted an invite as ADMIN of the ALIGNED org, mirror the
+  // If they just accepted an invite as ADMIN of the the platform org, mirror the
   // owner's access: grant platform HQ admin (isSuperAdmin). No-op for any
   // other org or role.
   await syncHqAdminForOrgChange(result.invitation.organizationId, result.user.id);
@@ -987,8 +987,8 @@ export async function switchOrganization(args: {
     throw forbidden(ApiErrorCode.AUTH_NO_MEMBERSHIP, 'You do not belong to that organization.');
   }
 
-  // If we're LEAVING an ALIGNED-HQ control (impersonation) session, write a
-  // transparent "ALIGNED HQ left your workspace" entry to that tenant's audit
+  // If we're LEAVING an the platform-HQ control (impersonation) session, write a
+  // transparent "HQ left your workspace" entry to that tenant's audit
   // log — mirroring the "accessed" entry logged when control started.
   const leaving = await prisma.session.findUnique({
     where: { id: args.sessionId },
@@ -1005,7 +1005,7 @@ export async function switchOrganization(args: {
     leaving.organizationId !== membership.organizationId
   ) {
     await recordAudit({
-      action: 'aligned_admin_exited',
+      action: 'hq_admin_exited',
       organizationId: leaving.organizationId,
       actorUserId: args.userId,
       entityType: 'organization',
@@ -1037,7 +1037,7 @@ export async function getSessionContext(userId: string, organizationId: string, 
   const active = user.memberships.find((m) => m.organizationId === organizationId);
 
   // Sprint 1 H-3 — the no-membership admin synthesis is now gated on the
-  // current session being an explicit impersonation session. An ALIGNED admin
+  // current session being an explicit impersonation session. An super-admin
   // who has been removed from org X is no longer silently granted admin
   // rights to X via this code path.
   if (!active) {

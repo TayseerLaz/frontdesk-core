@@ -1,7 +1,7 @@
 # systemd units (production)
 
 Canonical, version-controlled service definitions for the native (non-Docker)
-production deploy on the Aligned Cloud Server. Previously these lived only on
+production deploy on the Platform Cloud Server. Previously these lived only on
 the server (hand-created), so a critical deploy detail — that the api/worker
 must run with `--conditions=source` — was undocumented and un-versioned.
 
@@ -18,9 +18,9 @@ easily-stale `dist/`. The ExecStart in these units therefore goes through
 ## Install / update
 
 ```
-sudo cp infra/systemd/aligned-*.service /etc/systemd/system/
+sudo cp infra/systemd/platform-*.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl restart aligned-api aligned-worker aligned-web
+sudo systemctl restart platform-api platform-worker platform-web
 ```
 
 `redeploy.sh` still rebuilds `dist/` as a belt-and-suspenders backstop, but with

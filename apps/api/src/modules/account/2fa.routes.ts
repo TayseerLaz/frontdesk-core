@@ -21,6 +21,7 @@
 //      + stashes pending; the existing codes remain valid until step 6.
 //   6. POST /account/2fa/confirm-regenerate-recovery → swaps the live
 //      hashes for the freshly stashed ones.
+import { BRAND } from '@platform/shared';
 import { decryptSecret, encryptSecret } from '@platform/db';
 import { ApiErrorCode, itemEnvelopeSchema, successSchema } from '@platform/shared';
 import { createHash } from 'node:crypto';
@@ -173,7 +174,7 @@ export default async function twoFactorRoutes(app: FastifyInstance) {
       const otpauthUri = buildOtpAuthUri({
         secretBase32: secret,
         accountName: user.email,
-        issuer: 'ALIGNED',
+        issuer: BRAND.name,
       });
       return { data: { secret, otpauthUri } };
     },

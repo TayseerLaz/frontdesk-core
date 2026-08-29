@@ -5,10 +5,10 @@ import { upsertWaThread } from './wa-thread.js';
  * Coexistence handset replies — Meta's `smb_message_echoes` webhook field.
  *
  * WHAT THIS IS FOR. Under Coexistence the business keeps answering customers from the
- * WhatsApp Business app on their phone. Those replies reach us here. Without this, Hader's
- * inbox shows only what Hader itself sent, so an operator sees a customer question as
+ * WhatsApp Business app on their phone. Those replies reach us here. Without this, the platform's
+ * inbox shows only what the platform itself sent, so an operator sees a customer question as
  * unanswered when the owner already dealt with it — and, worse, `maybeReplyAsBot` has no
- * way to know either, because a handset reply produces no HTTP request to Hader at all.
+ * way to know either, because a handset reply produces no HTTP request to the platform at all.
  *
  * So this is not only an inbox feature. It is the ONLY source of the fact that a human
  * already answered, which is why `handsetRepliedAt` is written here and gated in the bot
@@ -26,7 +26,7 @@ import { upsertWaThread } from './wa-thread.js';
  *  - No `lastInboundAt` write. An echo is not the customer speaking.
  *  - No thread reopen. Deliberately unlike the inbound path, which sets `status: 'open'`.
  *    The owner answering from their phone is not a reason to resurface a thread an operator
- *    already resolved in Hader.
+ *    already resolved in the platform.
  *
  * ONE BEHAVIOUR CHANGE WORTH KNOWING. This does bump `lastMessageAt` and `outboundCount`,
  * because both are simply true and the inbox orders on the former. That makes the thread
@@ -159,7 +159,7 @@ export async function consumeMessageEchoes(args: {
             handsetRepliedAt,
             // Deliberately no `status: 'open'`, unlike the inbound path. The owner
             // answering from their phone is not a reason to resurface a thread an
-            // operator already resolved in Hader.
+            // operator already resolved in the platform.
             ...(newer ? { lastMessageAt: sentAt, lastMessagePreview: body.slice(0, 200) } : {}),
           },
         });
@@ -178,7 +178,7 @@ export async function consumeMessageEchoes(args: {
             // already maps every non-'bot' outbound row to the operator bubble
             // (inbox.routes.ts ~:854), so these render correctly with no UI work, and the
             // dashboard's bot-handled count correctly does not claim them. `via: 'handset'`
-            // is what distinguishes them from a Hader-portal reply for analytics.
+            // is what distinguishes them from a the platform-portal reply for analytics.
             rawPayload: { sentBy: 'operator', via: 'handset' } as never,
           },
         });

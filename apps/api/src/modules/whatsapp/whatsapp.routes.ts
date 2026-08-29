@@ -702,7 +702,7 @@ function newDefaults(orgId: string) {
  * access token, App ID, and App Secret MUST all belong to the SAME Meta app —
  * otherwise inbound silently fails the signature check and every customer
  * message is dropped (the 2026-06-15 Sandwich Wnos outage: token from
- * "Aligned Campaigns", secret from a different app). We catch the mismatch the
+ * "Platform Campaigns", secret from a different app). We catch the mismatch the
  * moment it's entered instead of letting it go dark.
  *
  * Best-effort: only validates when a token + App ID are present, and never
@@ -866,7 +866,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
           },
         });
 
-        // ALIGNED-HQ-only credential trail (encrypted at rest, hidden from the tenant).
+        // the platform-HQ-only credential trail (encrypted at rest, hidden from the tenant).
         await recordCredentialAudit({
           organizationId: orgId,
           actorUserId: req.auth!.userId,
@@ -2063,7 +2063,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       }
       // Phase 3 cap check — block sends when the monthly message cap is hit.
       const { capCheck } = await import('../../lib/billing.js');
-      await app.tenant(req, (tx) => capCheck(tx as never, orgId, 'monthly_message', { actorIsAlignedAdmin: req.auth!.isSuperAdmin }));
+      await app.tenant(req, (tx) => capCheck(tx as never, orgId, 'monthly_message', { actorIsSuperAdmin: req.auth!.isSuperAdmin }));
 
       const bucket = await consumeSendToken(channel.phoneNumberId ?? orgId);
       if (!bucket.ok) {
@@ -2334,7 +2334,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       // Rate limit + cap.
       const { capCheck, bumpUsage } = await import('../../lib/billing.js');
       const { prisma } = await import('../../lib/db.js');
-      await app.tenant(req, (tx) => capCheck(tx as never, orgId, 'monthly_message', { actorIsAlignedAdmin: req.auth!.isSuperAdmin }));
+      await app.tenant(req, (tx) => capCheck(tx as never, orgId, 'monthly_message', { actorIsSuperAdmin: req.auth!.isSuperAdmin }));
       const bucket = await consumeSendToken(channel.phoneNumberId ?? orgId);
       if (!bucket.ok) {
         throw badRequest(
@@ -2891,7 +2891,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
             fieldsTouched: Object.keys(b).filter((k) => b[k as keyof typeof b] !== undefined),
           },
         });
-        // ALIGNED-HQ-only credential trail (encrypted; hidden from the tenant).
+        // the platform-HQ-only credential trail (encrypted; hidden from the tenant).
         await recordCredentialAudit({
           organizationId: orgId,
           actorUserId: req.auth!.userId,
@@ -3206,7 +3206,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       //
       // `channel` above is resolved WITHIN the URL's org, falling back to that
       // org's primary. It must stay that way: Meta signs with the app secret of
-      // the app subscribed to the WABA, and Hader's channels span four Meta
+      // the app subscribed to the WABA, and the platform's channels span four Meta
       // apps, so swapping it here would break signature verification and Meta
       // would retry for seven days.
       //
@@ -4203,7 +4203,7 @@ async function maybeReplyAsBot(args: {
       }
       // Don't reply if the business already answered THIS message from their own
       // handset (Coexistence). `assignedToUserId` above cannot catch this: a
-      // handset reply produces no HTTP request to Hader, so nothing assigns the
+      // handset reply produces no HTTP request to the platform, so nothing assigns the
       // thread, and without this gate the customer gets a second, different
       // answer from the same number.
       //
@@ -4238,7 +4238,7 @@ async function maybeReplyAsBot(args: {
         );
         return null;
       }
-      // ALIGNED-admin per-tenant access control: when 'ai' is disabled this
+      // super-admin per-tenant access control: when 'ai' is disabled this
       // tenant is a manual social-media handler — store the inbound (visible in
       // the inbox) but never auto-reply.
       const orgFeatures = await tx.organization.findUnique({

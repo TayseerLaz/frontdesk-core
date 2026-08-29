@@ -55,14 +55,14 @@ beforeEach(async () => {
      RESTART IDENTITY CASCADE`,
   );
 
-  // Sprint 4 — Redis-backed rate limits use the `aligned-rl:` namespace and
+  // Sprint 4 — Redis-backed rate limits use the `platform-rl:` namespace and
   // are KEY/EXPIRE-based, so state survives Postgres truncation. Wipe it
   // here so tests that hit per-route rate-limited endpoints (eg the
   // `5/hour` cap on `/account/export`) don't pollute each other.
   try {
     const { getRedis } = await import('../src/lib/redis.js');
     const redis = getRedis();
-    const keys = await redis.keys('aligned-rl:*');
+    const keys = await redis.keys('platform-rl:*');
     if (keys.length > 0) await redis.del(...keys);
   } catch {
     // Redis not reachable in this test profile — harmless.

@@ -19,12 +19,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: hader-wa-ingest
-  namespace: hader
+  name: platform-wa-ingest
+  namespace: platform
 spec:
   clusterIP: None
   selector:
-    app: hader-wa-ingest
+    app: platform-wa-ingest
   ports:
     - name: http
       port: 4200
@@ -33,33 +33,33 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: hader-wa-ingest
-  namespace: hader
+  name: platform-wa-ingest
+  namespace: platform
 spec:
-  serviceName: hader-wa-ingest
+  serviceName: platform-wa-ingest
   # Hard 1. Two pods sharing one auth volume corrupt the Baileys session state
   # and race the device slot; WA_INGEST_MAX_SESSIONS is a per-process cap.
   replicas: 1
   selector:
     matchLabels:
-      app: hader-wa-ingest
+      app: platform-wa-ingest
   template:
     metadata:
       labels:
-        app: hader-wa-ingest
+        app: platform-wa-ingest
     spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: wa-ingest
           # Built from apps/wa-ingest/Dockerfile — its own file, already tuned
           # for libsignal/glibc. Do not build it from infra/k8s/Dockerfile.
-          image: ghcr.io/tayseerlaz/hader-wa-ingest:latest
+          image: ghcr.io/tayseerlaz/platform-wa-ingest:latest
           ports:
             - name: http
               containerPort: 4200
           env:
-            - name: HADER_API_URL
-              value: "http://hader-api:4000"
+            - name: PLATFORM_API_URL
+              value: "http://platform-api:4000"
             - name: WA_INGEST_DATA_DIR
               value: /data
             # Capacity is memory-bound: history sync on link is the peak, and
@@ -73,7 +73,7 @@ spec:
               value: "false"
           envFrom:
             - secretRef:
-                name: hader-secrets
+                name: platform-secrets
           livenessProbe:
             httpGet: { path: /health, port: 4200 }
             initialDelaySeconds: 30
@@ -99,18 +99,18 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: hader-wa-ingest-lockdown
-  namespace: hader
+  name: platform-wa-ingest-lockdown
+  namespace: platform
 spec:
   podSelector:
     matchLabels:
-      app: hader-wa-ingest
+      app: platform-wa-ingest
   policyTypes: ["Ingress"]
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              app: hader-api
+              app: platform-api
       ports:
         - protocol: TCP
           port: 4200

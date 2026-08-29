@@ -1,3 +1,4 @@
+import { brand } from '@/lib/brand';
 import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import { headers } from 'next/headers';
@@ -30,24 +31,26 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Hader AI',
-    template: '%s · Hader AI',
+    default: brand.name,
+    template: `%s · ${brand.name}`,
   },
-  description: 'The AI ops layer for your business. WhatsApp catalogs, conversations, and intelligence in one place.',
+  description:
+    brand.tagline ||
+    'Catalogs, conversations and customer intelligence for your business, in one place.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
-  applicationName: 'Hader AI',
+  applicationName: brand.name,
   // The manifest <link> is added manually in <head> below with the explicit
   // /app basePath prefix (Next's metadata.manifest path handling vs. basePath
   // is ambiguous, so we keep it explicit).
   appleWebApp: {
     capable: true,
-    title: 'Hader',
+    title: brand.name,
     statusBarStyle: 'black-translucent',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#360516',
+  themeColor: brand.accentHex,
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -59,7 +62,7 @@ export const viewport: Viewport = {
 const themeBootstrap = `
 (function () {
   try {
-    var stored = localStorage.getItem('aligned:theme');
+    var stored = localStorage.getItem('platform:theme');
     var system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     var target = stored && stored !== 'system' ? stored : system;
     var root = document.documentElement;

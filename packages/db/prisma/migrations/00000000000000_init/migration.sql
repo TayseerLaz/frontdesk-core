@@ -49,7 +49,7 @@ CREATE TYPE "UserStatus" AS ENUM ('pending', 'active', 'disabled');
 CREATE TYPE "InvitationStatus" AS ENUM ('pending', 'accepted', 'revoked', 'expired');
 
 -- CreateEnum
-CREATE TYPE "AuditAction" AS ENUM ('user_created', 'user_updated', 'user_deactivated', 'user_reactivated', 'user_removed', 'user_role_changed', 'org_created', 'org_suspended', 'org_deleted', 'org_plan_changed', 'org_features_changed', 'org_data_exported', 'invitation_sent', 'invitation_accepted', 'invitation_revoked', 'api_key_created', 'api_key_revoked', 'password_changed', 'password_reset_requested', 'password_reset_by_admin', 'email_verified', 'login_succeeded', 'login_failed', 'logout', 'refresh_token_reuse_detected', 'refresh_token_grace_reissue', 'aligned_admin_accessed', 'aligned_admin_exited', 'integration_credentials_set', 'contact_unsubscribed', 'product_created', 'product_updated', 'product_deleted', 'service_created', 'service_updated', 'service_deleted', 'category_created', 'category_updated', 'category_deleted', 'business_info_updated', 'faq_created', 'faq_updated', 'faq_deleted', 'policy_created', 'policy_updated', 'policy_deleted', 'asset_uploaded', 'asset_deleted', 'import_started', 'import_completed', 'import_failed', 'api_key_used_first_time', 'webhook_endpoint_created', 'webhook_endpoint_deleted', 'webhook_delivered', 'webhook_failed', 'connector_created', 'connector_updated', 'connector_deleted', 'connector_sync_started', 'connector_sync_succeeded', 'connector_sync_failed', 'revision_restored', 'notification_marked_read', 'org_pilot_onboarded', 'contact_created', 'contact_updated', 'contact_deleted', 'segment_created', 'segment_updated', 'segment_deleted', 'broadcast_created', 'broadcast_updated', 'broadcast_sent', 'broadcast_paused', 'broadcast_resumed', 'broadcast_cancelled', 'broadcast_completed', 'booking_created', 'booking_updated', 'booking_deleted', 'cart_created', 'cart_updated', 'cart_deleted', 'ai_plan_changed', 'bot_prompt_updated', 'phone_integration_created', 'phone_integration_updated', 'phone_integration_deleted', 'wallet_topped_up', 'wallet_adjusted', 'wallet_price_changed', 'wallet_metering_toggled', 'wallet_thresholds_updated', 'sales_scan_granted', 'sales_scan_revoked', 'sales_scan_data_deleted', 'contact_sync_started', 'contact_sync_completed', 'contact_sync_staged', 'contact_sync_applied', 'contact_sync_reverted');
+CREATE TYPE "AuditAction" AS ENUM ('user_created', 'user_updated', 'user_deactivated', 'user_reactivated', 'user_removed', 'user_role_changed', 'org_created', 'org_suspended', 'org_deleted', 'org_plan_changed', 'org_features_changed', 'org_data_exported', 'invitation_sent', 'invitation_accepted', 'invitation_revoked', 'api_key_created', 'api_key_revoked', 'password_changed', 'password_reset_requested', 'password_reset_by_admin', 'email_verified', 'login_succeeded', 'login_failed', 'logout', 'refresh_token_reuse_detected', 'refresh_token_grace_reissue', 'hq_admin_accessed', 'hq_admin_exited', 'integration_credentials_set', 'contact_unsubscribed', 'product_created', 'product_updated', 'product_deleted', 'service_created', 'service_updated', 'service_deleted', 'category_created', 'category_updated', 'category_deleted', 'business_info_updated', 'faq_created', 'faq_updated', 'faq_deleted', 'policy_created', 'policy_updated', 'policy_deleted', 'asset_uploaded', 'asset_deleted', 'import_started', 'import_completed', 'import_failed', 'api_key_used_first_time', 'webhook_endpoint_created', 'webhook_endpoint_deleted', 'webhook_delivered', 'webhook_failed', 'connector_created', 'connector_updated', 'connector_deleted', 'connector_sync_started', 'connector_sync_succeeded', 'connector_sync_failed', 'revision_restored', 'notification_marked_read', 'org_pilot_onboarded', 'contact_created', 'contact_updated', 'contact_deleted', 'segment_created', 'segment_updated', 'segment_deleted', 'broadcast_created', 'broadcast_updated', 'broadcast_sent', 'broadcast_paused', 'broadcast_resumed', 'broadcast_cancelled', 'broadcast_completed', 'booking_created', 'booking_updated', 'booking_deleted', 'cart_created', 'cart_updated', 'cart_deleted', 'ai_plan_changed', 'bot_prompt_updated', 'phone_integration_created', 'phone_integration_updated', 'phone_integration_deleted', 'wallet_topped_up', 'wallet_adjusted', 'wallet_price_changed', 'wallet_metering_toggled', 'wallet_thresholds_updated', 'sales_scan_granted', 'sales_scan_revoked', 'sales_scan_data_deleted', 'contact_sync_started', 'contact_sync_completed', 'contact_sync_staged', 'contact_sync_applied', 'contact_sync_reverted');
 
 -- CreateEnum
 CREATE TYPE "RevisionEntityType" AS ENUM ('product', 'service', 'business_info', 'faq', 'policy');
@@ -3001,7 +3001,7 @@ ALTER TABLE "stock_watches"
 
 -- ---------- 4. row-level security ------------------------------------------
 -- ============================================================================
--- Row-Level Security policies for ALIGNED Business Platform
+-- Row-Level Security policies for the platform
 -- Applied automatically after every `prisma migrate` via `pnpm rls:apply`.
 --
 -- Strategy:
@@ -3009,7 +3009,7 @@ ALTER TABLE "stock_watches"
 --     a transaction with `SET LOCAL app.current_org_id = '<uuid>'`.
 --   - For background workers acting on behalf of a tenant, the worker sets the
 --     same setting before performing tenant-scoped queries.
---   - For ALIGNED super-admins (cross-tenant ops), a separate flag
+--   - For super-admins (cross-tenant ops), a separate flag
 --     `SET LOCAL app.bypass_rls = 'on'` skips tenant filtering. This flag is
 --     ONLY ever set by code paths gated by `requireSuperAdmin` middleware.
 --
@@ -3298,7 +3298,7 @@ SELECT _apply_tenant_rls('contact_sync_sessions');
 -- address book) while staged, so the policy matters as much as the sessions table's.
 SELECT _apply_tenant_rls('contact_sync_staged_items');
 
--- Hader mobile app push-device registrations — added 2026-08-03.
+-- the platform mobile app push-device registrations — added 2026-08-03.
 SELECT _apply_tenant_rls('device_tokens');
 
 -- Landing pad for Meta webhook payloads no handler consumes yet (Coexistence

@@ -8,7 +8,7 @@
 //
 // Counter: Redis `aimsgs:{orgId}:{YYYY-MM}` (UTC month, ~35-day TTL). Threshold
 // alerts at 80% + 100% fire once per month each (Redis NX flags) to BOTH the
-// tenant (org-wide) and every ALIGNED admin.
+// tenant (org-wide) and every super-admin.
 
 import { isOrgUnlimited } from './billing.js';
 import { prisma } from './db.js';
@@ -124,11 +124,11 @@ async function maybeNotifyAiThreshold(orgId: string, used: number): Promise<void
       kind: 'quota_warning',
       severity: 'error',
       title: 'AI replies paused — monthly allowance used up',
-      body: `Your bot has used all ${cap.toLocaleString()} AI messages for this month, so automatic replies are paused. Reply manually from the Inbox; the allowance resets on the 1st. Contact ALIGNED to raise it.`,
+      body: `Your bot has used all ${cap.toLocaleString()} AI messages for this month, so automatic replies are paused. Reply manually from the Inbox; the allowance resets on the 1st. Contact support to raise it.`,
       link: '/dashboard',
     });
-    // ALIGNED admins.
-    await notifyAlignedAdmins({
+    // super-admins.
+    await notifySuperAdmins({
       severity: 'error',
       title: `${tenantName}: monthly AI messages exhausted`,
       body: `${tenantName} has used all ${cap.toLocaleString()} of this month's AI messages — its bot is now paused until the 1st (or you raise the cap).`,
@@ -142,7 +142,7 @@ async function maybeNotifyAiThreshold(orgId: string, used: number): Promise<void
       body: `Your bot has used 80% of this month's ${cap.toLocaleString()} AI messages (${remaining.toLocaleString()} left). At 100%, automatic replies pause until the 1st.`,
       link: '/dashboard',
     });
-    await notifyAlignedAdmins({
+    await notifySuperAdmins({
       severity: 'warning',
       title: `${tenantName}: AI messages at 80%`,
       body: `${tenantName} has used 80% of this month's ${cap.toLocaleString()} AI messages (${remaining.toLocaleString()} left). Raise the cap from the org page if needed.`,
@@ -150,8 +150,8 @@ async function maybeNotifyAiThreshold(orgId: string, used: number): Promise<void
   }
 }
 
-/** Notify every ALIGNED admin (targeted, in their primary org). */
-async function notifyAlignedAdmins(args: {
+/** Notify every super-admin (targeted, in their primary org). */
+async function notifySuperAdmins(args: {
   severity: 'warning' | 'error';
   title: string;
   body: string;

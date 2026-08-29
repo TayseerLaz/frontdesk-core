@@ -46,7 +46,7 @@ export async function seedOrgAndLogin(
   const body = res.json() as { accessToken: string };
   const setCookie = res.headers['set-cookie'];
   const refreshCookie = Array.isArray(setCookie)
-    ? setCookie.find((c) => c.startsWith('aligned_refresh=')) ?? ''
+    ? setCookie.find((c) => c.startsWith('platform_refresh=')) ?? ''
     : (setCookie ?? '');
   return { accessToken: body.accessToken, refreshCookie, orgId: org.id, userId: user.id };
 }

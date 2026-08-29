@@ -422,7 +422,7 @@ export default function OrgDetailPage() {
     onError: (e) => toast.error(e instanceof ApiError ? e.payload.message : 'Update failed'),
   });
 
-  // Data export (ALIGNED-admin can export any org, even if the tenant's own
+  // Data export (super-admin can export any org, even if the tenant's own
   // self-service export feature is turned off). Poll while one is in flight.
   const exportsQ = useQuery({
     queryKey: ['admin-org-exports', id],
@@ -453,7 +453,7 @@ export default function OrgDetailPage() {
   const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
   const [exportLayout, setExportLayout] = useState<'combined' | 'separate'>('combined');
 
-  // ---- WhatsApp wallet & metered billing (ALIGNED-admin only) ----
+  // ---- WhatsApp wallet & metered billing (super-admin only) ----
   const walletQ = useQuery({
     queryKey: ['admin-org-wallet', id],
     queryFn: () => api.get<{ data: WalletDto }>(`/api/v1/hq/orgs/${id}/wallet`),

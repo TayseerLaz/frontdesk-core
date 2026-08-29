@@ -8,7 +8,7 @@ name: Deploy
 # run. Until that account issue is resolved, production is deployed MANUALLY:
 #
 #     ssh <server>            # host/port live in repo GitHub secrets
-#     cd /opt/aligned/app && git pull
+#     cd /opt/platform/app && git pull
 #     bash infra/scripts/redeploy.sh
 #
 # redeploy.sh rebuilds the workspace packages, runs `prisma migrate deploy`
@@ -30,14 +30,14 @@ on:
 # Required GitHub Secrets:
 #   DEPLOY_HOST            88.80.145.171
 #   DEPLOY_PORT            269
-#   DEPLOY_USER            aligned
+#   DEPLOY_USER            platform
 #   DEPLOY_SSH_KEY         server's ~/.ssh/github_deploy (private half)
-#   API_DOMAIN             api.aligned-tech.com  (for the smoke test)
-#   INITIAL_ADMIN_EMAIL    admin@aligned-tech.com
+#   API_DOMAIN             api.example.com  (for the smoke test)
+#   INITIAL_ADMIN_EMAIL    admin@example.com
 #   INITIAL_ADMIN_PASSWORD <strong password>
 #
 # The server must already have Node 20, pnpm, Postgres 16, Redis, Caddy
-# installed, the repo cloned at /opt/aligned/app, and .env.production in place.
+# installed, the repo cloned at /opt/platform/app, and .env.production in place.
 
 jobs:
   deploy:
@@ -104,7 +104,7 @@ jobs:
           envs: NEW_OPENAI_API_KEY,NEW_OPENAI_MODEL,NEW_EMAIL_SMTP_USER,NEW_EMAIL_SMTP_PASS,NEW_EMAIL_SMTP_HOST,NEW_EMAIL_SMTP_PORT,NEW_EMAIL_SMTP_SECURE,NEW_EMAIL_FROM,NEW_WASABI_ACCESS_KEY_ID,NEW_WASABI_SECRET_ACCESS_KEY,NEW_WASABI_BUCKET,NEW_WASABI_REGION,NEW_WASABI_ENDPOINT,NEW_WASABI_PUBLIC_URL_BASE,NEW_GOOGLE_TTS_API_KEY,NEW_GOOGLE_TTS_DEFAULT_VOICE_EN,NEW_GOOGLE_TTS_DEFAULT_VOICE_AR,NEW_ELEVENLABS_API_KEY,NEW_ELEVENLABS_VOICE_ID,NEW_ELEVENLABS_MODEL,NEW_GROQ_API_KEY,NEW_GROQ_MODEL,NEW_WEB_DOMAIN,NEW_API_DOMAIN,NEW_ACME_EMAIL,NEW_PARTNER_PROVISION_SECRET,INITIAL_ADMIN_EMAIL,INITIAL_ADMIN_PASSWORD
           script: |
             set -euo pipefail
-            cd /opt/aligned/app
+            cd /opt/platform/app
 
             echo "=== sync env vars from GH secrets/vars into .env.production (idempotent) ==="
             # Updates existing lines in place; appends if missing. Empty
@@ -118,7 +118,7 @@ jobs:
                 'EMAIL_SMTP_HOST': 'email-smtp.us-east-1.amazonaws.com',
                 'EMAIL_SMTP_PORT': '587',
                 'EMAIL_SMTP_SECURE': 'false',
-                'EMAIL_FROM': 'ALIGNED <noreply@alignbot.aligned-tech.com>',
+                'EMAIL_FROM': 'Platform <noreply@example.com>',
                 'WASABI_BUCKET': 'alignbotbucket',
                 'WASABI_REGION': 'eu-central-1',
                 'WASABI_ENDPOINT': 'https://s3.eu-central-1.wasabisys.com',
@@ -127,9 +127,9 @@ jobs:
                 'GOOGLE_TTS_DEFAULT_VOICE_AR': 'ar-XA-Wavenet-B',
                 'ELEVENLABS_MODEL': 'eleven_flash_v2_5',
                 'GROQ_MODEL': 'llama-3.3-70b-versatile',
-                'WEB_DOMAIN': 'hader.ai',
-                'API_DOMAIN': 'api.hader.ai',
-                'ACME_EMAIL': 'ops@hader.ai',
+                'WEB_DOMAIN': 'example.com',
+                'API_DOMAIN': 'api.example.com',
+                'ACME_EMAIL': 'ops@example.com',
             }
             web_domain = os.environ.get('NEW_WEB_DOMAIN', '') or DEFAULTS['WEB_DOMAIN']
             api_domain = os.environ.get('NEW_API_DOMAIN', '') or DEFAULTS['API_DOMAIN']
@@ -171,7 +171,7 @@ jobs:
                 'WEB_DOMAIN':       web_domain,
                 'API_DOMAIN':       api_domain,
                 'ACME_EMAIL':       os.environ.get('NEW_ACME_EMAIL', '') or DEFAULTS['ACME_EMAIL'],
-                # Derived from web/api domain — keep these aligned so we
+                # Derived from web/api domain — keep these platform so we
                 # never end up with a CORS or cookie scope mismatch.
                 'WEB_PUBLIC_URL':   f'https://{web_domain}',
                 'API_PUBLIC_URL':   f'https://{api_domain}',
@@ -353,10 +353,10 @@ jobs:
                 # here whenever you switch domains again so older live
                 # files can still be auto-upgraded.
                 sudo sed -i \
-                  -e "s/alignbot\.aligned-tech\.com/$WEB_DOMAIN/g" \
-                  -e "s/api\.aligned-tech\.com/$API_DOMAIN/g" \
-                  -e "s/app\.aligned\.example/$WEB_DOMAIN/g" \
-                  -e "s/api\.aligned\.example/$API_DOMAIN/g" \
+                  -e "s/alignbot\.example\.com/$WEB_DOMAIN/g" \
+                  -e "s/api\.example\.com/$API_DOMAIN/g" \
+                  -e "s/app\.platform\.example/$WEB_DOMAIN/g" \
+                  -e "s/api\.platform\.example/$API_DOMAIN/g" \
                   /etc/caddy/Caddyfile
                 if sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
                   sudo systemctl reload caddy || sudo systemctl restart caddy
@@ -370,20 +370,20 @@ jobs:
             fi
 
             echo "=== restart services ==="
-            sudo systemctl restart aligned-api aligned-worker aligned-web
+            sudo systemctl restart platform-api platform-worker platform-web
             sleep 5
-            sudo systemctl is-active aligned-api aligned-worker aligned-web
+            sudo systemctl is-active platform-api platform-worker platform-web
 
-            echo "=== update /opt/aligned/secrets/super-admin.txt ==="
+            echo "=== update /opt/platform/secrets/super-admin.txt ==="
             umask 077
-            cat > /opt/aligned/secrets/super-admin.txt <<EOF
-            ALIGNED super-admin — last updated by deploy at $(date -u +%FT%TZ)
+            cat > /opt/platform/secrets/super-admin.txt <<EOF
+            super-admin — last updated by deploy at $(date -u +%FT%TZ)
             Portal: https://${{ secrets.WEB_DOMAIN }}
             Email:  ${{ secrets.INITIAL_ADMIN_EMAIL }}
             Pass:   ${{ secrets.INITIAL_ADMIN_PASSWORD }}
             Change the password from /settings/profile once signed in.
             EOF
-            chmod 600 /opt/aligned/secrets/super-admin.txt
+            chmod 600 /opt/platform/secrets/super-admin.txt
 
       - name: Smoke test
         run: |

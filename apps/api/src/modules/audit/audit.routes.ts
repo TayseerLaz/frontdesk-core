@@ -66,11 +66,11 @@ export default async function auditRoutes(app: FastifyInstance) {
         const rows = await tx.auditLog.findMany({
           where: {
             // Hidden from the tenant's own activity: integration credentials
-            // (ALIGNED-HQ-only), and ALIGNED-HQ access events (an admin
+            // (the platform-HQ-only), and the platform-HQ access events (an admin
             // controlling the workspace) — the tenant shouldn't see those.
             NOT: {
               action: {
-                in: ['integration_credentials_set', 'aligned_admin_accessed', 'aligned_admin_exited'],
+                in: ['integration_credentials_set', 'hq_admin_accessed', 'hq_admin_exited'],
               } as never,
             },
             ...(q.entityType ? { entityType: q.entityType } : {}),
@@ -103,16 +103,16 @@ export default async function auditRoutes(app: FastifyInstance) {
               a.actor && (a.actor.firstName || a.actor.lastName)
                 ? `${a.actor.firstName ?? ''} ${a.actor.lastName ?? ''}`.trim()
                 : null;
-            // ALIGNED-HQ access entries are transparent to the tenant, but show
+            // the platform-HQ access entries are transparent to the tenant, but show
             // only the HQ username — never expose the HQ employee's email.
             const isHqAccess =
-              a.action === 'aligned_admin_accessed' || a.action === 'aligned_admin_exited';
+              a.action === 'hq_admin_accessed' || a.action === 'hq_admin_exited';
             return {
               id: a.id,
               action: a.action,
               entityType: a.entityType,
               entityId: a.entityId,
-              actorName: isHqAccess ? (actorName ?? 'ALIGNED HQ') : actorName,
+              actorName: isHqAccess ? (actorName ?? 'HQ') : actorName,
               actorEmail: isHqAccess ? null : (a.actor?.email ?? null),
               metadata: (a.metadata ?? null) as Record<string, unknown> | null,
               createdAt: a.createdAt.toISOString(),
@@ -125,14 +125,14 @@ export default async function auditRoutes(app: FastifyInstance) {
   );
 
   // ---------- GET /hq/audit-log -------------------------------
-  // Cross-tenant: ALIGNED staff only. Same filters + an extra org_id / name
+  // Cross-tenant: the platform staff only. Same filters + an extra org_id / name
   // column for triage across many tenants.
   r.get(
     '/hq/audit-log',
     {
       schema: {
         tags: ['admin'],
-        summary: 'Cross-tenant audit log (ALIGNED super-admins only).',
+        summary: 'Cross-tenant audit log (super-admins only).',
         querystring: listQuerySchema.extend({
           organizationId: uuidSchema.optional(),
         }),

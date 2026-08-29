@@ -4,10 +4,10 @@
 # (wa-ingest keeps its own Dockerfile at apps/wa-ingest/Dockerfile — it is
 # already current and tuned for Baileys/libsignal. Do not duplicate it here.)
 #
-#   docker build -f infra/k8s/Dockerfile --target api    -t hader/api:$SHA .
-#   docker build -f infra/k8s/Dockerfile --target worker -t hader/worker:$SHA .
-#   docker build -f infra/k8s/Dockerfile --target web    -t hader/web:$SHA \
-#          --build-arg NEXT_PUBLIC_API_URL=https://api.hader.ai .
+#   docker build -f infra/k8s/Dockerfile --target api    -t platform/api:$SHA .
+#   docker build -f infra/k8s/Dockerfile --target worker -t platform/worker:$SHA .
+#   docker build -f infra/k8s/Dockerfile --target web    -t platform/web:$SHA \
+#          --build-arg NEXT_PUBLIC_API_URL=https://api.example.com .
 #
 # Base is bookworm-slim (glibc), NOT alpine: sharp and libsignal ship glibc
 # prebuilds, and the musl path has burned this project before.
@@ -95,7 +95,7 @@ FROM packages AS web-build
 # wrong produces a portal that silently calls http://localhost:4000 from the
 # browser. It must be a build arg, and the image is therefore environment-
 # specific — tag it accordingly.
-ARG NEXT_PUBLIC_API_URL=https://api.hader.ai
+ARG NEXT_PUBLIC_API_URL=https://api.example.com
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NODE_ENV=production
 # next.config.ts does NOT set output:'standalone', so .next alone is not

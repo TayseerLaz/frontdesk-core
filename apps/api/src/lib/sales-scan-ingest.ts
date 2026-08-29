@@ -19,7 +19,7 @@ export function ingestConfigured(): boolean {
 }
 
 /**
- * Verify an ingest -> Hader call. MUST be given the RAW body bytes: hashing a
+ * Verify an ingest -> the platform call. MUST be given the RAW body bytes: hashing a
  * re-serialized object is the classic way a signature check silently stops matching.
  */
 export function verifyIngestSignature(args: {

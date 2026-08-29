@@ -91,7 +91,7 @@ export interface WidgetDef {
    */
   feature?: string;
   /**
-   * Internal/ops widget shown ONLY to ALIGNED admins — hidden from regular
+   * Internal/ops widget shown ONLY to super-admins — hidden from regular
    * tenants and their Add-widget dialog (e.g. connector-sync + webhook health
    * that customers shouldn't see).
    */
@@ -208,7 +208,7 @@ export const WIDGETS: WidgetDef[] = [
     icon: Plug,
     slot: 'half',
     defaultOn: true,
-    // Internal/ops view — hidden from tenants, shown only to ALIGNED admins.
+    // Internal/ops view — hidden from tenants, shown only to super-admins.
     adminOnly: true,
     Component: ConnectionsSyncWidget,
   },

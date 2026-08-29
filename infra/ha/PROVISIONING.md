@@ -52,7 +52,7 @@ Record the private IPs, then follow [README.md](README.md) §3. Concretely:
 ```
 # on EVERY new VM (base):
 apt update && apt install -y postgresql-16 postgresql-client-16   # db nodes
-# app node: install Node 20, pnpm 9.12, clone repo to /opt/aligned/app, copy .env.production
+# app node: install Node 20, pnpm 9.12, clone repo to /opt/platform/app, copy .env.production
 
 # DB nodes (vm-db-1, vm-db-2):
 1. install WAL-G + /etc/wal-g.d/env            → postgres/walg.README.md

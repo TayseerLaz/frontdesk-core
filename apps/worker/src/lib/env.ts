@@ -11,7 +11,7 @@ const envSchema = z.object({
   // Wasabi (CSV uploads live here)
   WASABI_ENDPOINT: z.string().url().default('https://s3.eu-central-1.wasabisys.com'),
   WASABI_REGION: z.string().default('eu-central-1'),
-  WASABI_BUCKET: z.string().default('aligned-dev'),
+  WASABI_BUCKET: z.string().default('platform-dev'),
   WASABI_ACCESS_KEY_ID: z.string().optional(),
   WASABI_SECRET_ACCESS_KEY: z.string().optional(),
 
@@ -53,7 +53,7 @@ const envSchema = z.object({
   // SMTP — used by the data-export worker to email the recipient a signed
   // download link. Same env var shape as the API. Falls back to Mailpit/Mailhog
   // when EMAIL_SMTP_HOST is unset.
-  EMAIL_FROM: z.string().default('ALIGNED <noreply@aligned.local>'),
+  EMAIL_FROM: z.string().default('Platform <noreply@platform.local>'),
   EMAIL_DEV_SMTP_HOST: z.string().default('localhost'),
   EMAIL_DEV_SMTP_PORT: z.coerce.number().int().positive().default(1025),
   EMAIL_SMTP_HOST: z.string().optional(),

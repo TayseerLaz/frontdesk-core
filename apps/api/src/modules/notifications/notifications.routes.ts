@@ -112,7 +112,7 @@ export default async function notificationRoutes(app: FastifyInstance) {
   );
 
   // ---------- POST /notifications/devices ---------------------------------
-  // Hader mobile app: register (or refresh) this device's FCM token for the
+  // the platform mobile app: register (or refresh) this device's FCM token for the
   // current user + org. Called on every login/app-start, so a user who
   // switches org gets the token re-pointed. Upsert on (userId, fcmToken).
   r.post(

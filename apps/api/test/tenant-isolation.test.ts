@@ -400,7 +400,7 @@ describe('tenant isolation', () => {
     });
     expect(revertA.statusCode).toBe(404);
   });
-  // 2026-08-20 — webhook misattribution. Hader's channels span four Meta apps
+  // 2026-08-20 — webhook misattribution. the platform's channels span four Meta apps
   // and the app secret is shared across every number on an app, so the HMAC
   // does not distinguish tenants. The app-level Callback URL is one org's URL,
   // so before the fix a number owned by org A delivering there resolved to that

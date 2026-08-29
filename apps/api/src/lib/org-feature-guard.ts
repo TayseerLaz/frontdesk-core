@@ -1,9 +1,9 @@
 // Reusable per-tenant feature guard.
 //
-// Hader has no central feature-assert helper — each surface hand-rolls
+// the platform has no central feature-assert helper — each surface hand-rolls
 // `org.disabledFeatures.includes(key)` (e.g. shopify.routes.ts assertEnabled,
 // the inline 'ai'/'voice_transcription' checks in whatsapp.routes.ts). This
-// centralizes it so the Alinia listings surfaces (ingest route, listings API)
+// centralizes it so the a partner listings surfaces (ingest route, listings API)
 // — and future features — share one implementation and one error shape.
 import { ApiErrorCode } from '@platform/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';

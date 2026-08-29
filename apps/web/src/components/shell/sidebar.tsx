@@ -32,7 +32,7 @@ import { usePathname } from 'next/navigation';
 import { isHrefBlockedByPageAccess, isHrefDisabled } from '@platform/shared';
 
 import { useAiSupport } from '@/components/admin/ai-support';
-import { AlignedLogo } from '@/components/brand/logo';
+import { BrandLogo } from '@/components/brand/logo';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/lib/session';
@@ -44,16 +44,16 @@ interface NavItem {
   exact?: boolean;
   badgeKey?: BadgeKey;
   newTab?: boolean;
-  // Role-aware placement: `adminOnly` shows the item only to ALIGNED admins;
+  // Role-aware placement: `adminOnly` shows the item only to super-admins;
   // `hideForAdmin` hides it from admins (because it's relocated into the
-  // ALIGNED HQ group for them, but stays in Configure for regular tenants).
+  // HQ group for them, but stays in Configure for regular tenants).
   // `hideForAdminHome` hides it only while the admin is in their OWN HQ account
   // (it stays visible when the admin is controlling a tenant, so tenant-only
   // features like voice calls still show inside that tenant's portal).
   adminOnly?: boolean;
   hideForAdmin?: boolean;
   hideForAdminHome?: boolean;
-  // When an ALIGNED admin is in their own HQ account, route this item here
+  // When an super-admin is in their own HQ account, route this item here
   // instead of `href` (e.g. Activity log → the cross-tenant view).
   adminHomeHref?: string;
 }
@@ -111,12 +111,12 @@ const groups: NavGroup[] = [
       { href: '/bot', label: 'AI bot builder', icon: Bot },
       // Bulk import lives contextually on Products / Services / Business info now
       // (a "Bulk import" button per page). /imports route + ⌘K still work.
-      // Tenants (ALIGNED HQ) shows here for admins. Members + Settings show here
-      // for regular tenants but move into the ALIGNED HQ group for admins.
+      // Tenants (HQ) shows here for admins. Members + Settings show here
+      // for regular tenants but move into the HQ group for admins.
       { href: '/hq', label: 'Tenants', icon: ShieldCheck, adminOnly: true },
       { href: '/members', label: 'Members', icon: Users, hideForAdmin: true },
       { href: '/billing', label: 'Billing', icon: Wallet, hideForAdminHome: true },
-      // ALIGNED admins in HQ get the cross-tenant activity log (all tenants);
+      // super-admins in HQ get the cross-tenant activity log (all tenants);
       // regular tenants + admins controlling a tenant get the org-scoped one.
       { href: '/audit-log', label: 'Activity log', icon: Activity, adminHomeHref: '/hq/audit' },
       // Developer integrations (Connectors / Webhooks / API keys) live under
@@ -157,7 +157,7 @@ export function Sidebar({
 
   const { open: openAiSupport } = useAiSupport();
   const isAdmin = !!session?.user.isSuperAdmin;
-  // "Admin home" = an ALIGNED admin viewing their OWN HQ org (not controlling a
+  // "Admin home" = an super-admin viewing their OWN HQ org (not controlling a
   // tenant). Controlling = active org isn't one of the admin's own memberships.
   const adminOrgIds = new Set((session?.availableOrganizations ?? []).map((o) => o.id));
   const isControlling =
@@ -197,7 +197,7 @@ export function Sidebar({
         key={item.href}
         href={hrefFor(item)}
         onClick={onNavigate}
-        target={item.newTab ? 'aligned-inbox' : undefined}
+        target={item.newTab ? 'platform-inbox' : undefined}
         rel={item.newTab ? 'noopener noreferrer' : undefined}
         prefetch={item.newTab ? false : undefined}
         title={
@@ -242,17 +242,17 @@ export function Sidebar({
   };
 
   return (
-    <div className="flex h-full flex-col bg-[#360516] text-white dark:bg-surface dark:text-foreground">
+    <div className="flex h-full flex-col bg-[#11334d] text-white dark:bg-surface dark:text-foreground">
       <div
         className={cn(
           'flex h-14 items-center border-b border-white/10 dark:border-border',
           collapsed ? 'justify-center px-2' : 'px-4',
         )}
       >
-        {/* currentColor-masked logo → cream on the oxblood (light) panel; the
+        {/* currentColor-masked logo → cream on the brand-panel (light) panel; the
             brand token (white in dark) restores the original dark-mode logo.
             h-7 shrinks the wordmark from the 36px default. */}
-        <AlignedLogo iconOnly={collapsed} className="h-7 text-[#f7eef0] dark:text-brand-500" />
+        <BrandLogo iconOnly={collapsed} className="h-7 text-[#f7eef0] dark:text-brand-500" />
       </div>
       <nav className="flex-1 space-y-4 overflow-y-auto overscroll-none p-2.5">
         {visibleGroups.map((group) => (
@@ -270,7 +270,7 @@ export function Sidebar({
           <div className="space-y-0.5 border-t border-white/10 pt-4 dark:border-border">
             {!collapsed ? (
               <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#e9aab7] dark:text-brand-500">
-                ALIGNED HQ
+                HQ
               </p>
             ) : null}
             {/* AI support copilot button — hidden for now (panel + endpoint

@@ -22,7 +22,7 @@ function parseSetCookie(h: string[] | string | undefined): string[] {
 }
 
 function pickRefreshCookie(cookies: string[]): string | undefined {
-  const match = cookies.find((c) => /^aligned_refresh=/i.test(c));
+  const match = cookies.find((c) => /^platform_refresh=/i.test(c));
   if (!match) return undefined;
   return match.split(';')[0];
 }

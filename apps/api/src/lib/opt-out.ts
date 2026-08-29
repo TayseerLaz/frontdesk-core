@@ -9,7 +9,7 @@ export const UNSUBSCRIBE_TAG = 'unsubscribed';
 
 /**
  * Tag a contact who opted out + (only on a NEW opt-out) write an audit entry
- * visible to the tenant AND ALIGNED HQ. Idempotent: the tag is unique-
+ * visible to the tenant AND HQ. Idempotent: the tag is unique-
  * constrained (skipDuplicates), and the audit fires only when wasNewlyOptedOut
  * so repeated STOP messages don't spam the activity log. The tag write uses the
  * passed (tenant/bypass) tx; recordAudit runs in its own transaction.

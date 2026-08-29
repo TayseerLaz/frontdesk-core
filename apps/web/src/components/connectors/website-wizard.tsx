@@ -2,7 +2,7 @@
 
 // F10 — "Connect your website" product-feed wizard (roadmap 2026-08-26).
 // A guided, non-technical path onto the existing connector engine: fetch a
-// sample from the site's API, visually map its fields onto Hader's product
+// sample from the site's API, visually map its fields onto the platform's product
 // shape with a live preview, pick a schedule, save. The result is a normal
 // ApiConnector row with a v2 columnMapping — the Day-3 sync worker does the
 // rest (scheduled pulls, upserts, image attach, sync-run history).
@@ -205,9 +205,9 @@ export function WebsiteWizard({
           </DialogTitle>
           <DialogDescription>
             {step === 1
-              ? "Point Hader at your website's products API. We'll fetch a sample so you can map its fields — nothing is imported yet."
+              ? "Point us at your website's products API. We'll fetch a sample so you can map its fields — nothing is imported yet."
               : step === 2
-                ? 'Match your feed’s fields to Hader’s product fields. The preview below shows exactly how the first products will import.'
+                ? 'Match your feed’s fields to the catalog’s product fields. The preview below shows exactly how the first products will import.'
                 : 'Pick how often to sync. Products update automatically from then on.'}
           </DialogDescription>
         </DialogHeader>

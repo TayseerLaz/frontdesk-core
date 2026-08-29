@@ -23,7 +23,7 @@ let refreshInFlight: Promise<void> | null = null;
 // The token stays in memory only (never localStorage), so this adds no
 // XSS-persistence surface.
 const authChannel: BroadcastChannel | null =
-  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('aligned-auth') : null;
+  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('platform-auth') : null;
 
 function applyAccessToken(token: string, expiresAtMs: number) {
   accessToken = token;
@@ -59,7 +59,7 @@ async function withRefreshLock(fn: () => Promise<void>): Promise<void> {
       ? (navigator as Navigator & { locks?: LockManager }).locks
       : undefined;
   if (locks?.request) {
-    await locks.request('aligned-auth-refresh', async () => {
+    await locks.request('platform-auth-refresh', async () => {
       await fn();
     });
   } else {
@@ -78,7 +78,7 @@ export function getAccessToken() {
 // useQuery on the page would keep firing every refetchInterval forever,
 // each hitting 401 → silent refresh failure → 401 again, producing the
 // console-wall the operator saw on 2026-06-01.
-export const SESSION_EXPIRED_EVENT = 'aligned:session-expired';
+export const SESSION_EXPIRED_EVENT = 'platform:session-expired';
 
 function notifySessionExpired() {
   if (typeof window !== 'undefined') {

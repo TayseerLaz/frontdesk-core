@@ -1,10 +1,10 @@
-// Formal PDF report renderer for the data export — Hader-themed, editorial.
+// Formal PDF report renderer for the data export — the platform-themed, editorial.
 //
 // Rendered HTML → PDF via the same Chromium (Playwright) the crawler ships, so
 // we get full CSS control. Deliberately NOT wide tables (they overflow A4 and
 // cramp the text): each record is a titled block with wrapping label/value
 // pairs and long text flows as paragraphs, so everything fits and reads like a
-// prepared document. Hader brand: Oxblood + Sand + cream, Fraunces display +
+// prepared document. the platform brand: Oxblood + Sand + cream, Fraunces display +
 // Plus Jakarta Sans body + JetBrains Mono for IDs / prices.
 //
 // Two layouts:
@@ -12,7 +12,7 @@
 //   separate → one PDF per section (the worker zips them).
 import type { Browser } from 'playwright';
 
-// ---- Brand tokens (Hader AI brand book) -----------------------------------
+// ---- Brand tokens (the platform brand book) -----------------------------------
 const OXBLOOD = '#360516';
 const SAND = '#cfc0a9';
 const CREAM = '#faf9f5';
@@ -297,7 +297,7 @@ export function bundleToReportSections(b: any): ReportSection[] {
     .filter((s) => s.tables.length > 0);
 }
 
-// ---- Document shell + cover (Hader theme) ---------------------------------
+// ---- Document shell + cover (the platform theme) ---------------------------------
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
   * { box-sizing: border-box; }
@@ -363,7 +363,7 @@ function coverPage(orgName: string, title: string, generatedAtIso: string, secti
   });
   return `
     <div class="cover">
-      <div class="wordmark">Hader<span class="ai"> AI</span></div>
+      <div class="wordmark">the platform<span class="ai"> AI</span></div>
       <div class="cover-mid">
         <div class="kicker">Data Export Report</div>
         <h1>${esc(title)}</h1>
@@ -372,7 +372,7 @@ function coverPage(orgName: string, title: string, generatedAtIso: string, secti
           <div><span class="k">Organisation</span> ${esc(orgName)}</div>
           <div><span class="k">Date</span> ${esc(date)}</div>
           <div><span class="k">Sections</span> ${esc(sectionLabels.join(' · '))}</div>
-          <div><span class="k">Produced by</span> Hader · ALIGNED platform</div>
+          <div><span class="k">Produced by</span> the platform · the platform platform</div>
         </div>
       </div>
       <div class="conf">Confidential — contains business &amp; customer data. Handle per your data-protection obligations.</div>
@@ -412,7 +412,7 @@ export async function htmlToPdf(browser: Browser, html: string): Promise<Buffer>
     await page.evaluate('document.fonts ? document.fonts.ready : true').catch(() => undefined);
     const footer = `
       <div style="width:100%;font-size:7px;color:#8a7f84;padding:0 22mm;display:flex;justify-content:space-between;font-family:sans-serif;">
-        <span>Hader · ALIGNED — Confidential</span>
+        <span>the platform · the platform — Confidential</span>
         <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
       </div>`;
     const pdf = await page.pdf({

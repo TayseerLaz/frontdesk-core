@@ -150,7 +150,7 @@ function QueueRow({
   );
 }
 
-export default function AlignedAdminSystemPage() {
+export default function PlatformAdminSystemPage() {
   const { session } = useSession();
   const queryClient = useQueryClient();
 
@@ -204,7 +204,7 @@ export default function AlignedAdminSystemPage() {
         <PageHeader backHref="/hq" backLabel="Tenants" title="System health" />
         <Card>
           <CardContent className="p-6 text-sm text-foreground-muted">
-            ALIGNED admin role required.
+            Super-admin role required.
           </CardContent>
         </Card>
       </>

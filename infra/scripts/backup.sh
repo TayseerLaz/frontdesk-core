@@ -7,9 +7,9 @@
 # same as one that completes).
 #
 # Crontab on the prod host:
-#   5 3 * * * /srv/aligned/infra/scripts/backup.sh >> /var/log/aligned-backup.log 2>&1
+#   5 3 * * * /srv/platform/infra/scripts/backup.sh >> /var/log/platform-backup.log 2>&1
 #
-# Required env vars (load via /etc/aligned/backup.env):
+# Required env vars (load via /etc/platform/backup.env):
 #   POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST
 #   WASABI_BUCKET WASABI_ENDPOINT WASABI_ACCESS_KEY_ID WASABI_SECRET_ACCESS_KEY
 #   AGE_RECIPIENT            # e.g. "age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -18,9 +18,9 @@
 #   RETENTION_DAYS           # default 30
 set -euo pipefail
 
-if [[ -f /etc/aligned/backup.env ]]; then
+if [[ -f /etc/platform/backup.env ]]; then
   # shellcheck disable=SC1091
-  source /etc/aligned/backup.env
+  source /etc/platform/backup.env
 fi
 
 : "${POSTGRES_DB:?required}"
@@ -43,8 +43,8 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' INT TERM
 # (Note: the EXIT trap above already handles cleanup + failure ping.)
 
-DUMP="$TMP/aligned-$STAMP.dump"
-ENCRYPTED="$TMP/aligned-$STAMP.dump.age"
+DUMP="$TMP/platform-$STAMP.dump"
+ENCRYPTED="$TMP/platform-$STAMP.dump.age"
 
 log "dumping $POSTGRES_DB from $POSTGRES_HOST…"
 PGPASSWORD="$POSTGRES_PASSWORD" pg_dump \
@@ -65,11 +65,11 @@ log "dump OK ($DUMP_SIZE bytes)."
 log "encrypting with age → $AGE_RECIPIENT…"
 age --encrypt --recipient "$AGE_RECIPIENT" --output "$ENCRYPTED" "$DUMP"
 
-log "uploading to s3://$WASABI_BUCKET/backups/aligned/…"
+log "uploading to s3://$WASABI_BUCKET/backups/platform/…"
 AWS_ACCESS_KEY_ID="$WASABI_ACCESS_KEY_ID" \
 AWS_SECRET_ACCESS_KEY="$WASABI_SECRET_ACCESS_KEY" \
 aws --endpoint-url "$WASABI_ENDPOINT" s3 cp "$ENCRYPTED" \
-  "s3://$WASABI_BUCKET/backups/aligned/$(basename "$ENCRYPTED")"
+  "s3://$WASABI_BUCKET/backups/platform/$(basename "$ENCRYPTED")"
 
 # Prune old backups. Portable date-N-days-ago (GNU + BSD).
 if date -u -d "$RETENTION_DAYS days ago" +"%Y%m%d" >/dev/null 2>&1; then
@@ -85,20 +85,20 @@ log "pruning backups older than $CUTOFF…"
 mapfile -t KEYS < <(
   AWS_ACCESS_KEY_ID="$WASABI_ACCESS_KEY_ID" \
   AWS_SECRET_ACCESS_KEY="$WASABI_SECRET_ACCESS_KEY" \
-  aws --endpoint-url "$WASABI_ENDPOINT" s3 ls "s3://$WASABI_BUCKET/backups/aligned/" \
+  aws --endpoint-url "$WASABI_ENDPOINT" s3 ls "s3://$WASABI_BUCKET/backups/platform/" \
     | awk '{print $4}' \
-    | grep -E '^aligned-[0-9]{8}T.*\.age$' || true
+    | grep -E '^platform-[0-9]{8}T.*\.age$' || true
 )
 
 for key in "${KEYS[@]}"; do
   [[ -z "$key" ]] && continue
-  key_date=$(echo "$key" | sed -E 's/^aligned-([0-9]{8})T.*/\1/')
+  key_date=$(echo "$key" | sed -E 's/^platform-([0-9]{8})T.*/\1/')
   if [[ -n "$key_date" && "$key_date" < "$CUTOFF" ]]; then
     log "  removing $key"
     AWS_ACCESS_KEY_ID="$WASABI_ACCESS_KEY_ID" \
     AWS_SECRET_ACCESS_KEY="$WASABI_SECRET_ACCESS_KEY" \
     aws --endpoint-url "$WASABI_ENDPOINT" s3 rm \
-      "s3://$WASABI_BUCKET/backups/aligned/$key"
+      "s3://$WASABI_BUCKET/backups/platform/$key"
   fi
 done
 

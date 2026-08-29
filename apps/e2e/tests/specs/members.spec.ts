@@ -111,7 +111,7 @@ test.describe('/members page — list & invite modal', () => {
     await expect(page.getByText(inviteeEmail)).toBeVisible();
 
     // Email sent via Mailpit.
-    // Invite email subject is "Join <org> on ALIGNED" (see apps/api/src/lib/email.ts).
+    // Invite email subject is "Join <org> on the platform" (see apps/api/src/lib/email.ts).
     const msg = await waitForEmail({ to: inviteeEmail, subjectIncludes: 'Join', timeoutMs: 20_000 });
     expect(msg).toBeTruthy();
 

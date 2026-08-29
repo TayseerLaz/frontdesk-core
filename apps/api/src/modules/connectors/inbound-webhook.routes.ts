@@ -122,7 +122,7 @@ export default async function inboundWebhookRoutes(app: FastifyInstance) {
             connectorId: connector.id,
             trigger: 'webhook',
             status: 'pending',
-            metadata: { inboundPayloadHash: createHmac('sha256', 'aligned').update(rawBody).digest('hex').slice(0, 16) } as never,
+            metadata: { inboundPayloadHash: createHmac('sha256', 'platform').update(rawBody).digest('hex').slice(0, 16) } as never,
           },
         }),
       );

@@ -56,8 +56,8 @@ export function AiBudgetBanner() {
             ? `${used.toLocaleString()} / ${cap.toLocaleString()} AI messages used this month. `
             : ''}
           {paused
-            ? 'The bot has stopped replying automatically. Reply to customers from the Inbox — the allowance resets on the 1st. Contact ALIGNED to raise it.'
-            : 'When it reaches 100%, the bot stops replying automatically until the 1st. Contact ALIGNED to raise your allowance.'}
+            ? 'The bot has stopped replying automatically. Reply to customers from the Inbox — the allowance resets on the 1st. Contact support to raise it.'
+            : 'When it reaches 100%, the bot stops replying automatically until the 1st. Contact support to raise your allowance.'}
         </p>
       </div>
     </div>

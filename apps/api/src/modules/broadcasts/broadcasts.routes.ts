@@ -245,7 +245,7 @@ export default async function broadcastsRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       // Entitlement gate: sending is money. A tenant whose `broadcasts` feature
-      // was switched off by an ALIGNED admin must not reach it via the API even
+      // was switched off by an super-admin must not reach it via the API even
       // though the UI hides + bounces /broadcasts (L-3). Reads stay ungated.
       await assertOrgFeature(app, req, 'broadcasts');
       const orgId = req.auth!.organizationId;
@@ -629,7 +629,7 @@ export default async function broadcastsRoutes(app: FastifyInstance) {
         // call below is gated on the previous status being `draft`.
         if (existing.status === 'draft') {
           await capCheck(tx as never, orgId, 'monthly_broadcast', {
-            actorIsAlignedAdmin: req.auth!.isSuperAdmin,
+            actorIsSuperAdmin: req.auth!.isSuperAdmin,
           });
         }
 
@@ -1622,7 +1622,7 @@ export default async function broadcastsRoutes(app: FastifyInstance) {
           // A resend is a brand-new campaign — counts against the
           // monthly broadcast quota just like /send does for drafts.
           await capCheck(tx as never, orgId, 'monthly_broadcast', {
-            actorIsAlignedAdmin: req.auth!.isSuperAdmin,
+            actorIsSuperAdmin: req.auth!.isSuperAdmin,
           });
           // Collect every recipient phone except the ones we deliberately
           // suppressed (opted-out, deleted, skipped). Failed recipients are

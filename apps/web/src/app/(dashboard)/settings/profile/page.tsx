@@ -72,7 +72,7 @@ export default function ProfilePage() {
       const blob = await res.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `aligned-account-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `account-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -190,7 +190,7 @@ export default function ProfilePage() {
               </div>
               {user.isSuperAdmin ? (
                 <p className="text-xs text-brand-500">
-                  You have Hader AI super-admin access across all tenants.
+                  You have super-admin access across all tenants.
                 </p>
               ) : null}
             </CardContent>

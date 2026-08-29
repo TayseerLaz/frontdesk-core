@@ -1,4 +1,4 @@
-// FCM push for the Hader mobile app (Hader-ai-app/CLAUDE.md §6).
+// FCM push for the the platform mobile app (the platform-ai-app/CLAUDE.md §6).
 //
 // Degrade shape mirrors storage.ts: when FIREBASE_SERVICE_ACCOUNT_JSON is
 // unset the module is a NO-OP (one boot-time log line, never throws) — the
@@ -27,8 +27,8 @@ function getMessagingLazy(): Promise<Messaging | null> {
       const { getMessaging } = await import('firebase-admin/messaging');
       const creds = JSON.parse(raw) as Record<string, string>;
       const app =
-        getApps().find((a) => a.name === 'hader-push') ??
-        initializeApp({ credential: cert(creds as never) }, 'hader-push');
+        getApps().find((a) => a.name === 'platform-push') ??
+        initializeApp({ credential: cert(creds as never) }, 'platform-push');
       return getMessaging(app);
     } catch (err) {
       console.error('[push] firebase init failed — push disabled.', err);

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reliable manual deploy for the Aligned/Hader server (run ON the server).
+# Reliable manual deploy for the Platform/the platform server (run ON the server).
 #
 # Why this exists: the manual SSH deploy used to "git reset + restart" and skip
 # rebuilding the workspace packages that api/worker import as COMPILED dist
@@ -13,8 +13,8 @@
 # Usage:  bash infra/scripts/redeploy.sh
 set -euo pipefail
 
-APP_DIR=${APP_DIR:-/opt/aligned/app}
-API_HEALTH_URL=${API_HEALTH_URL:-https://api.hader.ai/health}
+APP_DIR=${APP_DIR:-/opt/platform/app}
+API_HEALTH_URL=${API_HEALTH_URL:-https://api.example.com/health}
 cd "$APP_DIR"
 
 # Ensure swap exists. `next build` is memory-hungry and has repeatedly OOM'd
@@ -81,7 +81,7 @@ echo "$CHANGED" | grep -q '^pnpm-lock.yaml$' && NEED_INSTALL=1
 if [ "$NEED_INSTALL" = 1 ]; then
   echo "▶ Reinstalling dependencies (relink bins, incl. devDeps)…"
   # Why rm only the .bin dirs (NOT the whole node_modules) + plain install:
-  #   - The running services (aligned-api/worker/web via node/tsx) hold open
+  #   - The running services (platform-api/worker/web via node/tsx) hold open
   #     file handles inside node_modules/.pnpm, so `rm -rf node_modules` can't
   #     finish ("Directory not empty") and leaves node_modules half-deleted →
   #     tsc/prisma vanish mid-deploy.
@@ -160,11 +160,11 @@ else
 fi
 
 echo "▶ Restarting services…"
-sudo systemctl restart aligned-api aligned-worker
-[ "$WEB_CHANGED" = 1 ] && sudo systemctl restart aligned-web
+sudo systemctl restart platform-api platform-worker
+[ "$WEB_CHANGED" = 1 ] && sudo systemctl restart platform-web
 
 echo "▶ Service status:"
-systemctl is-active aligned-api aligned-worker aligned-web || true
+systemctl is-active platform-api platform-worker platform-web || true
 
 # Health check with retry — the api runs under tsx and cold-starts in ~10-20s,
 # so a single immediate probe gives a false 502. Poll for up to ~60s.
@@ -197,7 +197,7 @@ if [ "$HEALTHY" != 1 ]; then
       rm -rf apps/web/.next
       NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @platform/web build || true
     fi
-    sudo systemctl restart aligned-api aligned-worker aligned-web
+    sudo systemctl restart platform-api platform-worker platform-web
     for i in $(seq 1 20); do
       if curl -fsS --max-time 10 "$API_HEALTH_URL" >/dev/null 2>&1; then
         echo "  ✓ rolled back to $LAST and healthy. Investigate $NEW before redeploying."
@@ -206,10 +206,10 @@ if [ "$HEALTHY" != 1 ]; then
       fi
       sleep 3
     done
-    echo "  ✗✗ ROLLBACK ALSO UNHEALTHY — manual intervention required (journalctl -u aligned-api -n 100)"
+    echo "  ✗✗ ROLLBACK ALSO UNHEALTHY — manual intervention required (journalctl -u platform-api -n 100)"
     exit 2
   fi
-  echo "    no known-good baseline to roll back to — investigate (journalctl -u aligned-api -n 100)"
+  echo "    no known-good baseline to roll back to — investigate (journalctl -u platform-api -n 100)"
   exit 1
 fi
 # Record the known-good SHA ONLY on full success, so an aborted future run

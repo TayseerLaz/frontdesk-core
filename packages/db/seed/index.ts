@@ -1,13 +1,13 @@
 // Idempotent dev seed: one demo org + admin user.
-// Login: admin@aligned.local / Aligned123!
+// Login: admin@platform.local / Platform123!
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 const DEMO_ORG_SLUG = 'demo';
-const DEMO_USER_EMAIL = 'admin@aligned.local';
-const DEMO_USER_PASSWORD = 'Aligned123!';
+const DEMO_USER_EMAIL = 'admin@platform.local';
+const DEMO_USER_PASSWORD = 'Platform123!';
 
 async function main() {
   console.warn('[seed] Starting…');

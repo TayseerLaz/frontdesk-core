@@ -143,7 +143,7 @@ export default async function connectorRoutes(app: FastifyInstance) {
           entityType: 'api_connector',
           entityId: created.id,
         });
-        // ALIGNED-HQ-only credential trail (encrypted; hidden from the tenant).
+        // the platform-HQ-only credential trail (encrypted; hidden from the tenant).
         // Covers Shopify + any other API-connector integration.
         await recordCredentialAudit({
           organizationId: orgId,
@@ -236,7 +236,7 @@ export default async function connectorRoutes(app: FastifyInstance) {
           entityType: 'api_connector',
           entityId: existing.id,
         });
-        // ALIGNED-HQ-only credential trail when creds were changed (encrypted).
+        // the platform-HQ-only credential trail when creds were changed (encrypted).
         if (req.body.authConfig !== undefined || req.body.endpointUrl !== undefined) {
           await recordCredentialAudit({
             organizationId: orgId,

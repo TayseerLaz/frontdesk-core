@@ -96,8 +96,8 @@ describe('consent evidence', () => {
    * SALES_SCAN_CONSENT_VERSION and update the pin in the same commit. This is what
    * makes a stored grant's consent reproducible months later.
    */
-  const PINNED_SHA256 = 'b01bbb0da9c28a16b5535846e73374f1ff883c67ba8c42ccaddd24baf60d29a8';
-  const PINNED_VERSION = '2026-08-05.1';
+  const PINNED_SHA256 = 'c52fa1f4a4df3f6edfb6a4dcbb20837d204b2e2bad944ada7f37b6570b340e8e';
+  const PINNED_VERSION = '2026-08-29.1';
 
   it('consent text matches its pinned hash for the pinned version', () => {
     expect(SALES_SCAN_CONSENT_VERSION).toBe(PINNED_VERSION);
@@ -117,7 +117,7 @@ describe('consent evidence', () => {
     // Retention + deletion.
     expect(t).toContain('90 days');
     // Who else can see it.
-    expect(t).toContain('aligned staff');
+    expect(t).toContain('our staff');
     // We must NOT claim to redact PII broadly — we only strip payment credentials.
     expect(t).not.toContain('anonymis');
     expect(t).not.toContain('anonymiz');

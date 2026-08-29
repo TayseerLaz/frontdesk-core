@@ -104,7 +104,7 @@ export default function OrgBillingPage() {
   });
 
   if (!session?.user.isSuperAdmin) {
-    return <div className="p-6 text-foreground-muted">ALIGNED admins only.</div>;
+    return <div className="p-6 text-foreground-muted">Super-admins only.</div>;
   }
 
   const payValue = amount ?? (o?.org.monthlyPaidUsd != null ? String(o.org.monthlyPaidUsd) : '');

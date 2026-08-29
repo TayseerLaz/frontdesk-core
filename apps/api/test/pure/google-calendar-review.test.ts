@@ -112,7 +112,7 @@ describe('busy cache key', () => {
           startIso: '2026-08-10T10:00:00Z',
           endIso: '2026-08-10T10:30:00Z',
           allDay: false,
-          haderBookingId: null,
+          platformBookingId: null,
           free: false,
           htmlLink: null,
         },
@@ -136,7 +136,7 @@ describe('pushed event duration', () => {
     const end = new Date(start.getTime() + DEFAULT_DURATION_MIN * 60 * 1000);
     expect(end.toISOString()).toBe('2026-08-10T11:00:00.000Z');
     // A tenant on 30-minute slots gets a 60-minute event on Google: the 10:30
-    // slot is now visually occupied there even though Hader still offers it.
+    // slot is now visually occupied there even though the platform still offers it.
     expect(DEFAULT_DURATION_MIN).toBe(60);
   });
 });
@@ -155,7 +155,7 @@ describe('event list truncation', () => {
       startIso: new Date(Date.UTC(2026, 7, 10, 9, 0) + i * 60000).toISOString(),
       endIso: new Date(Date.UTC(2026, 7, 10, 9, 30) + i * 60000).toISOString(),
       allDay: false,
-      haderBookingId: null,
+      platformBookingId: null,
       free: false,
       htmlLink: null,
     }));

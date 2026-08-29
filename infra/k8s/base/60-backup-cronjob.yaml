@@ -5,7 +5,7 @@
 # verify a restore before you trust it. A backup that has never been restored
 # is a hypothesis, not a backup.
 #
-# Requires in hader-secrets: WASABI_ACCESS_KEY_ID, WASABI_SECRET_ACCESS_KEY,
+# Requires in platform-secrets: WASABI_ACCESS_KEY_ID, WASABI_SECRET_ACCESS_KEY,
 # POSTGRES_PASSWORD, and AGE_RECIPIENT (the age PUBLIC key).
 #
 # ─────────────────────────────────────────────────────────────────────────────
@@ -16,8 +16,8 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: hader-pg-backup
-  namespace: hader
+  name: platform-pg-backup
+  namespace: platform
 spec:
   schedule: "5 3 * * *"
   concurrencyPolicy: Forbid
@@ -35,29 +35,29 @@ spec:
               env:
                 - name: PGHOST
                   # Direct, not the pooler: pg_dump needs a session connection.
-                  value: hader-postgres
+                  value: platform-postgres
                 - name: PGUSER
-                  value: aligned
+                  value: platform
                 - name: PGDATABASE
-                  value: aligned
+                  value: platform
                 - name: PGPASSWORD
                   valueFrom:
-                    secretKeyRef: { name: hader-secrets, key: POSTGRES_PASSWORD }
+                    secretKeyRef: { name: platform-secrets, key: POSTGRES_PASSWORD }
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
-                    secretKeyRef: { name: hader-secrets, key: WASABI_ACCESS_KEY_ID }
+                    secretKeyRef: { name: platform-secrets, key: WASABI_ACCESS_KEY_ID }
                 - name: AWS_SECRET_ACCESS_KEY
                   valueFrom:
-                    secretKeyRef: { name: hader-secrets, key: WASABI_SECRET_ACCESS_KEY }
+                    secretKeyRef: { name: platform-secrets, key: WASABI_SECRET_ACCESS_KEY }
                 - name: AGE_RECIPIENT
                   valueFrom:
-                    secretKeyRef: { name: hader-secrets, key: AGE_RECIPIENT }
+                    secretKeyRef: { name: platform-secrets, key: AGE_RECIPIENT }
                 - name: WASABI_ENDPOINT
                   valueFrom:
-                    configMapKeyRef: { name: hader-config, key: WASABI_ENDPOINT }
+                    configMapKeyRef: { name: platform-config, key: WASABI_ENDPOINT }
                 - name: WASABI_BUCKET
                   valueFrom:
-                    configMapKeyRef: { name: hader-config, key: WASABI_BUCKET }
+                    configMapKeyRef: { name: platform-config, key: WASABI_BUCKET }
               command:
                 - /bin/sh
                 - -c
@@ -65,7 +65,7 @@ spec:
                   set -euo pipefail
                   apk add --no-cache age aws-cli >/dev/null
                   STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-                  DUMP=/tmp/aligned-$STAMP.dump
+                  DUMP=/tmp/platform-$STAMP.dump
                   echo "dumping…"
                   pg_dump --format=custom --no-owner --no-privileges --file="$DUMP"
                   # Verify BEFORE shipping: pg_restore --list parses the table
@@ -75,7 +75,7 @@ spec:
                   echo "dump OK ($(stat -c%s "$DUMP") bytes)"
                   age --encrypt --recipient "$AGE_RECIPIENT" --output "$DUMP.age" "$DUMP"
                   aws --endpoint-url "$WASABI_ENDPOINT" s3 cp "$DUMP.age" \
-                      "s3://$WASABI_BUCKET/backups/aligned/aligned-$STAMP.dump.age"
+                      "s3://$WASABI_BUCKET/backups/platform/platform-$STAMP.dump.age"
                   echo "uploaded."
               resources:
                 requests: { cpu: "100m", memory: "256Mi" }

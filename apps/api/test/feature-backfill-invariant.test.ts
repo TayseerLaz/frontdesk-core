@@ -4,7 +4,7 @@
 // time (ORG_FEATURE_DEFAULT_DISABLED is applied then), but EXISTING orgs only
 // get it if a migration appends it. Forgetting that backfill is exactly the
 // A default-disabled feature key with no backfill leaves every pre-existing
-// org lacked the key and the portal mislabeled the whole fleet as Alinia
+// org lacked the key and the portal mislabeled the whole fleet as a partner
 // ("Properties" everywhere). This test fails the build if any default-disabled
 // feature lacks its backfill, so that mistake can never merge again.
 //

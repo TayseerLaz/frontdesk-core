@@ -1,5 +1,5 @@
 -- ============================================================================
--- Row-Level Security policies for ALIGNED Business Platform
+-- Row-Level Security policies for the platform
 -- Applied automatically after every `prisma migrate` via `pnpm rls:apply`.
 --
 -- Strategy:
@@ -7,7 +7,7 @@
 --     a transaction with `SET LOCAL app.current_org_id = '<uuid>'`.
 --   - For background workers acting on behalf of a tenant, the worker sets the
 --     same setting before performing tenant-scoped queries.
---   - For ALIGNED super-admins (cross-tenant ops), a separate flag
+--   - For super-admins (cross-tenant ops), a separate flag
 --     `SET LOCAL app.bypass_rls = 'on'` skips tenant filtering. This flag is
 --     ONLY ever set by code paths gated by `requireSuperAdmin` middleware.
 --
@@ -296,7 +296,7 @@ SELECT _apply_tenant_rls('contact_sync_sessions');
 -- address book) while staged, so the policy matters as much as the sessions table's.
 SELECT _apply_tenant_rls('contact_sync_staged_items');
 
--- Hader mobile app push-device registrations — added 2026-08-03.
+-- the platform mobile app push-device registrations — added 2026-08-03.
 SELECT _apply_tenant_rls('device_tokens');
 
 -- Landing pad for Meta webhook payloads no handler consumes yet (Coexistence

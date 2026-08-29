@@ -1,6 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: hader
+namespace: platform
 
 resources:
   - 00-namespace.yaml
@@ -21,9 +21,9 @@ resources:
   # WhatsApp capture path. Add it only as a deliberate decision.
 
 images:
-  - name: ghcr.io/tayseerlaz/hader-api
+  - name: ghcr.io/tayseerlaz/platform-api
     newTag: latest
-  - name: ghcr.io/tayseerlaz/hader-worker
+  - name: ghcr.io/tayseerlaz/platform-worker
     newTag: latest
-  - name: ghcr.io/tayseerlaz/hader-web
+  - name: ghcr.io/tayseerlaz/platform-web
     newTag: latest

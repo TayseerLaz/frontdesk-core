@@ -153,7 +153,7 @@ async function main() {
   console.log(`  agreement : ${(m.agreement * 100).toFixed(0)}%`);
   console.log(`  precision : ${(m.precision * 100).toFixed(0)}%  (of judge-pass, how many humans passed)`);
   console.log(`  recall    : ${(m.recall * 100).toFixed(0)}%  (of human-pass, how many judge passed)`);
-  console.log(`  Cohen's κ : ${m.kappa.toFixed(2)}  ${m.kappa > 0.7 ? '✓ aligned (>0.7) — safe as a hard gate' : '✗ not aligned yet — refine the judge prompt / facts'}`);
+  console.log(`  Cohen's κ : ${m.kappa.toFixed(2)}  ${m.kappa > 0.7 ? '✓ platform (>0.7) — safe as a hard gate' : '✗ not platform yet — refine the judge prompt / facts'}`);
   console.log('');
   await prisma.$disconnect();
 }

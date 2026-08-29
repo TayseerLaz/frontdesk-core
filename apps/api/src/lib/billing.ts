@@ -35,7 +35,7 @@ export function currentYearMonth(now = new Date()): string {
   return now.toISOString().slice(0, 7);
 }
 
-// ALIGNED admins operate internal / demo orgs and shouldn't be throttled.
+// super-admins operate internal / demo orgs and shouldn't be throttled.
 // Result is cached 5 minutes in Redis per-org so the hot write path
 // (capCheck on every product create etc.) doesn't hit Postgres every call.
 // Invalidate by deleting `plan:unlimited:<orgId>` if you flip a user's
@@ -128,12 +128,12 @@ export async function capCheck(
   tx: MinimalTx,
   orgId: string,
   kind: CapKind,
-  opts: { actorIsAlignedAdmin?: boolean } = {},
+  opts: { actorIsSuperAdmin?: boolean } = {},
 ): Promise<void> {
-  // Fast path: the JWT already tells us the caller is an ALIGNED admin.
+  // Fast path: the JWT already tells us the caller is an super-admin.
   // Skip the cap unconditionally — admin actions are unmetered.
-  if (opts.actorIsAlignedAdmin) return;
-  // Slow path: any active org member who is an ALIGNED admin also
+  if (opts.actorIsSuperAdmin) return;
+  // Slow path: any active org member who is an super-admin also
   // qualifies the whole org for unlimited (covers worker / webhook
   // paths that don't have a request actor).
   if (await isOrgUnlimited(orgId)) return;
@@ -249,7 +249,7 @@ async function maybeFireQuotaNotice(
   const map = MONTHLY_KIND_TO_CAP[eventKind];
   if (!map) return;
   try {
-    if (await isOrgUnlimited(orgId)) return; // ALIGNED-operated orgs are unmetered
+    if (await isOrgUnlimited(orgId)) return; // operator-owned orgs are unmetered
     const { prisma } = await import('./db.js');
     const plan = await resolveOrgPlan(prisma as unknown as MinimalTx, orgId);
     const cap = plan[map.capField];
@@ -303,7 +303,7 @@ export interface QuotaItem {
 }
 
 // Per-kind usage + caps + percentage for an org. Used by the tenant Plan page
-// (percentage only) and the ALIGNED-admin views (percentage + cost). null caps
+// (percentage only) and the super-admin views (percentage + cost). null caps
 // render as "unlimited" with no bar.
 export async function getOrgQuotas(
   tx: MinimalTx,

@@ -2,29 +2,29 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: aligned-postgres
+    container_name: platform-postgres
     environment:
-      POSTGRES_USER: aligned
-      POSTGRES_PASSWORD: aligned
-      POSTGRES_DB: aligned
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: platform
+      POSTGRES_DB: platform
     ports:
       - "5432:5432"
     volumes:
-      - aligned-postgres:/var/lib/postgresql/data
+      - platform-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aligned -d aligned"]
+      test: ["CMD-SHELL", "pg_isready -U platform -d platform"]
       interval: 5s
       timeout: 3s
       retries: 10
 
   pgbouncer:
     image: edoburu/pgbouncer:latest
-    container_name: aligned-pgbouncer
+    container_name: platform-pgbouncer
     environment:
-      DB_USER: aligned
-      DB_PASSWORD: aligned
+      DB_USER: platform
+      DB_PASSWORD: platform
       DB_HOST: postgres
-      DB_NAME: aligned
+      DB_NAME: platform
       POOL_MODE: transaction
       MAX_CLIENT_CONN: "1000"
       DEFAULT_POOL_SIZE: "25"
@@ -37,12 +37,12 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: aligned-redis
+    container_name: platform-redis
     command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "allkeys-lru"]
     ports:
       - "6379:6379"
     volumes:
-      - aligned-redis:/data
+      - platform-redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -51,11 +51,11 @@ services:
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
-    container_name: aligned-mailhog
+    container_name: platform-mailhog
     ports:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI
 
 volumes:
-  aligned-postgres:
-  aligned-redis:
+  platform-postgres:
+  platform-redis:

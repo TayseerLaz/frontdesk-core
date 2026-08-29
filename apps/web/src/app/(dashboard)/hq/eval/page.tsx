@@ -94,7 +94,7 @@ export default function EvalDashboardPage() {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <p className="text-sm text-foreground-muted">ALIGNED admin role required.</p>
+          <p className="text-sm text-foreground-muted">Super-admin role required.</p>
         </CardContent>
       </Card>
     );

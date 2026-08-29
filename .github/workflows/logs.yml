@@ -41,14 +41,14 @@ jobs:
             GREP='${{ inputs.grep }}'
 
             echo "================== systemd unit definitions =================="
-            for unit in aligned-api aligned-worker aligned-web; do
+            for unit in platform-api platform-worker platform-web; do
               echo "--- $unit ---"
               sudo systemctl cat "$unit" 2>/dev/null | grep -E '^(StandardOutput|StandardError|ExecStart|WorkingDirectory|EnvironmentFile)=' || true
             done
 
             echo ""
             echo "================== candidate log files =================="
-            for d in /var/log/aligned /opt/aligned/logs /opt/aligned/app/logs /opt/aligned/app; do
+            for d in /var/log/platform /opt/platform/logs /opt/platform/app/logs /opt/platform/app; do
               if [ -d "$d" ]; then
                 echo "--- $d ---"
                 sudo find "$d" -maxdepth 2 -type f \( -name '*.log' -o -name '*.out' -o -name '*.err' \) -mmin -360 -exec ls -la {} + 2>/dev/null
@@ -56,7 +56,7 @@ jobs:
             done
 
             echo ""
-            for unit in aligned-api aligned-worker aligned-web; do
+            for unit in platform-api platform-worker platform-web; do
               echo "================== journalctl: $unit =================="
               if [ -n "$GREP" ]; then
                 sudo journalctl -u "$unit" --no-pager --since "$SINCE" -n "$LINES" | grep -E "$GREP" || echo "(no matches)"
@@ -67,7 +67,7 @@ jobs:
 
             echo ""
             echo "================== app log file tails =================="
-            for f in /var/log/aligned-api.log /var/log/aligned-worker.log /var/log/aligned-web.log; do
+            for f in /var/log/platform-api.log /var/log/platform-worker.log /var/log/platform-web.log; do
               if [ -f "$f" ]; then
                 echo ""
                 echo "--- $f (last $LINES lines) ---"
@@ -88,8 +88,8 @@ jobs:
             sudo journalctl -u caddy --no-pager --since "$SINCE" -n "$LINES" 2>/dev/null \
               | { [ -n "$GREP" ] && grep -E "$GREP" || cat; } | tail -n "$LINES" || echo "(no caddy unit)"
             # Glob picks up per-domain access logs regardless of which
-            # hostname Caddy is currently serving (alignbot.aligned-tech.com,
-            # api.aligned-tech.com, hader.ai, api.hader.ai, ...).
+            # hostname Caddy is currently serving (alignbot.example.com,
+            # api.example.com, example.com, api.example.com, ...).
             for f in /var/log/caddy/access.log /var/log/caddy/error.log /var/log/caddy/*.log; do
               if [ -f "$f" ]; then
                 echo ""

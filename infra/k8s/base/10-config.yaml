@@ -8,8 +8,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hader-config
-  namespace: hader
+  name: platform-config
+  namespace: platform
 data:
   NODE_ENV: "production"
   LOG_LEVEL: "info"
@@ -19,13 +19,13 @@ data:
   # verify-email and contact-sync QR links off this value. Without /app every
   # emailed link lands on the marketing site instead of the portal — this is
   # exactly the 2026-06-23 outage.
-  API_PUBLIC_URL: "https://api.hader.ai"
-  WEB_PUBLIC_URL: "https://hader.ai/app"
-  CORS_ORIGINS: "https://hader.ai"
+  API_PUBLIC_URL: "https://api.example.com"
+  WEB_PUBLIC_URL: "https://example.com/app"
+  CORS_ORIGINS: "https://example.com"
 
-  # The refresh cookie is set by api.hader.ai and must be sent from hader.ai,
+  # The refresh cookie is set by api.example.com and must be sent from example.com,
   # so the domain has to cover both hostnames.
-  COOKIE_DOMAIN: ".hader.ai"
+  COOKIE_DOMAIN: ".example.com"
   COOKIE_SECURE: "true"
 
   # In-cluster the only thing in front of the API is the ingress controller.

@@ -25,7 +25,7 @@ const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 // NO '/app' PREFIX: `request.nextUrl.pathname` is basePath-STRIPPED. Next's
 // NextURL.analyze() removes the basePath and parks it on nextUrl.basePath
 // (next/dist/shared/lib/router/utils/get-next-pathname-info.js). The page's
-// real URL is https://hader.ai/app/whatsapp/connect; this is what the
+// real URL is https://example.com/app/whatsapp/connect; this is what the
 // middleware sees. Writing '/app/whatsapp/connect' here matches NOTHING and
 // the widening silently never applies.
 const EMBEDDED_SIGNUP_PATH = '/whatsapp/connect';
@@ -67,7 +67,7 @@ function buildCsp(nonce: string, embeddedSignup: boolean): string {
     "worker-src 'self'",
     // PWA manifest is same-origin; keep it explicit alongside default-src.
     "manifest-src 'self'",
-    // Alinia real-estate mirror: listing photos are served from the Alinia
+    // a partner real-estate mirror: listing photos are served from the a partner
     // seed host. Without these, CSP blocks the mirrored <img> thumbnails.
     // The Facebook hosts are only for the SDK's logging pixel. Nothing depends
     // on them, but without them the console fills with CSP violations during

@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Target URL to scan (e.g. https://hader.ai). Defaults to STAGING_URL secret."
+        description: "Target URL to scan (e.g. https://example.com). Defaults to STAGING_URL secret."
         required: false
 
 jobs:

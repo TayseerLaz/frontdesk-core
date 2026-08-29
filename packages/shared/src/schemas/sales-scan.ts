@@ -28,7 +28,7 @@ export const SALES_SCAN_DEFAULT_WINDOW_DAYS = 7;
  * that test is a blocking CI gate and will fail otherwise. It is what makes a stored
  * grant's agreement reproducible months later.
  */
-export const SALES_SCAN_CONSENT_VERSION = '2026-08-05.1';
+export const SALES_SCAN_CONSENT_VERSION = '2026-08-29.1';
 
 export const SALES_SCAN_CONSENT_TEXT = [
   'You are about to connect a WhatsApp number you actively use for sales.',
@@ -57,7 +57,7 @@ export const SALES_SCAN_CONSENT_TEXT = [
   '- Messages are kept for at most 90 days. The summary is kept until you delete it.',
   '- You can stop the capture at any time, and delete everything we captured at any time.',
   '  Deletion is immediate in live systems; encrypted backups age out within 30 days.',
-  '- ALIGNED staff can access this data to support you.',
+  '- Our staff can access this data to support you.',
 ].join('\n');
 
 /**
@@ -77,11 +77,11 @@ export const SALES_SCAN_CONSENT_TEXT = [
  * 180 days, one-shot delivery inside a 24-hour window, groups excluded, media asset ids
  * only for the last 14 days, and offboarding available only from the handset.
  */
-export const COEXISTENCE_CONSENT_VERSION = '2026-08-24.1';
+export const COEXISTENCE_CONSENT_VERSION = '2026-08-29.1';
 
 export const COEXISTENCE_CONSENT_TEXT = [
   'You are about to connect the WhatsApp number you already use for your business.',
-  'You keep using it on your phone exactly as you do now. Hader works the same number',
+  'You keep using it on your phone exactly as you do now. We work the same number',
   'alongside you.',
   '',
   'What WhatsApp will send us when you connect:',
@@ -105,8 +105,8 @@ export const COEXISTENCE_CONSENT_TEXT = [
   '- WhatsApp will sign your other devices out — WhatsApp Web, desktop, tablet. You can',
   '  link them again afterwards from your phone.',
   '- You must keep opening the WhatsApp Business app every week or two. If you stop, the',
-  '  connection can lapse and Hader stops receiving your messages.',
-  '- Disconnecting is done from your phone, not from Hader: WhatsApp Business app →',
+  '  connection can lapse and we stop receiving your messages.',
+  '- Disconnecting is done from your phone, not from this portal: WhatsApp Business app →',
   '  Settings → Account → Business Platform.',
   '',
   'What we do with it:',
@@ -117,7 +117,7 @@ export const COEXISTENCE_CONSENT_TEXT = [
   '  customers.',
   '- Your customers have not agreed anything with us. You remain responsible for their',
   '  data; we process it only on your instruction.',
-  '- ALIGNED staff can access this data to support you.',
+  '- Our staff can access this data to support you.',
   '',
   'How long we keep it:',
   '- We hold captured messages for at most 90 days from the day we receive them. Because',
@@ -146,7 +146,7 @@ export const coexistenceHistoryConsentSchema = z.object({
   version: z.string().min(1),
   /** "You will receive up to 180 days of my past customer conversations and my contacts." */
   acknowledgedScope: z.literal(true),
-  /** "My customers have not agreed anything with Hader; their data remains my responsibility." */
+  /** "My customers have not agreed anything with us; their data remains my responsibility." */
   acknowledgedControllerDuty: z.literal(true),
   /** "Connecting signs my other WhatsApp devices out and I must keep using the app." */
   acknowledgedOnboardingEffects: z.literal(true),
@@ -188,7 +188,7 @@ export const salesScanGrantDtoSchema = z.object({
 export type SalesScanGrantDto = z.infer<typeof salesScanGrantDtoSchema>;
 
 export const salesScanStatusResponseSchema = z.object({
-  /** Has an ALIGNED admin activated this tenant? Drives locked vs unlocked UI. */
+  /** Has a super-admin activated this tenant? Drives locked vs unlocked UI. */
   featureEnabled: z.boolean(),
   /**
    * Is the capture backend actually reachable? False while the ingest service is

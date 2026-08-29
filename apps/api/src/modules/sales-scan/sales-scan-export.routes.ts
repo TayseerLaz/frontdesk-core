@@ -1,6 +1,6 @@
 // Sales Scan — tenant CSV export of the captured corpus.
 //
-// This is the ONE surface where the raw capture leaves Hader in readable form, so it
+// This is the ONE surface where the raw capture leaves the platform in readable form, so it
 // is deliberately the most restricted read in the feature:
 //
 //   • ADMIN ONLY. Every other Sales Scan read is viewer-level; this one is not, because
@@ -88,7 +88,7 @@ export default async function salesScanExportRoutes(app: FastifyInstance) {
         app,
         req,
         'sales_scan',
-        'Teaching the bot with your own data is not enabled for your account. Contact ALIGNED to upgrade.',
+        'Teaching the bot with your own data is not enabled for your account. Contact support to upgrade.',
       );
       const orgId = req.auth!.organizationId;
 

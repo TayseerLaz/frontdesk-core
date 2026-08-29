@@ -9,7 +9,7 @@
 # Zero-downtime deploys: roll one app node at a time; Caddy's active health
 # checks drain the node being rebuilt, so users only ever hit a healthy replica.
 
-{$WEB_DOMAIN:app.hader.ai} {
+{$WEB_DOMAIN:app.example.com} {
     tls { protocols tls1.2 tls1.3 }
     encode zstd gzip
     # … (copy the full `header { … }` block + the @nextcss/@nextjs MIME fixes
@@ -33,7 +33,7 @@
     }
 }
 
-{$API_DOMAIN:api.hader.ai} {
+{$API_DOMAIN:api.example.com} {
     tls { protocols tls1.2 tls1.3 }
     encode zstd gzip
     # … (copy the full API `header { … }` block from infra/caddy/Caddyfile) …

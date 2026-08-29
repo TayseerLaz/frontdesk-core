@@ -119,7 +119,7 @@ async function callMeta(args: {
 }
 
 // STOP/blocked/deleted gate + display name, keyed the way contacts actually
-// store phones (with or without a leading '+' — the hader-lead-outreach
+// store phones (with or without a leading '+' — the platform-lead-outreach
 // precedent).
 async function contactGate(
   organizationId: string,

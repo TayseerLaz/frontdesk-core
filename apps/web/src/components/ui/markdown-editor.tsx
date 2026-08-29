@@ -201,7 +201,7 @@ export function MarkdownEditor({
         />
       ) : (
         <div
-          className="prose-aligned max-h-[480px] overflow-auto px-3 py-2 text-sm"
+          className="prose-styled max-h-[480px] overflow-auto px-3 py-2 text-sm"
           // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: renderMarkdown(value || '_Nothing to preview._') }}
         />

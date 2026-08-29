@@ -88,7 +88,7 @@ async function loadVoiceConfig(
   orgId: string,
   log?: { warn: (o: unknown, m?: string) => void },
 ): Promise<{ value: VoiceConfigEnvelope; cache: 'HIT' | 'STALE' | 'MISS' }> {
-  // Per-tenant access control: ALIGNED-admin can turn the phone/voice
+  // Per-tenant access control: super-admin can turn the phone/voice
   // integration off. With it off the voicebot gets no persona/config, so it
   // can't operate for this tenant. Checked before the cache so flipping the
   // toggle takes effect immediately.

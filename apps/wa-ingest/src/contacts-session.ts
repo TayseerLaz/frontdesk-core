@@ -15,7 +15,7 @@ import pino from 'pino';
 
 import { env } from './env.js';
 import { logger } from './logger.js';
-import * as hader from './contacts-client.js';
+import * as platform from './contacts-client.js';
 
 /**
  * The logger handed to Baileys itself.
@@ -141,7 +141,7 @@ export class ContactsSession {
       },
       printQRInTerminal: false,
       logger: waLogger,
-      browser: ['Hader Contacts', 'Chrome', '120.0.0'],
+      browser: ['the platform Contacts', 'Chrome', '120.0.0'],
       // No history, ever. We want the address book, not the conversations.
       syncFullHistory: false,
       shouldSyncHistoryMessage: () => false,
@@ -174,9 +174,9 @@ export class ContactsSession {
         // already renders QR codes client-side for the other two flows, so shipping a
         // multi-kilobyte base64 data URL through the API and into a DB column bought
         // nothing — and blew the 4096-char body cap, which is how this first failed.
-        void hader
+        void platform
           .pushQr(this.deps.sessionId, update.qr)
-          .catch((err) => hader.logContactsFailure(err, 'pushQr'));
+          .catch((err) => platform.logContactsFailure(err, 'pushQr'));
       }
 
       if (update.connection === 'open') {
@@ -186,9 +186,9 @@ export class ContactsSession {
           'linked — waiting for WhatsApp to send the contact list',
         );
         // Clearing the QR is what lets the desktop say "connected" honestly.
-        void hader
+        void platform
           .pushQr(this.deps.sessionId, null, this.linkedPhone)
-          .catch((err) => hader.logContactsFailure(err, 'pushQr(open)'));
+          .catch((err) => platform.logContactsFailure(err, 'pushQr(open)'));
 
         // Wait for the FIRST batch on a long timer. The settle timer that decides we are
         // DONE is armed by absorb(), once contacts actually start arriving.
@@ -335,11 +335,11 @@ export class ContactsSession {
       return;
     }
     try {
-      const r = await hader.pushContacts(this.deps.sessionId, list, this.linkedPhone);
+      const r = await platform.pushContacts(this.deps.sessionId, list, this.linkedPhone);
       logger.info({ sessionId: this.deps.sessionId, sent: list.length, stored: r.stored }, 'contacts pushed');
       await this.finish(null);
     } catch (err) {
-      hader.logContactsFailure(err, 'pushContacts');
+      platform.logContactsFailure(err, 'pushContacts');
       // The push is the whole point; if it failed the tenant gets an honest failure
       // rather than a silent unlink and a spinner that never resolves.
       await this.finish('could not deliver contacts');
@@ -349,7 +349,7 @@ export class ContactsSession {
   /**
    * Log out, destroy the credentials, and report. `logout()` unlinks the device on
    * WhatsApp's side, which frees the tenant's slot — merely closing the socket would
-   * leave "Hader Contacts" sitting in their Linked Devices list indefinitely.
+   * leave "the platform Contacts" sitting in their Linked Devices list indefinitely.
    */
   async finish(failureReason: string | null): Promise<void> {
     if (this.finished) return;
@@ -383,9 +383,9 @@ export class ContactsSession {
     }
 
     if (failureReason) {
-      await hader
+      await platform
         .reportEnded(this.deps.sessionId, failureReason)
-        .catch((err) => hader.logContactsFailure(err, 'reportEnded'));
+        .catch((err) => platform.logContactsFailure(err, 'reportEnded'));
     }
     this.deps.onDone(this.deps.sessionId);
   }

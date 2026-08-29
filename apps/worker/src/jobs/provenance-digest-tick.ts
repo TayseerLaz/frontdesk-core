@@ -92,18 +92,18 @@ async function tick(): Promise<void> {
     }),
   );
   if (admins.length === 0) {
-    console.log('[provenance-digest] no ALIGNED admins to email — skipping');
+    console.log('[provenance-digest] no super-admins to email — skipping');
     return;
   }
 
   const totalFlagged = flaggedRows.length;
   const totalOrgs = byOrg.size;
-  const subject = `[ALIGNED] ${totalFlagged} flagged bot repl${totalFlagged === 1 ? 'y' : 'ies'} across ${totalOrgs} tenant${totalOrgs === 1 ? '' : 's'} in the last 24h`;
+  const subject = `[the platform] ${totalFlagged} flagged bot repl${totalFlagged === 1 ? 'y' : 'ies'} across ${totalOrgs} tenant${totalOrgs === 1 ? '' : 's'} in the last 24h`;
 
   const portalBase = env.WEB_PUBLIC_URL.replace(/\/$/, '');
 
   const textLines: string[] = [
-    `ALIGNED — daily bot-reply audit digest`,
+    `the platform — daily bot-reply audit digest`,
     ``,
     `Window: last ${(WINDOW_MS / 3_600_000).toFixed(0)} hours`,
     `Total flagged replies: ${totalFlagged}`,
@@ -146,7 +146,7 @@ async function tick(): Promise<void> {
 
   const html = `<!doctype html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#222;">
-  <h2 style="margin:0 0 4px;font-size:18px;">ALIGNED — daily bot-reply audit</h2>
+  <h2 style="margin:0 0 4px;font-size:18px;">the platform — daily bot-reply audit</h2>
   <p style="margin:0 0 16px;color:#666;font-size:13px;">
     ${totalFlagged} flagged repl${totalFlagged === 1 ? 'y' : 'ies'} across
     ${totalOrgs} tenant${totalOrgs === 1 ? '' : 's'} in the last

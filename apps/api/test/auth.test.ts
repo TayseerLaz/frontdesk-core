@@ -61,8 +61,8 @@ describe('auth flow', () => {
     expect(body.accessToken).toMatch(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/);
     const setCookie = res.headers['set-cookie'];
     const newRefreshHeader = Array.isArray(setCookie)
-      ? setCookie.find((c) => c.startsWith('aligned_refresh='))
-      : setCookie?.startsWith('aligned_refresh=')
+      ? setCookie.find((c) => c.startsWith('platform_refresh='))
+      : setCookie?.startsWith('platform_refresh=')
         ? setCookie
         : undefined;
     expect(newRefreshHeader).toBeTruthy();

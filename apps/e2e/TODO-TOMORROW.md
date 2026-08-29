@@ -2,8 +2,8 @@
 
 Date updated: 2026-04-22 (after Phases A→D + follow-through).
 
-Stack: web :3000, api :4000, postgres :5432 (`aligned`/`aligned`/`aligned`), redis :6379, mailpit :8025, Wasabi bucket `alignbotbucket`.
-Seed admin: `admin@aligned.local` / `Aligned123!`. Start with `pnpm qa:gate` — it must stay 6/6 green.
+Stack: web :3000, api :4000, postgres :5432 (`platform`/`platform`/`platform`), redis :6379, mailpit :8025, Wasabi bucket `alignbotbucket`.
+Seed admin: `admin@platform.local` / `Platform123!`. Start with `pnpm qa:gate` — it must stay 6/6 green.
 
 Current state: **71 / 79 passing + 8 fixme (0 red)**. QA is at 9/10 and the hard deploy gate is safe.
 
@@ -44,7 +44,7 @@ Both in [apps/e2e/tests/specs/connectors.spec.ts](apps/e2e/tests/specs/connector
 - **Edit dialogs for Locations and Contact channels.** Currently Add + Remove only.
 - **HMAC auth kind in the connector form.** API accepts it; UI dropdown hides it.
 - **Read-API cursor pagination.** Currently single-page; add `nextCursor` in [read.routes.ts](apps/api/src/modules/read/read.routes.ts) via keyset pagination on `id`.
-- **Bulk audit-log UI** in the ALIGNED admin panel — currently data flows to `audit_logs` but there's no viewer.
+- **Bulk audit-log UI** in the super-admin panel — currently data flows to `audit_logs` but there's no viewer.
 
 These are real Phase 1 polish items, not deploy blockers.
 
@@ -69,7 +69,7 @@ Per the hosting brief delivered in chat:
 5. [ ] Push to `main` → deploy.yml builds, pushes GHCR images, SSHes, runs migrations, smoke-tests `/health`.
 6. [ ] Seed pilot orgs: `pnpm --filter @platform/db exec tsx ./seed/pilot.ts` on the server. Capture 3 API keys securely.
 7. [ ] k6 load test from outside the server: `API_KEY=… BASE_URL=https://api.yourdomain.com k6 run infra/scripts/load-test.js`. Expect `p95<200ms`.
-8. [ ] Daily backup cron: `5 3 * * * /opt/aligned/infra/scripts/backup.sh`.
+8. [ ] Daily backup cron: `5 3 * * * /opt/platform/infra/scripts/backup.sh`.
 9. [ ] Onboard 3 pilot clients (Phase 1 success criterion per the project-details PDF §7.1).
 
 ---

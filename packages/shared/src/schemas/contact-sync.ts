@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { uuidSchema } from './common.js';
 
 /**
- * "Sync contacts with phone" — the tenant pushes their own address book into Hader
+ * "Sync contacts with phone" — the tenant pushes their own address book into the platform
  * from the device that holds it, mediated by a QR code shown in the portal.
  *
  * The desktop mints a session and renders its token as a QR. The tenant's phone opens
@@ -76,7 +76,7 @@ export type ContactSyncDeviceKind = z.infer<typeof contactSyncDeviceKindSchema>;
 export const CONTACT_SYNC_WA_NOTICE_VERSION = '2026-08-03.1';
 
 export const CONTACT_SYNC_WA_NOTICE_TEXT = [
-  'Linking WhatsApp connects your account to Hader as an extra device, the same way',
+  'Linking WhatsApp connects your account to the platform as an extra device, the same way',
   'WhatsApp Web does — but through an unofficial connection.',
   '',
   'Before you continue:',
@@ -278,9 +278,9 @@ export const contactSyncResultSchema = z.object({
 export type ContactSyncResult = z.infer<typeof contactSyncResultSchema>;
 
 // ---------------------------------------------------------------------------
-// Machine seam: the WhatsApp ingest service <-> Hader.
+// Machine seam: the WhatsApp ingest service <-> the platform.
 //
-// Same pull model as sales-scan: the ingest service asks Hader what work exists and
+// Same pull model as sales-scan: the ingest service asks the platform what work exists and
 // pushes results back, so it needs no inbound connectivity and can bind to localhost.
 // ---------------------------------------------------------------------------
 
@@ -402,7 +402,7 @@ export function summarizeContactSync(s: ContactSyncStats): SyncSummaryLine[] {
     lines.push({
       text:
         s.received > 0
-          ? 'Everything on your phone was already saved in Hader. Nothing needed changing.'
+          ? 'Everything on your phone was already saved in the platform. Nothing needed changing.'
           : 'No contacts were found to sync.',
       tone: 'neutral',
     });

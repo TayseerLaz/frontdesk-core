@@ -1,6 +1,6 @@
 // Shopify integration — connection settings, verify, scrape trigger, and the
 // review/approve queue. Gated by the `shopify` org feature (opt-in; enabled
-// per-tenant by an ALIGNED admin).
+// per-tenant by an super-admin).
 //
 // Credentials (access token + API secret) are stored AES-256-GCM encrypted as a
 // single JSON blob (encryptJsonSecret), mirroring ApiConnector.authConfig. The

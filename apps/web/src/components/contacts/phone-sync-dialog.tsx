@@ -1,5 +1,6 @@
 'use client';
 
+import { brand } from '@/lib/brand';
 import {
   CONTACT_SYNC_ATTESTATION_TEXT,
   CONTACT_SYNC_LABEL_MAX_CHARS,
@@ -208,7 +209,7 @@ export function PhoneSyncDialog({
         <DialogHeader>
           <DialogTitle>Sync contacts with phone</DialogTitle>
           <DialogDescription>
-            Copy the contacts saved on your phone into Hader. Nothing is sent until you choose to
+            Copy the contacts saved on your phone into {brand.name}. Nothing is sent until you choose to
             share it.
           </DialogDescription>
         </DialogHeader>

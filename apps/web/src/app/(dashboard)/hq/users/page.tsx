@@ -468,7 +468,7 @@ function UserDetailDialog({ userId, onClose }: { userId: string; onClose: () => 
               </div>
               <div className="flex items-center justify-between rounded-md border border-border px-3 py-2.5">
                 <div>
-                  <p className="text-sm font-medium">ALIGNED HQ admin</p>
+                  <p className="text-sm font-medium">HQ admin</p>
                   <p className="text-xs text-foreground-muted">
                     Grants full cross-tenant access. Use sparingly.
                   </p>

@@ -6,7 +6,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 // Neutral-minimal design system — compact, tight-radius controls. The primary
-// (oxblood) action is the rare accent; everything else is neutral/ghost so
+// (brand-panel) action is the rare accent; everything else is neutral/ghost so
 // hierarchy is obvious. No heavy brand glow — restrained shadow only.
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium text-sm leading-none ring-offset-background transition-[background-color,border-color,color,transform] duration-[var(--dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-1 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',

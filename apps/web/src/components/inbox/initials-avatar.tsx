@@ -35,7 +35,7 @@ export function InitialsAvatar({
       aria-hidden
       className={cn(
         'flex size-9 shrink-0 select-none items-center justify-center rounded-full text-sm font-semibold',
-        ai ? 'bg-[#360516] text-[#F3ECE0]' : 'bg-[#D9CCB8] text-[#4A1525]',
+        ai ? 'bg-[#11334d] text-[#F3ECE0]' : 'bg-[#D9CCB8] text-[#4A1525]',
         className,
       )}
     >

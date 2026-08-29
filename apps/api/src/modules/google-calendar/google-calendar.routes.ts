@@ -72,7 +72,7 @@ export default async function googleCalendarRoutes(app: FastifyInstance) {
   );
 
   // Events on the connected calendar, for the bookings calendar overlay.
-  // Hader-created events are dropped: the booking they mirror is already
+  // the platform-created events are dropped: the booking they mirror is already
   // rendered from our own data, and showing both would double every row.
   r.get(
     '/google-calendar/events',
@@ -122,7 +122,7 @@ export default async function googleCalendarRoutes(app: FastifyInstance) {
             connected: true,
             ok: true,
             events: events
-              .filter((e) => !e.haderBookingId)
+              .filter((e) => !e.platformBookingId)
               .map((e) => ({
                 id: e.id,
                 summary: e.summary,
@@ -223,7 +223,7 @@ export default async function googleCalendarRoutes(app: FastifyInstance) {
         if (!tokens.refreshToken) {
           // Google only returns a refresh token on the first offline consent.
           // prompt=consent forces it; if it's still missing, ask the user to
-          // remove Hader's access at myaccount.google.com and reconnect.
+          // remove the platform's access at myaccount.google.com and reconnect.
           return reply.redirect(`${back()}?error=norefresh`);
         }
         const expiresAt = new Date(Date.now() + tokens.expiresIn * 1000);

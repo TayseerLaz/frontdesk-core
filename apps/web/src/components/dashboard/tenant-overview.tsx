@@ -1,10 +1,10 @@
 'use client';
 
 // The tenant "overview" dashboard — a fixed, curated layout that mirrors the
-// hader.ai sandbox: hero KPIs → conversations chart + recent activity → this
+// example.com sandbox: hero KPIs → conversations chart + recent activity → this
 // week's bookings → an Inbox CTA. Everything is the tenant's LIVE data (see
 // /api/v1/dashboard/widgets/overview + bookings-week). Replaces the old
-// configurable widget board for tenants; the ALIGNED-HQ admin dashboard is a
+// configurable widget board for tenants; the the platform-HQ admin dashboard is a
 // separate component.
 
 import { formatMicrosUsd } from '@platform/shared';
@@ -335,7 +335,7 @@ function ConversationsChart({ d, loading }: { d?: OverviewData; loading: boolean
                 {byDay.map((x, i) => (
                   <div
                     key={i}
-                    className="flex-1 rounded-t-md rounded-b-sm bg-gradient-to-b from-[#7d4152] to-[#360516] transition-[height] duration-700 ease-out"
+                    className="flex-1 rounded-t-md rounded-b-sm bg-gradient-to-b from-[#7d4152] to-[#11334d] transition-[height] duration-700 ease-out"
                     style={{ height: grown ? `${Math.max(2, Math.round((x.count / axisTop) * 100))}%` : '3px' }}
                     title={`${x.label}: ${x.count}`}
                   />
@@ -418,7 +418,7 @@ function bookingBorder(status: string): string {
   if (s.includes('pending')) return '#8a6a12';
   if (s.includes('cancel')) return '#9a9088';
   if (s.includes('complete')) return '#2e8849';
-  return '#360516';
+  return '#11334d';
 }
 
 function BookingsWeek() {
@@ -521,7 +521,7 @@ export function TenantOverview({ greeting }: { greeting: string }) {
       <PageHeader
         eyebrow="Overview"
         title={greeting ? `${timeGreeting()}, ${greeting}` : timeGreeting()}
-        description="Here's a live snapshot of your business on Hader — every number updates in real time."
+        description="Here's a live snapshot of your business — every number updates in real time."
       />
 
       <div className="mt-6 space-y-6">

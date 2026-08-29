@@ -1,5 +1,5 @@
 /*
- * Hader AI — Service Worker
+ * the platform — Service Worker
  *
  * The portal is served under Next.js `basePath: '/app'`, so every public file
  * (this script included) lives under `/app/...`. Registering at `/app/sw.js`
@@ -18,8 +18,8 @@
  * fine, stable cache name.
  */
 const CACHE_VERSION = '__BUILD_ID__';
-const STATIC_CACHE = `hader-static-${CACHE_VERSION}`;
-const RUNTIME_CACHE = `hader-runtime-${CACHE_VERSION}`;
+const STATIC_CACHE = `platform-static-${CACHE_VERSION}`;
+const RUNTIME_CACHE = `platform-runtime-${CACHE_VERSION}`;
 
 const BASE = '/app';
 const OFFLINE_URL = `${BASE}/offline.html`;

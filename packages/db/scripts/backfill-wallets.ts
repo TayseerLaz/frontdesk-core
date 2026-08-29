@@ -3,7 +3,7 @@
 //
 // The wallet is otherwise created lazily (on the first HQ top-up / price set),
 // and a tenant with no wallet already reads as unmetered at the $0.08 default.
-// This backfill just materializes the rows so the ALIGNED admin panel and the
+// This backfill just materializes the rows so the super-admin panel and the
 // tenant Billing page show a concrete wallet from day one.
 //
 // Idempotent: skips orgs that already have a wallet. Safe to re-run.

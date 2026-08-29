@@ -19,7 +19,7 @@ export const updateOrganizationBodySchema = z.object({
 });
 export type UpdateOrganizationBody = z.infer<typeof updateOrganizationBodySchema>;
 
-// Aligned-admin-only ops
+// Platform-admin-only ops
 export const adminListOrgsQuerySchema = z.object({
   q: z.string().optional(),
   status: z.nativeEnum(OrgStatus).optional(),
@@ -32,7 +32,7 @@ export const adminUpdateOrgBodySchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
 });
 
-// Aligned-admin tenant creation. Bypasses email-verify because the operator
+// Platform-admin tenant creation. Bypasses email-verify because the operator
 // is vouching for the customer; the admin user lands `active` + verified.
 // `password` is optional — if not supplied, the server generates a strong
 // one and returns it once in the response so the operator can copy it.

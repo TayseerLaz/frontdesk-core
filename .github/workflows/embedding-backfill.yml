@@ -54,7 +54,7 @@ jobs:
           envs: ORG_FLAG,LIMIT_FLAG,DRY_RUN_FLAG
           script: |
             set -euo pipefail
-            cd /opt/aligned/app
+            cd /opt/platform/app
             echo "=== running product embedding backfill ==="
             echo "    flags: ${ORG_FLAG} ${LIMIT_FLAG} ${DRY_RUN_FLAG}"
             # Production runs natively (systemd + tsx), NOT Docker — so run the

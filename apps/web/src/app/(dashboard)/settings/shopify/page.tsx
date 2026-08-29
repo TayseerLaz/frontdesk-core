@@ -106,7 +106,7 @@ export default function ShopifySettingsPage() {
         <PageHeader title="Shopify" description="Sync your Shopify store into the platform." />
         <Card>
           <CardContent className="py-10 text-center text-sm text-foreground-muted">
-            Shopify sync isn’t enabled for your account. Contact ALIGNED to turn it on.
+            Shopify sync isn’t enabled for your account. Contact support to turn it on.
           </CardContent>
         </Card>
       </>

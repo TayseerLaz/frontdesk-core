@@ -187,7 +187,7 @@ async function buildCsvZip(bundle: Record<string, unknown>): Promise<Buffer> {
   zip.file(
     'README.txt',
     [
-      'ALIGNED / Hader data export',
+      'the platform / the platform data export',
       `Exported: ${new Date().toISOString()}`,
       '',
       'One CSV per data type. Rows that link to a parent (variants, images,',
@@ -386,7 +386,7 @@ export function startDataExportWorker() {
               }
               zip.file(
                 'README.txt',
-                `ALIGNED / Hader data export — formal reports\nExported: ${generatedAt}\nOne PDF per section.`,
+                `the platform / the platform data export — formal reports\nExported: ${generatedAt}\nOne PDF per section.`,
               );
               body = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
               ext = 'zip';

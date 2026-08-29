@@ -67,7 +67,7 @@ declare module 'fastify' {
     requireAuth: (req: FastifyRequest) => Promise<void>;
     /** Higher-order guard: ensure caller has at least the specified role in their active org. */
     requireRole: (minRole: OrgRole) => (req: FastifyRequest) => Promise<void>;
-    /** Restrict to ALIGNED super-admins only. */
+    /** Restrict to super-admins only. */
     requireSuperAdmin: (req: FastifyRequest) => Promise<void>;
   }
 }
@@ -134,7 +134,7 @@ export default fp(async function authPlugin(app: FastifyInstance) {
   app.decorate('requireSuperAdmin', async (req: FastifyRequest) => {
     await app.requireAuth(req);
     if (!req.auth!.isSuperAdmin) {
-      throw forbidden(ApiErrorCode.FORBIDDEN, 'ALIGNED admin role required.');
+      throw forbidden(ApiErrorCode.FORBIDDEN, 'Super-admin role required.');
     }
   });
 });

@@ -1,8 +1,9 @@
 'use client';
 
-// ALIGNED HQ "AI support" copilot — a right slide-over chat for super-admins.
+// HQ "AI support" copilot — a right slide-over chat for super-admins.
 // Streams the answer token-by-token (typewriter) from
 // POST /api/v1/hq/support/chat via a fetch ReadableStream.
+import { brand } from '@/lib/brand';
 import { Bot, Send, Sparkles, Square, X } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
@@ -164,8 +165,8 @@ function AiSupportPanel({ open, onClose }: { open: boolean; onClose: () => void 
             <Sparkles className="size-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold leading-tight">Hader Copilot</p>
-            <p className="text-[11px] text-white/75">ALIGNED HQ · ask about anything in the platform</p>
+            <p className="text-sm font-semibold leading-tight">{brand.name} Copilot</p>
+            <p className="text-[11px] text-white/75">HQ · ask about anything in the platform</p>
           </div>
           {messages.length > 0 ? (
             <button
@@ -251,7 +252,7 @@ function AiSupportPanel({ open, onClose }: { open: boolean; onClose: () => void 
             )}
           </div>
           <p className="mt-1.5 px-1 text-[10px] text-foreground-subtle">
-            Hader Copilot can make mistakes — double-check important actions.
+            {brand.name} Copilot can make mistakes — double-check important actions.
           </p>
         </div>
       </div>

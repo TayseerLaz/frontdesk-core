@@ -1,4 +1,4 @@
-# ALIGNED Business Platform — Runbook
+# the platform — Runbook
 
 This document is the source of truth for operating the platform in production.
 Keep it up to date when procedures change.
@@ -9,9 +9,9 @@ Keep it up to date when procedures change.
 > (`docker-compose.prod.yml` + per-app Dockerfiles) was **removed** — it
 > contradicted the live model (it compiled to `dist/` and ran `node dist/…`).
 >
-> - **Deploy / rollback:** `cd /opt/aligned/app && git pull && bash infra/scripts/redeploy.sh`
+> - **Deploy / rollback:** `cd /opt/platform/app && git pull && bash infra/scripts/redeploy.sh`
 >   (rollback = `git checkout <good-sha>` then re-run). See **Deploys** / **Rollback** below.
-> - **Restart a service:** `sudo systemctl restart aligned-api aligned-worker aligned-web`.
+> - **Restart a service:** `sudo systemctl restart platform-api platform-worker platform-web`.
 > - The `docker compose …` commands that remain in the sections below are
 >   **historical** and refer to the dev stack only (`docker-compose.yml`:
 >   Postgres/Redis/PgBouncer/Mailpit). Do not use them for production deploys.
@@ -28,12 +28,12 @@ Keep it up to date when procedures change.
 
 ## Topology
 
-- **Aligned Cloud Server** running Docker Compose:
+- **Platform Cloud Server** running Docker Compose:
   - `caddy` (TLS terminator) → `web` (Next.js) and `api` (Fastify)
   - `worker` (BullMQ) consumes jobs from `redis`
   - `postgres` (data) ← `pgbouncer` (transaction pooling) ← `api` + `worker`
 - **Wasabi** holds product images, CSV uploads, and encrypted DB backups
-- **GitHub Container Registry** (`ghcr.io/<org>/aligned-{api,worker,web}`) holds versioned images
+- **GitHub Container Registry** (`ghcr.io/<org>/platform-{api,worker,web}`) holds versioned images
 - **Sentry** receives unhandled exceptions
 - **Prometheus** scrapes `/metrics` on the api (port 4000) and worker (port 9100)
 
@@ -41,21 +41,21 @@ Keep it up to date when procedures change.
 
 | Service | Domain |
 |---|---|
-| Portal (Next.js) | `app.aligned.com` |
-| API + chatbot read API | `api.aligned.com` |
+| Portal (Next.js) | `app.platform.com` |
+| API + chatbot read API | `api.platform.com` |
 
 ---
 
 ## Day-1 server bootstrap
 
 1. SSH to the server, install Docker + Docker Compose plugin.
-2. Clone the repo to `/srv/aligned`.
+2. Clone the repo to `/srv/platform`.
 3. `cp .env.production.example .env.production`, edit, `chmod 600 .env.production`.
 4. `docker login ghcr.io -u <username>` with a PAT that has `read:packages`.
 5. `docker compose -f docker-compose.prod.yml --env-file .env.production pull`.
 6. Run migrations once: `docker compose -f docker-compose.prod.yml --env-file .env.production run --rm api node node_modules/prisma/build/index.js migrate deploy --schema packages/db/prisma/schema.prisma`.
 7. `docker compose -f docker-compose.prod.yml --env-file .env.production up -d`.
-8. Verify: `curl -sf https://api.aligned.com/health` returns `{"status":"ok"}`.
+8. Verify: `curl -sf https://api.platform.com/health` returns `{"status":"ok"}`.
 
 ---
 
@@ -75,8 +75,8 @@ keep running until the new ones are ready (Compose's default behaviour).
 ## Rollback
 
 ```bash
-ssh deploy@aligned-cloud
-cd /srv/aligned
+ssh deploy@your-server
+cd /srv/platform
 export TAG=<previous-short-sha>
 export REGISTRY=ghcr.io/<org>
 docker compose -f docker-compose.prod.yml --env-file .env.production pull
@@ -104,15 +104,15 @@ If a bad migration ships:
 
 ## Restore from backup
 
-Backups are written nightly to `s3://aligned-prod/backups/aligned/` by `infra/scripts/backup.sh`. They are gzipped + age-encrypted with the recipient configured in `/etc/aligned/backup.env`.
+Backups are written nightly to `s3://platform-prod/backups/platform/` by `infra/scripts/backup.sh`. They are gzipped + age-encrypted with the recipient configured in `/etc/platform/backup.env`.
 
 ```bash
 # 1. Pull the dump
 aws --endpoint-url $WASABI_ENDPOINT s3 cp \
-  s3://$WASABI_BUCKET/backups/aligned/aligned-YYYYMMDDTHHMMSSZ.sql.gz.age .
+  s3://$WASABI_BUCKET/backups/platform/platform-YYYYMMDDTHHMMSSZ.sql.gz.age .
 
 # 2. Decrypt + decompress
-age --decrypt --identity ~/.config/age/aligned.key aligned-*.sql.gz.age | gunzip > restore.sql
+age --decrypt --identity ~/.config/age/platform.key platform-*.sql.gz.age | gunzip > restore.sql
 
 # 3. Stop writers
 docker compose stop api worker
@@ -146,7 +146,7 @@ docker compose exec api node -e '
 '
 ```
 
-Then send the client an invitation through the ALIGNED admin UI.
+Then send the client an invitation through the super-admin UI.
 
 ---
 
@@ -165,8 +165,8 @@ Then send the client an invitation through the ALIGNED admin UI.
 | `RESEND_API_KEY` (if used) | Dashboard → API keys → revoke + reissue. |
 | API keys (per org) | Issue a new one in the portal `/api-keys`, hand to the bot operator, revoke the old. Tracked per-org so rotation cadence can lag the platform's quarterly cycle when an integration is brittle. |
 | Webhook signing secrets | The portal allows recreating an endpoint to rotate. Old endpoint stays live for ~24 h with the old secret so the receiver has time to switch. |
-| Postgres `aligned` role password | `ALTER ROLE aligned WITH PASSWORD '…';` then update env, restart api+worker. PgBouncer also needs the new password in its `userlist.txt`. |
-| age backup encryption key | `age-keygen -o /etc/aligned/backup.key.new`. Re-encrypt the most recent dump with the new key before discarding the old one (keep both keys for one quarter). |
+| Postgres `platform` role password | `ALTER ROLE aligned with PASSWORD '…';` then update env, restart api+worker. PgBouncer also needs the new password in its `userlist.txt`. |
+| age backup encryption key | `age-keygen -o /etc/platform/backup.key.new`. Re-encrypt the most recent dump with the new key before discarding the old one (keep both keys for one quarter). |
 
 After each rotation, **smoke-test**: log in via the portal, fetch a product through the read API with an org key, and trigger one outbound webhook delivery from `/webhooks` to confirm signing still verifies on the receiver.
 
@@ -174,14 +174,14 @@ After each rotation, **smoke-test**: log in via the portal, fetch a product thro
 
 ## WAF — Cloudflare cutover
 
-The platform is built behind Caddy on the Aligned Cloud Server, with API
+The platform is built behind Caddy on the Platform Cloud Server, with API
 nodes never directly exposed to the public internet. Layering Cloudflare
 in front gives DDoS absorption + managed OWASP rules + bot scoring.
 
 This is a 60-minute cutover when the team is ready:
 
 1. **Sign Cloudflare up + add the zone.** Use the orange-cloud proxy
-   mode for `api.hader.ai`, `app.hader.ai`, and any custom-CNAME hosts
+   mode for `api.example.com`, `app.example.com`, and any custom-CNAME hosts
    you want behind WAF. Cloudflare will assign nameservers — update at
    your registrar.
 2. **Lock origin access.** In the server's firewall, allow port 443
@@ -205,7 +205,7 @@ This is a 60-minute cutover when the team is ready:
    that hostname to "DNS only" (grey cloud) temporarily.
 5. **Configure managed rules.** Enable the **OWASP Core Rule Set** at
    sensitivity = `medium`, then add custom rules: rate-limit `/auth/*`
-   to 60 req/min per IP, block any direct `*.aligned-tech.com` host
+   to 60 req/min per IP, block any direct `*.example.com` host
    header (those should only be DNS, never user-supplied), and enable
    Bot Fight Mode + Super Bot Fight Mode for the portal.
 6. **Tune false positives.** Watch `Security → Events` for the first 48
@@ -255,8 +255,8 @@ If `apps/api/scripts/tenant-chaos.ts` does not yet exist, build it from the patt
 4. If the DB is the bottleneck: check `pg_stat_activity`, kill long queries, consider read replicas.
 
 ### Worker queue depth growing
-1. Check the ALIGNED admin panel → System health → Queues.
-2. If `failed` is climbing: `docker logs aligned-worker | grep error`.
+1. Check the super-admin panel → System health → Queues.
+2. If `failed` is climbing: `docker logs platform-worker | grep error`.
 3. Scale worker replicas in `docker-compose.prod.yml` (`replicas: N`) and redeploy.
 
 ### Webhook deliveries failing
@@ -265,8 +265,8 @@ If `apps/api/scripts/tenant-chaos.ts` does not yet exist, build it from the patt
 3. Manual retry from the deliveries log if the customer's endpoint is back up.
 
 ### Broadcast stuck in `sending` with no progress
-1. Check worker logs: `docker logs aligned-worker | grep broadcast`.
-2. Verify the `broadcast-fanout` and `broadcast-send` queues are draining: ALIGNED admin → System health.
+1. Check worker logs: `docker logs platform-worker | grep broadcast`.
+2. Verify the `broadcast-fanout` and `broadcast-send` queues are draining: super-admin → System health.
 3. Check the WhatsApp channel is active (`/whatsapp` page) — token expiry or Meta-side disable.
 4. Pause the broadcast (button on detail page), fix the underlying issue, then Resume.
 5. The send worker auto-pauses after 25 consecutive recipient failures inside a 60s window; look for a `recipient_failed_burst` event in the timeline.
@@ -294,4 +294,4 @@ For each new client:
 - [ ] (Optional) Help them upload a CSV via `/imports`.
 - [ ] (Optional) Set up an outbound webhook from the chatbot to the platform if the bot needs change notifications.
 - [ ] Verify the read API works end-to-end:
-      `curl -H "X-Api-Key: $KEY" https://api.aligned.com/api/v1/read/products`
+      `curl -H "X-Api-Key: $KEY" https://api.platform.com/api/v1/read/products`

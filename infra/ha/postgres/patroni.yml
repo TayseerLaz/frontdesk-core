@@ -8,7 +8,7 @@
 #
 # etcd quorum: run etcd on vm-db-1, vm-db-2, and vm-app-1 (3 = tolerate 1 loss).
 
-scope: aligned-pg                       # cluster name (shared by all nodes)
+scope: platform-pg                       # cluster name (shared by all nodes)
 namespace: /service/
 name: <NODE_NAME>                       # e.g. vm-db-1  (UNIQUE per node)
 

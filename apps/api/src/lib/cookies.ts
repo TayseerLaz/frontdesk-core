@@ -2,7 +2,7 @@ import type { CookieSerializeOptions } from '@fastify/cookie';
 
 import { env } from './env.js';
 
-export const REFRESH_COOKIE_NAME = 'aligned_refresh';
+export const REFRESH_COOKIE_NAME = 'platform_refresh';
 
 // Browsers reject `Domain=localhost` (RFC 6265 — domain attribute must be a
 // real registrable domain). Omit the domain entirely for `localhost` so the

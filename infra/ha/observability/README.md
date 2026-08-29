@@ -18,7 +18,7 @@ scrape_configs:
   - job_name: api-ready                 # blackbox probe of /health/ready
     metrics_path: /probe
     params: { module: [http_2xx] }
-    static_configs: [ { targets: ["https://api.hader.ai/health/ready"] } ]
+    static_configs: [ { targets: ["https://api.example.com/health/ready"] } ]
     relabel_configs:                     # via blackbox_exporter
       - { source_labels: [__address__], target_label: __param_target }
       - { source_labels: [__param_target], target_label: instance }

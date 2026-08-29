@@ -193,7 +193,7 @@ export class CaptureSession {
       },
       printQRInTerminal: false,
       logger: waLogger,
-      browser: ['Hader', 'Chrome', '120.0.0'],
+      browser: ['the platform', 'Chrome', '120.0.0'],
       // FORWARD-ONLY. qr_whatsapp accepts WhatsApp's recent-history push; we refuse all
       // of it (blocker B8). Two reasons: the consent copy promises a forward window and
       // history would silently reach back past the consent date, and the history blobs

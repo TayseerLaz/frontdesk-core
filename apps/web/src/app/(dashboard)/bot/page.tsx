@@ -2852,7 +2852,7 @@ function FollowUpsCard({ config }: { config: BotConfig | null }) {
           <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
             No approved WhatsApp templates yet. Follow-ups send outside Meta&apos;s 24-hour window,
             so they need a template approved by Meta first — create one under Broadcasts &gt;
-            Templates (or ask the Hader team), wait for approval, then pick it here.
+            Templates (or ask your account manager), wait for approval, then pick it here.
           </p>
         ) : null}
 

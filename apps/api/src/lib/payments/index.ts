@@ -109,8 +109,8 @@ async function createStripeCheckout(
   // amountMinor (cents/fils). success_url is required; use a generic page.
   const form = new URLSearchParams({
     mode: 'payment',
-    success_url: 'https://hader.ai/pay/thanks',
-    cancel_url: 'https://hader.ai/pay/cancelled',
+    success_url: 'https://example.com/pay/thanks',
+    cancel_url: 'https://example.com/pay/cancelled',
     client_reference_id: ctx.cartId,
     'line_items[0][quantity]': '1',
     'line_items[0][price_data][currency]': ctx.currency.toLowerCase(),
@@ -186,8 +186,8 @@ async function createPaypalOrder(
           },
         ],
         application_context: {
-          return_url: 'https://hader.ai/pay/thanks',
-          cancel_url: 'https://hader.ai/pay/cancelled',
+          return_url: 'https://example.com/pay/thanks',
+          cancel_url: 'https://example.com/pay/cancelled',
           shipping_preference: 'NO_SHIPPING',
           user_action: 'PAY_NOW',
         },

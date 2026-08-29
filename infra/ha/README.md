@@ -1,4 +1,4 @@
-# ALIGNED / Hader — High-Availability & Scale Blueprint
+# the platform / the platform — High-Availability & Scale Blueprint
 
 This package takes the platform from **one VM (single point of failure)** to a
 **fault-tolerant, horizontally-scalable** topology suitable for enterprise
@@ -69,7 +69,7 @@ Rung 1 alone removes ~80 % of the catastrophic risk. Rungs 2–3 remove the rest
 ### One honest tradeoff: self-host vs managed Postgres
 Operating self-hosted Postgres HA (Patroni, failover testing, split-brain
 avoidance, WAL archive monitoring) is genuinely hard for a small team. The
-configs here are **complete and correct for self-hosting** (fits "Aligned Cloud
+configs here are **complete and correct for self-hosting** (fits "Platform Cloud
 Servers"), **but**: if your cloud can give you a **managed Postgres with built-in
 HA + PITR**, take it — it offloads the single hardest operational burden, and the
 rest of this blueprint (app HA, Redis, deploy, observability) still applies

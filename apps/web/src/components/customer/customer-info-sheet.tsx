@@ -69,19 +69,6 @@ interface Overview {
     fields: { label: string; value: string }[];
   }[];
   stats: { inboundCount: number; outboundCount: number; threadId: string | null };
-  // hader-support only: the lead + distilled portfolio + tailored brief.
-  lead: {
-    name: string;
-    phone: string;
-    source: string;
-    status: string;
-    note: string | null;
-    capturedAt: string;
-    summary: string | null;
-    portfolio: { label: string; value: string }[];
-    howHaderHelps: string[];
-    howToApproach: string[];
-  } | null;
 }
 
 function money(minor: number, currency: string): string {
@@ -278,54 +265,6 @@ export function CustomerInfoSheet({
           </div>
         ) : (
           <>
-            {/* Lead portfolio (hader-support only) — who this is, what we've
-                learned about their business, and how to win them. */}
-            {data?.lead ? (
-              <Section icon={Sparkles} title="Sales playbook">
-                <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50/60 p-3 dark:border-brand-500/30 dark:bg-brand-500/10">
-                  {/* One compact line: where the lead came from + where it stands.
-                      Who they are lives in the header; what we know lives in
-                      "User info" below — no duplicates here. */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <span className="capitalize text-foreground">
-                      {data.lead.source.replace(/_/g, ' ')}
-                    </span>
-                    <Badge variant={data.lead.status === 'converted' ? 'success' : 'info'}>
-                      {data.lead.status.replace(/_/g, ' ')}
-                    </Badge>
-                    <span className="text-xs text-foreground-subtle">
-                      captured {formatRelative(data.lead.capturedAt)}
-                    </span>
-                  </div>
-
-                  {data.lead.howHaderHelps.length > 0 ? (
-                    <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
-                        How Hader can help them
-                      </p>
-                      <ul className="list-disc space-y-1 pl-4 text-sm text-foreground">
-                        {data.lead.howHaderHelps.map((t, i) => (
-                          <li key={i}>{t}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {data.lead.howToApproach.length > 0 ? (
-                    <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
-                        How to approach
-                      </p>
-                      <ul className="list-disc space-y-1 pl-4 text-sm text-foreground">
-                        {data.lead.howToApproach.map((t, i) => (
-                          <li key={i}>{t}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </div>
-              </Section>
-            ) : null}
 
             {/* Profile */}
             <Section icon={Hash} title="Profile">

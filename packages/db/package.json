@@ -29,13 +29,11 @@
     "rls:apply": "tsx ./scripts/apply-rls.ts",
     "reset": "prisma migrate reset --force --skip-seed && pnpm rls:apply && pnpm seed",
     "seed": "tsx ./seed/index.ts",
-    "seed:pilot": "tsx ./seed/pilot.ts",
-    "seed:barista": "tsx --conditions=source ./scripts/seed-barista-bot.ts",
-    "seed:full-volume": "tsx ./seed/full-volume.ts",
     "seed:super-admin": "tsx ./seed/super-admin.ts",
     "studio": "prisma studio",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bootstrap": "prisma migrate deploy && tsx ./seed/super-admin.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0"

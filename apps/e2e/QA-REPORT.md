@@ -49,7 +49,7 @@ Stack under test: dev (web :3000, api :4000, postgres :5432, redis :6379, mailpi
 - `catalog-products.spec.ts` used `__dirname` in ESM.
 - `categories.spec.ts` "DELETE clears" used a shared fixture category; now provisions fresh.
 - `members.spec.ts` teardown deleted users before org → FK on invitations. Flipped order.
-- `members.spec.ts` email subject was "Invit..."; actual is "Join <org> on ALIGNED".
+- `members.spec.ts` email subject was "Invit..."; actual is "Join <org> on the platform".
 - `webhooks-outbound` retry + manual-retry tests matched prior tests' delivered rows; now filtered to specific delivery IDs.
 - `admin-panel` notifications-bell test needed `page.reload()` to force the react-query refetch.
 

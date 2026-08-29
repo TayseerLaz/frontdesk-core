@@ -5,7 +5,7 @@ import { logger } from './logger.js';
 import type { CapturedMessage, SessionStatus } from './session.js';
 
 /**
- * Client for the Hader API — the system of record that holds the grant and the consent.
+ * Client for the the platform API — the system of record that holds the grant and the consent.
  * Every call is HMAC-signed over `<timestamp>.<body>`, mirroring the connector inbound
  * webhook scheme already used in this codebase.
  */
@@ -19,7 +19,7 @@ function sign(body: string): { ts: string; sig: string } {
 async function post<T>(pathname: string, payload: unknown): Promise<T> {
   const body = JSON.stringify(payload);
   const { ts, sig } = sign(body);
-  const res = await fetch(`${env.HADER_API_URL}${pathname}`, {
+  const res = await fetch(`${env.PLATFORM_API_URL}${pathname}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -29,7 +29,7 @@ async function post<T>(pathname: string, payload: unknown): Promise<T> {
     body,
     signal: AbortSignal.timeout(20_000),
   });
-  if (!res.ok) throw new Error(`hader ${pathname} -> ${res.status}`);
+  if (!res.ok) throw new Error(`platform ${pathname} -> ${res.status}`);
   return (await res.json()) as T;
 }
 
@@ -90,5 +90,5 @@ export async function heartbeat(active: number): Promise<void> {
 }
 
 export function logPushFailure(err: unknown, what: string): void {
-  logger.error({ err, what }, 'hader push failed');
+  logger.error({ err, what }, 'platform push failed');
 }

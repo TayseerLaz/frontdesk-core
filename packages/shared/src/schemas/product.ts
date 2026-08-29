@@ -62,7 +62,7 @@ export const productListItemSchema = z.object({
   slug: slugRead,
   shortDescription: z.string().nullable(),
   priceMinor: moneyMinor,
-  // For Alinia real-estate mirror rows, priceMinor is intentionally NULL and
+  // For a partner real-estate mirror rows, priceMinor is intentionally NULL and
   // the human-readable price is derived from `attributes` (rent/sale-aware).
   // Null for native products (they use priceMinor). Optional for back-compat.
   priceLabel: z.string().nullable().optional(),

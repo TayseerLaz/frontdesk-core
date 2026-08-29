@@ -131,7 +131,7 @@ export async function getOrgAiPlan(
 // — top-level .status, nested .response.status, the typed RateLimitError
 // constructor name, and the rate_limit_exceeded code. Mirrors the worker's
 // isRetryableError helper (apps/worker/src/lib/openai.ts) so the two
-// fallback policies stay aligned.
+// fallback policies stay platform.
 function isGroqRetryableError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const e = err as Record<string, unknown>;
@@ -181,7 +181,7 @@ export function estimateCostUsd(tokens: number): number {
   return (tokens / 1_000_000) * PRICE_BLENDED_PER_M;
 }
 
-// ALIGNED admins get unlimited daily tokens. Same predicate the
+// super-admins get unlimited daily tokens. Same predicate the
 // billing cap check uses — single source of truth.
 async function isUnlimitedOrg(orgId: string): Promise<boolean> {
   const { isOrgUnlimited } = await import('./billing.js');
@@ -200,7 +200,7 @@ async function consumeDailyTokens(orgId: string, tokens: number): Promise<boolea
   }
   // Tracking only — the enforced cap is now the per-tenant MONTHLY AI-MESSAGE
   // allowance (lib/ai-messages.ts), NOT this daily token counter. We keep
-  // counting tokens purely for the ALIGNED-admin cost view (tokens/USD per
+  // counting tokens purely for the super-admin cost view (tokens/USD per
   // day/month), so this never gates a reply. (Avoids the old failure mode where
   // a low daily token cap silently bricked the bot.)
   void orgId;

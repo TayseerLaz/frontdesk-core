@@ -26,7 +26,10 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "bootstrap": "pnpm --filter @platform/db bootstrap",
+    "db:seed:demo": "pnpm --filter @platform/db seed",
+    "brand:check": "bash infra/scripts/brand-check.sh"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

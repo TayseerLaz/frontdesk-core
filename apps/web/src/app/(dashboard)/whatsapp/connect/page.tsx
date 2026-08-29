@@ -33,6 +33,7 @@
 // Meta's popup UNLINKS the tenant's WhatsApp Web/Desktop companion devices, and
 // there is no API undo. "Try again" is only honest before the popup succeeds.
 
+import { brand } from '@/lib/brand';
 import type {
   WhatsAppChannelDto,
   WhatsAppEmbeddedSignupBody,
@@ -461,14 +462,14 @@ export default function WhatsAppConnectPage() {
       {
         title: 'Send yourself a test message',
         detail:
-          'Message your business number from a personal phone — it appears in the Hader inbox within seconds.',
+          `Message your business number from a personal phone — it appears in the ${brand.name} inbox within seconds.`,
       },
     ];
     return (
       <>
         <PageHeader
           title="Number connected"
-          description="Your WhatsApp Business number is now linked to Hader."
+          description={`Your WhatsApp Business number is now linked to ${brand.name}.`}
           backHref="/whatsapp"
           backLabel="Back to WhatsApp"
         />
@@ -482,7 +483,7 @@ export default function WhatsAppConnectPage() {
               {connected.displayPhoneNumber ?? connected.label ?? 'Your number'} is connected
             </CardTitle>
             <CardDescription>
-              You can keep answering from the phone, from Hader, or both — they stay in sync.
+              You can keep answering from the phone, from {brand.name}, or both — they stay in sync.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -527,7 +528,7 @@ export default function WhatsAppConnectPage() {
     <>
       <PageHeader
         title="Connect your WhatsApp Business number"
-        description="Bring the number you already use in WhatsApp Business into Hader. You keep using the app on your phone."
+        description={`Bring the number you already use in WhatsApp Business into ${brand.name}. You keep using the app on your phone.`}
         backHref="/whatsapp"
         backLabel="Back to WhatsApp"
       />
@@ -576,7 +577,7 @@ export default function WhatsAppConnectPage() {
                 </CardTitle>
                 <CardDescription>
                   {wrongDevice === 'in-app'
-                    ? 'You are inside an app\u2019s built-in browser, which blocks the Meta sign-up window. Open hader.ai in Chrome or Safari — ideally on a computer.'
+                    ? 'You are inside an app\u2019s built-in browser, which blocks the Meta sign-up window. Open example.com in Chrome or Safari — ideally on a computer.'
                     : 'Connecting ends with a QR code that the WhatsApp Business app on your phone must scan — so the phone cannot also be the screen showing it. Open this page on a computer and keep the phone next to you.'}
                 </CardDescription>
               </CardHeader>
@@ -597,7 +598,7 @@ export default function WhatsAppConnectPage() {
             <CardContent>
               <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
                 <FactRow icon={Smartphone} title="Keep using WhatsApp on your phone">
-                  Nothing moves. Answer from the phone or from Hader — both stay in sync.
+                  Nothing moves. Answer from the phone or from {brand.name} — both stay in sync.
                 </FactRow>
                 <FactRow icon={RefreshCcw} title="WhatsApp Web &amp; Desktop will sign out">
                   Expected, and not undoable from here. Sign back in after: WhatsApp Business →
@@ -616,7 +617,7 @@ export default function WhatsAppConnectPage() {
                 </FactRow>
                 <FactRow icon={ShieldCheck} title="Stopping later happens on the phone">
                   WhatsApp Business → Settings → Account → Business Platform → Disconnect. We
-                  cannot undo it from Hader.
+                  cannot undo it from here.
                 </FactRow>
               </div>
             </CardContent>
@@ -632,7 +633,7 @@ export default function WhatsAppConnectPage() {
           <Card className="lg:col-span-2">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <History className="size-4" /> Teach Hader from your past conversations
+                <History className="size-4" /> Teach the bot from your past conversations
                 <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground-subtle">
                   optional
                 </span>
@@ -661,7 +662,7 @@ export default function WhatsAppConnectPage() {
                     className="mt-0.5 size-4 shrink-0 rounded border-border accent-brand-600"
                   />
                   <span>
-                    I want Hader to receive <strong>up to 180 days</strong> of my past customer
+                    I want {brand.name} to receive <strong>up to 180 days</strong> of my past customer
                     conversations, both what they sent and what I sent. Group chats are not
                     included, and files older than 14 days arrive as a note rather than the file.
                   </span>
@@ -676,8 +677,8 @@ export default function WhatsAppConnectPage() {
                     className="mt-0.5 size-4 shrink-0 rounded border-border accent-brand-600"
                   />
                   <span>
-                    I understand <strong>my customers have not agreed anything with Hader</strong>.
-                    Their data stays my responsibility; Hader processes it on my instruction, only
+                    I understand <strong>my customers have not agreed anything with {brand.name}</strong>.
+                    Their data stays my responsibility; {brand.name} processes it on my instruction, only
                     for my account, and never to train anything shared with other businesses.
                   </span>
                 </label>

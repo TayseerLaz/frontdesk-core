@@ -6,14 +6,14 @@
 #   spec:
 #     acme:
 #       server: https://acme-v02.api.letsencrypt.org/directory
-#       email: ops@aligned-tech.com
+#       email: ops@example.com
 #       privateKeySecretRef: { name: letsencrypt-prod }
 #       solvers: [{ http01: { ingress: { class: nginx } } }]
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: hader-api
-  namespace: hader
+  name: platform-api
+  namespace: platform
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
@@ -28,10 +28,10 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-    - hosts: ["api.hader.ai"]
-      secretName: hader-api-tls
+    - hosts: ["api.example.com"]
+      secretName: platform-api-tls
   rules:
-    - host: api.hader.ai
+    - host: api.example.com
       http:
         paths:
           # /metrics is served unauthenticated by the API on this same port.
@@ -41,15 +41,15 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: hader-api
+                name: platform-api
                 port:
                   number: 4000
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: hader-web
-  namespace: hader
+  name: platform-web
+  namespace: platform
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     # Portal deep-links that arrive WITHOUT the /app prefix — invite,
@@ -62,17 +62,17 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-    - hosts: ["hader.ai"]
-      secretName: hader-web-tls
+    - hosts: ["example.com"]
+      secretName: platform-web-tls
   rules:
-    - host: hader.ai
+    - host: example.com
       http:
         paths:
           - path: /app
             pathType: Prefix
             backend:
               service:
-                name: hader-web
+                name: platform-web
                 port:
                   number: 3000
 ---
@@ -80,30 +80,30 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: hader-web-deeplinks
-  namespace: hader
+  name: platform-web-deeplinks
+  namespace: platform
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/permanent-redirect-code: "302"
-    nginx.ingress.kubernetes.io/permanent-redirect: "https://hader.ai/app$request_uri"
+    nginx.ingress.kubernetes.io/permanent-redirect: "https://example.com/app$request_uri"
 spec:
   ingressClassName: nginx
   tls:
-    - hosts: ["hader.ai"]
-      secretName: hader-web-tls
+    - hosts: ["example.com"]
+      secretName: platform-web-tls
   rules:
-    - host: hader.ai
+    - host: example.com
       http:
         paths:
-          - { path: /invite,         pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
-          - { path: /reset-password, pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
-          - { path: /verify-email,   pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
-          - { path: /sync,           pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
-          - { path: /settings,       pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
-          - { path: /hq,  pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
-# NOTE: the marketing site at hader.ai/ is NOT in this repo and is NOT covered
+          - { path: /invite,         pathType: Prefix, backend: { service: { name: platform-web, port: { number: 3000 } } } }
+          - { path: /reset-password, pathType: Prefix, backend: { service: { name: platform-web, port: { number: 3000 } } } }
+          - { path: /verify-email,   pathType: Prefix, backend: { service: { name: platform-web, port: { number: 3000 } } } }
+          - { path: /sync,           pathType: Prefix, backend: { service: { name: platform-web, port: { number: 3000 } } } }
+          - { path: /settings,       pathType: Prefix, backend: { service: { name: platform-web, port: { number: 3000 } } } }
+          - { path: /hq,  pathType: Prefix, backend: { service: { name: platform-web, port: { number: 3000 } } } }
+# NOTE: the marketing site at example.com/ is NOT in this repo and is NOT covered
 # by any manifest here. It was edited in place on the old server under
-# /opt/aligned/hader-ai-website (index.html, privacy.html, terms.html,
+# /opt/platform/platform-ai-website (index.html, privacy.html, terms.html,
 # data-deletion.html, refund-policy.html). Those files have no git history
-# anywhere. Until they are recovered or rebuilt, hader.ai/ has no backend —
+# anywhere. Until they are recovered or rebuilt, example.com/ has no backend —
 # and the legal pages it served are referenced by Meta app review.

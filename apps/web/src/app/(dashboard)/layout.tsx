@@ -18,7 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (status === 'unauthenticated') router.replace('/login');
   }, [status, router]);
 
-  // ALIGNED-admin per-tenant access control: if the current page belongs to a
+  // super-admin per-tenant access control: if the current page belongs to a
   // feature the admin disabled for this org, bounce away. (Sidebar already
   // hides it; this stops direct-URL access.) Manual-inbox tenants (AI off, not
   // a platform admin) land on the inbox instead of the empty dashboard.

@@ -10,7 +10,7 @@ export interface AccessTokenClaims {
   sub: string; // user id
   org: string; // organization id (active)
   role: 'admin' | 'editor' | 'viewer';
-  aa: boolean; // is aligned admin
+  aa: boolean; // is platform admin
   sid: string; // session id
 }
 
@@ -24,8 +24,8 @@ export async function signAccessToken(claims: AccessTokenClaims): Promise<{ toke
   const token = await new SignJWT({ ...claims })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setIssuer('aligned-api')
-    .setAudience('aligned-web')
+    .setIssuer('platform-api')
+    .setAudience('platform-web')
     .setExpirationTime(expiresAt)
     .sign(accessSecret);
   return { token, expiresAt };
@@ -36,8 +36,8 @@ export async function signRefreshToken(claims: RefreshTokenClaims): Promise<{ to
   const token = await new SignJWT({ ...claims })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setIssuer('aligned-api')
-    .setAudience('aligned-refresh')
+    .setIssuer('platform-api')
+    .setAudience('platform-refresh')
     .setExpirationTime(expiresAt)
     .sign(refreshSecret);
   return { token, expiresAt };
@@ -52,8 +52,8 @@ const VERIFY_ALGORITHMS = ['HS256'] as const;
 export async function verifyAccessToken(token: string): Promise<AccessTokenClaims> {
   try {
     const { payload } = await jwtVerify(token, accessSecret, {
-      issuer: 'aligned-api',
-      audience: 'aligned-web',
+      issuer: 'platform-api',
+      audience: 'platform-web',
       algorithms: [...VERIFY_ALGORITHMS],
     });
     return payload as unknown as AccessTokenClaims;
@@ -65,8 +65,8 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenClaim
 export async function verifyRefreshToken(token: string): Promise<RefreshTokenClaims> {
   try {
     const { payload } = await jwtVerify(token, refreshSecret, {
-      issuer: 'aligned-api',
-      audience: 'aligned-refresh',
+      issuer: 'platform-api',
+      audience: 'platform-refresh',
       algorithms: [...VERIFY_ALGORITHMS],
     });
     return payload as unknown as RefreshTokenClaims;

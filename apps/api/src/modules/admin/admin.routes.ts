@@ -1,4 +1,4 @@
-// ALIGNED super-admin endpoints. Always run with RLS bypass since they
+// super-admin endpoints. Always run with RLS bypass since they
 // inspect / manage data across tenants. Gated by `requireSuperAdmin`.
 import {
   adminCreateTenantBodySchema,
@@ -101,7 +101,7 @@ export default async function adminRoutes(app: FastifyInstance) {
               // tenants table at /hq can render a colored
               // badge per row + sort by plan.
               aiPlan: z.enum(['basic', 'middle', 'max', 'ultra']),
-              // ALIGNED-admin per-tenant access control: disabled feature keys.
+              // super-admin per-tenant access control: disabled feature keys.
               disabledFeatures: z.array(z.string()),
               // Primary WhatsApp display number (null if none connected).
               whatsappNumber: z.string().nullable(),
@@ -235,7 +235,7 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   // ---------- POST /hq/orgs/:id/unlock -------------------------
   // Reset the login "firewall" for a tenant: clear the failed-login lockout on
-  // EVERY member so they can sign in again. Aligned-admin only.
+  // EVERY member so they can sign in again. Platform-admin only.
   r.post(
     '/hq/orgs/:id/unlock',
     {
@@ -320,7 +320,7 @@ export default async function adminRoutes(app: FastifyInstance) {
         const passwordHash = await hashPassword(password);
 
         // Opt-in features (e.g. Shopify) always start DISABLED on a new org —
-        // an ALIGNED admin turns them on per-tenant later from the features
+        // an super-admin turns them on per-tenant later from the features
         // panel. (Absence from disabledFeatures can't distinguish "enable me"
         // from a non-UI client that doesn't know the key, so we force them off.)
         const organization = await tx.organization.create({
@@ -528,7 +528,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- GET /hq/orgs/:id/details -------------------------
-  // Drill-down for a single tenant. Returns the metadata an ALIGNED
+  // Drill-down for a single tenant. Returns the metadata an the platform
   // admin needs to understand or troubleshoot the account — members
   // with email + role + last-login + 2FA status, WhatsApp channel
   // health, custom-domain status, recent audit log. Passwords are
@@ -690,7 +690,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- PATCH /hq/users/:id ------------------------------
-  // ALIGNED-admin can update a tenant member's email after the fact —
+  // super-admin can update a tenant member's email after the fact —
   // common ask when a customer changes jobs / email providers / asks for
   // a typo to be fixed. Constraints:
   //   • new email must be a syntactically valid address
@@ -748,7 +748,7 @@ export default async function adminRoutes(app: FastifyInstance) {
             email: newEmail,
             // Force re-verification of the new mailbox. The user can
             // request a fresh verify-email link from the portal, or the
-            // ALIGNED admin can issue a reset-link (which lets them in
+            // super-admin can issue a reset-link (which lets them in
             // without email verification per the existing login gate
             // logic — reset implies control of the new email).
             emailVerifiedAt: null,
@@ -790,7 +790,7 @@ export default async function adminRoutes(app: FastifyInstance) {
           entityType: 'user',
           entityId: result.userId,
           metadata: {
-            event: 'aligned_admin_email_change',
+            event: 'hq_admin_email_change',
             previousEmail: result.previousEmail,
             newEmail: result.email,
             sessionsRevoked: result.sessionsRevoked,
@@ -810,7 +810,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- POST /hq/users/:id/reset-link ---------------------
-  // ALIGNED-admin convenience: generate a one-time, short-TTL password
+  // super-admin convenience: generate a one-time, short-TTL password
   // reset link for any tenant member and return the URL. The admin then
   // DMs it to the customer (Slack / WhatsApp / email).
   //
@@ -867,7 +867,7 @@ export default async function adminRoutes(app: FastifyInstance) {
         actorUserId: req.auth!.userId,
         entityType: 'user',
         entityId: req.params.id,
-        metadata: { event: 'aligned_admin_issued_reset_link', userEmail: result.email },
+        metadata: { event: 'hq_admin_issued_reset_link', userEmail: result.email },
       });
       return {
         data: {
@@ -880,14 +880,14 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- POST /hq/orgs/:id/impersonate --------------------
-  // ALIGNED-admin "Control" action: issue a brand-new session bound to
+  // super-admin "Control" action: issue a brand-new session bound to
   // the target org so the admin can browse + edit the tenant's data
   // exactly as one of its own admins would. The previous session is
   // revoked so navigation is unambiguous, and the action is recorded in
   // the audit log on the target org.
   //
   // Membership is NOT required — that's the whole point. getSessionContext
-  // synthesises a virtual 'admin' role for ALIGNED admins that don't have
+  // synthesises a virtual 'admin' role for super-admins that don't have
   // a membership row, so the rest of the app behaves normally.
   r.post(
     '/hq/orgs/:id/impersonate',
@@ -953,7 +953,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       // Transparent to the tenant: a clearly-labeled entry in THEIR audit log
       // (the reader redacts the HQ email, showing only the HQ username).
       await recordAudit({
-        action: 'aligned_admin_accessed',
+        action: 'hq_admin_accessed',
         organizationId: target.id,
         actorUserId: req.auth!.userId,
         entityType: 'organization',
@@ -990,7 +990,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'All users across every tenant (ALIGNED admins only).',
+        summary: 'All users across every tenant (super-admins only).',
         response: {
           200: listEnvelopeSchema(
             z.object({
@@ -1056,7 +1056,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'One user with memberships + recent activity (ALIGNED admins only).',
+        summary: 'One user with memberships + recent activity (super-admins only).',
         params: z.object({ id: uuidSchema }),
         response: {
           200: itemEnvelopeSchema(
@@ -1152,7 +1152,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'Edit a user (ALIGNED admins only).',
+        summary: 'Edit a user (super-admins only).',
         params: z.object({ id: uuidSchema }),
         body: z.object({
           firstName: z.string().trim().max(100).nullable().optional(),
@@ -1207,7 +1207,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'Link a user to another organization (ALIGNED admins only).',
+        summary: 'Link a user to another organization (super-admins only).',
         params: z.object({ id: uuidSchema }),
         body: z.object({
           organizationId: uuidSchema,
@@ -1255,7 +1255,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'Delete (anonymize) a user account (ALIGNED admins only).',
+        summary: 'Delete (anonymize) a user account (super-admins only).',
         params: z.object({ id: uuidSchema }),
         response: { 200: itemEnvelopeSchema(z.object({ id: uuidSchema })) },
       },
@@ -1306,7 +1306,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'Set a tenant’s manual monthly payment (ALIGNED admins only).',
+        summary: 'Set a tenant’s manual monthly payment (super-admins only).',
         params: z.object({ id: uuidSchema }),
         body: z.object({ monthlyPaidUsd: z.number().min(0).nullable() }),
         response: { 200: itemEnvelopeSchema(z.object({ id: uuidSchema })) },
@@ -1628,7 +1628,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'Live system health snapshot for ALIGNED operators.',
+        summary: 'Live system health snapshot for operators.',
         response: {
           200: itemEnvelopeSchema(
             z.object({
@@ -2283,7 +2283,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'ALIGNED-admin only — list of every bot-reply provenance row across all tenants.',
+        summary: 'Super-admin only — list of every bot-reply provenance row across all tenants.',
         querystring: z.object({
           organizationId: z.string().uuid().optional(),
           flagged: z.enum(['true', 'false']).optional(),
@@ -2392,7 +2392,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- GET /hq/provenance/suppressions ------------------
-  // Phase 8 / 1.7 — list every suppression row visible to an ALIGNED
+  // Phase 8 / 1.7 — list every suppression row visible to an the platform
   // admin: GLOBAL rows + every tenant's per-org rows. The UI groups
   // them by scope.
   r.get(
@@ -2400,7 +2400,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'ALIGNED-admin only — list all provenance suppression rows (global + per-org).',
+        summary: 'Super-admin only — list all provenance suppression rows (global + per-org).',
         querystring: z.object({
           scope: z.enum(['all', 'global', 'org']).default('all'),
           organizationId: z.string().uuid().optional(),
@@ -2453,7 +2453,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'ALIGNED-admin only — manually add a suppression row.',
+        summary: 'Super-admin only — manually add a suppression row.',
         body: z.object({
           phrase: z.string().trim().min(1).max(200),
           note: z.string().trim().max(500).optional(),
@@ -2514,7 +2514,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'ALIGNED-admin only — remove a suppression row.',
+        summary: 'Super-admin only — remove a suppression row.',
         params: z.object({ id: uuidSchema }),
       },
       preHandler: [app.requireSuperAdmin],
@@ -2536,7 +2536,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: 'ALIGNED-admin only — promote a per-org suppression to global.',
+        summary: 'Super-admin only — promote a per-org suppression to global.',
         params: z.object({ id: uuidSchema }),
       },
       preHandler: [app.requireSuperAdmin],
@@ -2927,7 +2927,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       if (!updated) throw notFound('Organization not found');
       if (updated.changed) {
         // recordAudit opens its own tx (with RLS bypass) — call it
-        // after the org update commits so audit + state stay aligned.
+        // after the org update commits so audit + state stay platform.
         await recordAudit({
           organizationId: orgId,
           actorUserId: req.auth!.userId,
@@ -2942,7 +2942,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- PUT /hq/orgs/:id/ai-message-cap ----------------
-  // ALIGNED-admin sets a tenant's MONTHLY AI-MESSAGE allowance (1 message = 1
+  // super-admin sets a tenant's MONTHLY AI-MESSAGE allowance (1 message = 1
   // bot reply / voice turn). cap = null -> Unlimited (no metering).
   r.put(
     '/hq/orgs/:id/ai-message-cap',
@@ -3062,7 +3062,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- PUT /hq/orgs/:id/ai-prompt-append --------------
-  // Set the ALIGNED-admin-only prompt addendum for this tenant. It is injected
+  // Set the super-admin-only prompt addendum for this tenant. It is injected
   // VERBATIM into the bot's system prompt (after core rules, before catalog) on
   // every reply — chat + voice. Empty/whitespace clears it. Tenants can neither
   // see nor edit this (it's not in the /bot routes' DTO or body schema).
@@ -3071,7 +3071,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ['admin'],
-        summary: "Set the ALIGNED-admin-only bot system-prompt addendum for a tenant.",
+        summary: "Set the super-admin-only bot system-prompt addendum for a tenant.",
         params: z.object({ id: uuidSchema }),
         body: z.object({ adminSystemPromptAppend: z.string().max(8000).nullable() }),
         response: {
@@ -3384,7 +3384,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- POST /hq/orgs/:id/members --------------------
-  // ALIGNED admin invites a teammate into a specific tenant (email + role).
+  // super-admin invites a teammate into a specific tenant (email + role).
   // Reuses the standard invitation flow (sends the invite email + audits).
   r.post(
     '/hq/orgs/:id/members',
@@ -3510,7 +3510,7 @@ export default async function adminRoutes(app: FastifyInstance) {
         action: 'password_changed',
         entityType: 'user',
         entityId: userId,
-        metadata: { by: 'aligned_admin' },
+        metadata: { by: 'hq_admin' },
       });
       return { data: { userId, password } };
     },
@@ -3658,7 +3658,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- PUT /hq/orgs/:id/plan --------------------------
-  // ALIGNED-admin changes a tenant's SUBSCRIPTION plan (free/starter/…), which
+  // super-admin changes a tenant's SUBSCRIPTION plan (free/starter/…), which
   // drives the quota caps (messages, broadcasts, products, …). Distinct from
   // ai-plan (the AI model tier). Upserts the Subscription row by plan code.
   r.put(
@@ -3709,14 +3709,14 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- POST /hq/support/chat --------------------------
-  // ALIGNED HQ AI copilot. Streams a plain-text token stream (read with a
+  // HQ AI copilot. Streams a plain-text token stream (read with a
   // fetch ReadableStream on the client). Tool-calls live tenant data. Admin-only.
   r.post(
     '/hq/support/chat',
     {
       schema: {
         tags: ['admin'],
-        summary: 'Streaming ALIGNED HQ AI copilot (plain-text token stream).',
+        summary: 'Streaming HQ AI copilot (plain-text token stream).',
         body: z.object({
           messages: z
             .array(
@@ -3770,7 +3770,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   );
 
   // ---------- PUT /hq/orgs/:id/features ----------------------
-  // ALIGNED-admin sets which features a tenant can access. The keys here are
+  // super-admin sets which features a tenant can access. The keys here are
   // DISABLED: their portal pages are hidden + route-guarded, and 'ai' turns off
   // the bot's auto-reply (manual social-media handler). Validated against the
   // shared ORG_FEATURES registry so unknown keys are rejected.
@@ -3837,8 +3837,8 @@ export default async function adminRoutes(app: FastifyInstance) {
     },
   );
 
-  // ---------- ALIGNED-admin: export ANY org's data -----------------------
-  // ALIGNED admins can export a tenant's full data bundle at any time, even
+  // ---------- super-admin: export ANY org's data -----------------------
+  // super-admins can export a tenant's full data bundle at any time, even
   // when the tenant's own self-service 'exports' feature is turned off. Reuses
   // the same BullMQ worker + DataExport rows as the self-service flow; the
   // admin downloads from this panel (the worker's email link is tenant-only).

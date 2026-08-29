@@ -18,7 +18,7 @@ import {
 import { request } from 'undici';
 import { createHmac } from 'node:crypto';
 
-const ADMIN_PASSWORD = 'Aligned123!Conn';
+const ADMIN_PASSWORD = 'Platform123!Conn';
 const ADMIN_EMAIL = uniqueEmail('qa-conn-admin');
 const ORG_SLUG = uniqueSlug('qa-conn');
 

@@ -140,7 +140,7 @@ async function fetchOnePage(url: string): Promise<{
     context = await browser.newContext({
       userAgent:
         'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)' +
-        ' Chrome/120.0.0.0 Safari/537.36 HaderBot/1.0 (+https://hader.ai/bot)',
+        ' Chrome/120.0.0.0 Safari/537.36 the platformBot/1.0 (+https://example.com/bot)',
       viewport: { width: 1280, height: 800 },
       javaScriptEnabled: true,
       // Most public marketing sites don't gate on locale; defaulting to
@@ -1622,7 +1622,7 @@ async function downloadAndAttachImage(
       headers: {
         'User-Agent':
           'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)' +
-          ' Chrome/120.0.0.0 Safari/537.36 HaderBot/1.0 (+https://hader.ai/bot)',
+          ' Chrome/120.0.0.0 Safari/537.36 the platformBot/1.0 (+https://example.com/bot)',
         Accept: 'image/*',
       },
     });

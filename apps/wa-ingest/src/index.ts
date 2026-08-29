@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import Fastify from 'fastify';
 
 import { env } from './env.js';
-import * as hader from './hader-client.js';
+import * as platform from './platform-client.js';
 import { listAuthGrantIds, purgeAuth } from './auth-store.js';
 import { logger } from './logger.js';
 import { startContactsPool, activeContactsCount } from './contacts-pool.js';
@@ -12,13 +12,13 @@ import { pool } from './pool.js';
 /**
  * Sales Scan capture service.
  *
- * Runs on the AlignDesk box, isolated from qr_whatsapp. Hader is the system of record;
- * this process is a follower that re-derives what it may run from Hader on every sweep.
+ * Runs on the AlignDesk box, isolated from qr_whatsapp. the platform is the system of record;
+ * this process is a follower that re-derives what it may run from the platform on every sweep.
  * READ-ONLY toward WhatsApp by construction (see session.ts — there is no send path).
  */
 const app = Fastify({ logger: false, bodyLimit: 1_048_576 });
 
-/** Verify a Hader -> ingest call. Same scheme as the ingest -> Hader direction. */
+/** Verify a the platform -> ingest call. Same scheme as the ingest -> the platform direction. */
 function verify(req: { headers: Record<string, unknown>; rawBodyText: string }): boolean {
   const ts = String(req.headers['x-wa-ingest-timestamp'] ?? '');
   const got = String(req.headers['x-wa-ingest-signature'] ?? '').replace(/^sha256=/, '');
@@ -63,12 +63,12 @@ app.get('/health', async () => ({
 }));
 
 /**
- * Status (incl. the QR) for one grant. OPERATOR/DEBUG ONLY — Hader does NOT call this.
+ * Status (incl. the QR) for one grant. OPERATOR/DEBUG ONLY — the platform does NOT call this.
  *
  * The tenant's page gets its QR the other way round: this service pushes it out via
- * hader-client pushStatus -> POST /api/v1/wa-ingest/status, Hader parks it in Redis
+ * platform-client pushStatus -> POST /api/v1/wa-ingest/status, the platform parks it in Redis
  * (90s TTL), and GET /sales-scan/status reads it back. Nothing in apps/api or
- * apps/worker dials this route; the only inbound calls Hader makes are /v1/reconcile
+ * apps/worker dials this route; the only inbound calls the platform makes are /v1/reconcile
  * and /v1/stop, both fire-and-forget optimisations.
  */
 app.post<{ Body: { grantId?: string } }>('/v1/status', async (req, reply) => {
@@ -77,10 +77,10 @@ app.post<{ Body: { grantId?: string } }>('/v1/status', async (req, reply) => {
   return { data: pool.getStatus(grantId) };
 });
 
-/** Nudge: Hader calls this right after a tenant starts a scan so the QR appears fast. */
+/** Nudge: the platform calls this right after a tenant starts a scan so the QR appears fast. */
 app.post('/v1/reconcile', async () => {
   try {
-    const grants = await hader.fetchAuthorisedGrants();
+    const grants = await platform.fetchAuthorisedGrants();
     for (const g of grants) await pool.ensureRunning(g);
   } catch (err) {
     logger.error({ err }, 'reconcile failed');
@@ -92,7 +92,7 @@ app.post('/v1/reconcile', async () => {
 app.post<{ Body: { grantId?: string; reason?: string } }>('/v1/stop', async (req, reply) => {
   const grantId = req.body?.grantId;
   if (!grantId) return reply.code(400).send({ error: 'grantId required' });
-  await pool.endSession(grantId, req.body?.reason ?? 'stopped_by_hader');
+  await pool.endSession(grantId, req.body?.reason ?? 'stopped_by_platform');
   return { data: { ok: true } };
 });
 
@@ -106,7 +106,7 @@ async function main(): Promise<void> {
 
     // Heartbeat is separate from the reaper so a wedged sweep still surfaces liveness.
     setInterval(() => {
-      void hader.heartbeat(pool.activeCount).catch((e) => hader.logPushFailure(e, 'heartbeat'));
+      void platform.heartbeat(pool.activeCount).catch((e) => platform.logPushFailure(e, 'heartbeat'));
     }, env.HEARTBEAT_INTERVAL_MS);
 
     void pool.runReaper();
@@ -128,20 +128,20 @@ async function main(): Promise<void> {
       const purged = purgeAuth(grantId);
       logger.info({ grantId, purged }, 'purged capture credentials');
 
-      // REPORT IT. Destroying the bytes without telling Hader leaves `authPurgedAt` null
+      // REPORT IT. Destroying the bytes without telling the platform leaves `authPurgedAt` null
       // forever, which is indistinguishable from "credentials still exist" — so the
-      // Hader-side purge-retry sweep alarms at ERROR every 5 minutes about credentials
+      // the platform-side purge-retry sweep alarms at ERROR every 5 minutes about credentials
       // that were destroyed here. That is exactly what happened from 2026-07-30: the
       // compliance column said "not purged" while the disk said otherwise, and the alarm
       // that exists to catch a real leak was crying wolf instead.
       //
       // pool.drainPurges() does this on the capture-enabled path; this branch never ran
-      // it. Best-effort: if Hader is unreachable the sweep will retry via /v1/stop, which
+      // it. Best-effort: if the platform is unreachable the sweep will retry via /v1/stop, which
       // is mounted regardless of CAPTURE_ENABLED.
       if (purged) {
-        await hader
+        await platform
           .reportPurged(grantId)
-          .catch((err) => hader.logPushFailure(err, 'purged (capture-disabled teardown)'));
+          .catch((err) => platform.logPushFailure(err, 'purged (capture-disabled teardown)'));
       }
     }
   }

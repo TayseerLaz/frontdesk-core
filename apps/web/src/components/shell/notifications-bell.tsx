@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 // WebAudio two-tone ping — no bundled asset, no <audio> autoplay problem. The
 // AudioContext is created + resumed on the user's FIRST gesture (browsers
 // refuse audio before one); if it never unlocks, the chime silently no-ops.
-const SOUND_PREF_KEY = 'hader:notify-sound';
+const SOUND_PREF_KEY = 'platform:notify-sound';
 
 function soundEnabled(): boolean {
   try {

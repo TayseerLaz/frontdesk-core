@@ -1,4 +1,4 @@
-# Checks what a stranger can reach on a Hader host.
+# Checks what a stranger can reach on a the platform host.
 #
 # Run it against the live domain, and against a bare IP before you point DNS:
 #   .\check-public-exposure.ps1
@@ -9,8 +9,8 @@
 
 [CmdletBinding()]
 param(
-    [string]$ApiHost = 'api.hader.ai',
-    [string]$WebHost = 'hader.ai',
+    [string]$ApiHost = 'api.example.com',
+    [string]$WebHost = 'example.com',
     [ValidateSet('http', 'https')][string]$Scheme = 'https',
     # Ports that should NOT answer from outside. 269 is ssh and is expected.
     [int[]]$Ports = @(80, 443, 3000, 4000, 5432, 6379, 8080, 9090, 9100)
@@ -85,7 +85,7 @@ foreach ($p in @('/health', '/api/v1/status')) {
 Write-Host ""
 Write-Host "== Source and secret files ==" -ForegroundColor Cyan
 
-# hader.ai is a single-page app with `try_files {path} /index.html`, so EVERY
+# example.com is a single-page app with `try_files {path} /index.html`, so EVERY
 # path returns 200 and the homepage. Comparing against a random control path
 # is what separates a real file from that catch-all - without it this section
 # reports .env as exposed on a host that is serving nothing of the sort.

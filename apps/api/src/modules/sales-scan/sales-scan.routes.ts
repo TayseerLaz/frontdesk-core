@@ -181,7 +181,7 @@ export default async function salesScanRoutes(app: FastifyInstance) {
         app,
         req,
         'sales_scan',
-        'Teaching the bot with your own data is not enabled for your account. Contact ALIGNED to upgrade.',
+        'Teaching the bot with your own data is not enabled for your account. Contact support to upgrade.',
       );
 
       // Reject stale consent copy outright rather than recording an agreement to
@@ -271,7 +271,7 @@ export default async function salesScanRoutes(app: FastifyInstance) {
 
       if (grantId) {
         // Ask the capture service to disconnect and purge. If it is unreachable the
-        // Hader-side purge-retry reaper keeps trying — the DB row is already terminal,
+        // the platform-side purge-retry reaper keeps trying — the DB row is already terminal,
         // so capture is authoritatively revoked either way.
         void requestIngestStop(grantId, 'tenant_revoked').catch((err) =>
           req.log.warn({ err, grantId }, 'ingest stop request failed — reaper will retry'),

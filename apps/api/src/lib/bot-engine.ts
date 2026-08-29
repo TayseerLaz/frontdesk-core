@@ -44,7 +44,7 @@ export interface BotData {
   config: {
     personality: string | null;
     customPersonality: string | null;
-    // ALIGNED-admin-only prompt addendum injected verbatim into the system
+    // super-admin-only prompt addendum injected verbatim into the system
     // prompt (after core rules, before catalog). Flows through gatherBotData's
     // full botConfig row. Empty for tenants with none.
     adminSystemPromptAppend?: string | null;
@@ -1198,7 +1198,7 @@ export async function buildBotResponse(
     // version was redundant — provenance scanner doesn't catch this class,
     // but a single clear sentence has been enough in practice.
     `- Voice notes: the platform converts your text to a voice note automatically when voice mode is on. NEVER apologise about not being able to send voice / audio (in any language) — those statements are false. If the customer sent audio themselves, write in natural spoken sentences (no markdown, no URLs).`,
-    // ALIGNED-admin-authored per-tenant instructions. Injected VERBATIM after the
+    // super-admin-authored per-tenant instructions. Injected VERBATIM after the
     // core rules (so they augment/refine behaviour) but before the catalog data.
     // Empty for tenants with none — no drift. This is the SAME string the admin
     // "AI" preview renders (single source of truth). It CANNOT override the SCOPE

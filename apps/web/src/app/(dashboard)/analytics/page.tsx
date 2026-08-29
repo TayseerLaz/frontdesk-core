@@ -118,7 +118,7 @@ function exportReportCsv(a: Analytics, win: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `hader-report-${win}.csv`;
+  link.download = `platform-report-${win}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();

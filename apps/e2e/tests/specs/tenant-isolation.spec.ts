@@ -133,7 +133,7 @@ test.describe('tenant isolation — HARD DEPLOY GATE', () => {
 
   test('direct DB read with app.current_org_id = orgB cannot see orgA product (RLS enforced)', async () => {
     // Use a FRESH dedicated connection — the shared helper pool defaults leak SET LOCAL scope.
-    // The `aligned` docker user is typically a SUPERUSER which bypasses RLS; to actually
+    // The `platform` docker user is typically a SUPERUSER which bypasses RLS; to actually
     // exercise the tenant policy we SET ROLE to the `app_user` non-superuser role that
     // rls.sql provisions for application connections.
     const client = new pg.Client({ connectionString: env.DATABASE_URL });

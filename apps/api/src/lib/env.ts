@@ -33,7 +33,7 @@ const envSchema = z.object({
     .default('false')
     .transform((s) => s === 'true'),
 
-  EMAIL_FROM: z.string().default('ALIGNED <noreply@aligned.local>'),
+  EMAIL_FROM: z.string().default('Platform <noreply@localhost>'),
   EMAIL_DEV_SMTP_HOST: z.string().default('localhost'),
   EMAIL_DEV_SMTP_PORT: z.coerce.number().int().positive().default(1025),
   // Production SMTP (AWS SES). Falls back to dev transport when EMAIL_SMTP_HOST is empty.
@@ -49,7 +49,7 @@ const envSchema = z.object({
   // Wasabi (S3-compatible) — leave keys empty to disable in dev (uploads will 503).
   WASABI_ENDPOINT: z.string().url().default('https://s3.eu-central-1.wasabisys.com'),
   WASABI_REGION: z.string().default('eu-central-1'),
-  WASABI_BUCKET: z.string().default('aligned-dev'),
+  WASABI_BUCKET: z.string().default('platform-dev'),
   // Sales Scan ("Teach the bot with your own data") — the WhatsApp capture service.
   //
   // These say the operator INTENDS this deployment to capture. They do NOT say anything
@@ -71,8 +71,8 @@ const envSchema = z.object({
   // (docs/SALES-SCAN-REVIEW-BLOCKERS.md). One shared credential for two features with
   // very different readiness is exactly how a gate gets bypassed by accident.
   //
-  // Only a secret is needed, not a URL: the ingest service PULLS work from Hader and
-  // pushes results back, so Hader never dials out to it. Unset => the WhatsApp option is
+  // Only a secret is needed, not a URL: the ingest service PULLS work from the platform and
+  // pushes results back, so the platform never dials out to it. Unset => the WhatsApp option is
   // reported unavailable and the tenant sees the two phone flows only.
   WA_CONTACTS_SECRET: z.string().optional(),
   // PREVIEW MODE. Lets the full Sales Scan flow be demoed before the capture service is
@@ -221,7 +221,7 @@ const envSchema = z.object({
   // Phase 3 §5.1.4 — custom CNAMEs. Customers point a CNAME at this host;
   // we verify with `dns.promises.resolveCname` before the row goes
   // 'verified' (which is the gate for Caddy on-demand TLS).
-  CUSTOM_CNAME_TARGET: z.string().default('hader.ai'),
+  CUSTOM_CNAME_TARGET: z.string().default('example.com'),
 
   // Sprint 4 — WAF readiness. Controls which upstream proxies we trust
   // when reading X-Forwarded-For and CF-Connecting-IP. Three modes:
@@ -260,7 +260,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
   // ---- Meta Embedded Signup / Coexistence -------------------------------
-  // App "Hader Ai" 1727898828528257 (business 332283114091818), which holds the
+  // App "the platform Ai" 1727898828528257 (business 332283114091818), which holds the
   // Tech Provider verification and has history / smb_app_state_sync /
   // smb_message_echoes subscribed.
   //

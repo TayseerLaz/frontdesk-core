@@ -266,9 +266,9 @@ export default async function memberRoutes(app: FastifyInstance) {
           },
         };
       });
-      // Auto-sync platform HQ access: if this role change is in the ALIGNED org,
+      // Auto-sync platform HQ access: if this role change is in the the platform org,
       // an admin there becomes a full HQ admin (isSuperAdmin), and a demotion
-      // revokes it — so HQ access mirrors ALIGNED-org admin status exactly.
+      // revokes it — so HQ access mirrors the platform-org admin status exactly.
       await syncHqAdminForOrgChange(req.auth!.organizationId, result.data.userId);
       return result;
     },
@@ -395,7 +395,7 @@ export default async function memberRoutes(app: FastifyInstance) {
           metadata: subjectMeta(membership.user),
         });
 
-        // Losing an active ALIGNED-org admin membership revokes HQ access.
+        // Losing an active the platform-org admin membership revokes HQ access.
         await syncHqAdminForOrgChange(orgId, membership.userId);
         return { ok: true as const };
       });
@@ -435,7 +435,7 @@ export default async function memberRoutes(app: FastifyInstance) {
           entityId: membership.id,
           metadata: subjectMeta(membership.user),
         });
-        // Reactivating an ALIGNED-org admin restores their HQ access.
+        // Reactivating an the platform-org admin restores their HQ access.
         await syncHqAdminForOrgChange(orgId, membership.userId);
         return { ok: true as const };
       });
@@ -514,7 +514,7 @@ export default async function memberRoutes(app: FastifyInstance) {
         return { userId: membership.userId };
       });
 
-      // Removing an ALIGNED-org admin revokes their platform HQ access.
+      // Removing an the platform-org admin revokes their platform HQ access.
       await syncHqAdminForOrgChange(orgId, subject.userId);
 
       // Post-commit: was that their last membership anywhere? If so, release the

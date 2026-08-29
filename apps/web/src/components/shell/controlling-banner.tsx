@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/lib/session';
 
 /**
- * Global banner shown on EVERY page while an ALIGNED admin is "controlling" a
+ * Global banner shown on EVERY page while an super-admin is "controlling" a
  * tenant (impersonation). It makes the impersonation state obvious and gives a
  * one-click way back to the admin's own account, so the admin is never stranded
  * inside a tenant workspace. Renders nothing in the normal (non-control) case.
@@ -21,7 +21,7 @@ export function ControllingBanner() {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
 
-  // "Controlling" = an aligned admin whose ACTIVE org isn't one of their own
+  // "Controlling" = an platform admin whose ACTIVE org isn't one of their own
   // memberships (impersonation mints a no-membership session for the tenant).
   const adminOrgIds = new Set((session?.availableOrganizations ?? []).map((o) => o.id));
   const isControlling =
@@ -51,7 +51,7 @@ export function ControllingBanner() {
     <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
       <span className="flex items-center gap-2">
         <Eye className="size-4 shrink-0" />
-        You’re controlling <strong>{session?.organization?.name}</strong> as an ALIGNED admin.
+        You’re controlling <strong>{session?.organization?.name}</strong> as a super-admin.
       </span>
       <Button
         size="sm"

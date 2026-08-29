@@ -8,7 +8,7 @@
  * updates the password + ensures super-admin flag.
  *
  * Usage (on the server, inside the api container or via pnpm script):
- *   INITIAL_ADMIN_EMAIL=admin@aligned-tech.com \
+ *   INITIAL_ADMIN_EMAIL=admin@example.com \
  *   INITIAL_ADMIN_PASSWORD='...' \
  *   node node_modules/.bin/tsx packages/db/seed/super-admin.ts
  */
@@ -44,7 +44,7 @@ async function main() {
     create: {
       email,
       passwordHash,
-      firstName: 'ALIGNED',
+      firstName: process.env.BRAND_NAME?.trim() || 'Platform',
       lastName: 'Admin',
       status: 'active',
       emailVerifiedAt: new Date(),
@@ -52,9 +52,10 @@ async function main() {
     },
   });
 
-  // Bootstrap the ALIGNED root org so the super-admin has a tenant to land in.
-  const rootSlug = process.env.INITIAL_ADMIN_ORG_SLUG?.trim().toLowerCase() || 'aligned';
-  const rootName = process.env.INITIAL_ADMIN_ORG_NAME?.trim() || 'ALIGNED';
+  // Bootstrap the operator's own root org so the super-admin has a tenant to land in.
+  const rootSlug = process.env.INITIAL_ADMIN_ORG_SLUG?.trim().toLowerCase() || 'platform';
+  const rootName =
+    process.env.INITIAL_ADMIN_ORG_NAME?.trim() || process.env.BRAND_NAME?.trim() || 'Platform';
   const org = await prisma.organization.upsert({
     where: { slug: rootSlug },
     update: { name: rootName, status: 'active' },

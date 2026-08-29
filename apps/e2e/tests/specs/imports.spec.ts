@@ -25,7 +25,7 @@ import {
 } from '../helpers/db';
 import { FormData, File, request } from 'undici';
 
-const ADMIN_PASSWORD = 'Aligned123!Import';
+const ADMIN_PASSWORD = 'Platform123!Import';
 const ADMIN_EMAIL = uniqueEmail('qa-imports-admin');
 const ORG_SLUG = uniqueSlug('qa-imports');
 

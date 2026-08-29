@@ -4,7 +4,7 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
-  // Portal lives at hader.ai/app/* so the marketing site at hader.ai can
+  // Portal lives at example.com/app/* so the marketing site at example.com can
   // own the root domain without a separate subdomain + DNS record. Next
   // prefixes every <Link>, router.push, and server `redirect()`
   // automatically; the API builds user-facing URLs from `WEB_PUBLIC_URL`

@@ -8,7 +8,7 @@
 //     be the last admin in another org). Cascades through Prisma + RLS.
 //
 // Both endpoints are tenant-scoped via the standard `app.tenant` (RLS) and
-// require the Org Admin role. Cross-tenant access (ALIGNED super-admin) is
+// require the Org Admin role. Cross-tenant access (super-admin) is
 // served by the existing /hq/orgs/:id DELETE.
 import { ApiErrorCode, successSchema } from '@platform/shared';
 import type { FastifyInstance } from 'fastify';
@@ -272,7 +272,7 @@ export default async function orgRoutes(app: FastifyInstance) {
         metadata: { event: 'organization_export_downloaded' },
       });
 
-      const filename = `aligned-org-${orgId.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
+      const filename = `org-${orgId.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
       reply
         .header('Content-Type', 'application/json; charset=utf-8')
         .header('Content-Disposition', `attachment; filename="${filename}"`);
@@ -284,7 +284,7 @@ export default async function orgRoutes(app: FastifyInstance) {
   // Hard-deletes the org. Cascades through every tenant-scoped table via
   // Prisma's onDelete:Cascade. Refused if any *other* org would lose its
   // last admin as a side effect (e.g. a user who only admins one other org
-  // alongside this one). Refused for ALIGNED super-admins because their
+  // alongside this one). Refused for super-admins because their
   // workspace is platform-critical — they should use cross-tenant tools.
   r.delete(
     '/organization',
@@ -300,7 +300,7 @@ export default async function orgRoutes(app: FastifyInstance) {
       const orgId = req.auth!.organizationId;
 
       await withRlsBypass(async (tx) => {
-        // Refuse to delete an org that hosts ALIGNED super-admin members —
+        // Refuse to delete an org that hosts super-admin members —
         // they likely belong to the platform-operator tenant.
         const superAdminCount = await tx.user.count({
           where: { isSuperAdmin: true, memberships: { some: { organizationId: orgId } } },
@@ -308,14 +308,14 @@ export default async function orgRoutes(app: FastifyInstance) {
         if (superAdminCount > 0) {
           throw badRequest(
             ApiErrorCode.CONFLICT,
-            'This organisation contains ALIGNED super-admin members and cannot be self-deleted.',
+            'This organisation contains super-admin members and cannot be self-deleted.',
           );
         }
 
         // Per-org advisory lock so concurrent calls serialise.
         await tx.$executeRawUnsafe(
           `SELECT pg_advisory_xact_lock(hashtext($1))`,
-          `aligned:org-delete:${orgId}`,
+          `platform:org-delete:${orgId}`,
         );
 
         // For every member of this org, check whether they admin OTHER orgs

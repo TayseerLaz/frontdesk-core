@@ -54,7 +54,7 @@ export const loginResponseSchema = z.object({
     slug: slugSchema,
     name: z.string(),
     role: z.nativeEnum(OrgRole),
-    // ALIGNED-admin per-tenant access control (disabled feature keys).
+    // super-admin per-tenant access control (disabled feature keys).
     disabledFeatures: z.array(z.string()).default([]),
   }),
   availableOrganizations: z.array(
@@ -163,7 +163,7 @@ export const sessionResponseSchema = z.object({
     slug: slugSchema,
     name: z.string(),
     role: z.nativeEnum(OrgRole),
-    // ALIGNED-admin per-tenant access control (disabled feature keys).
+    // super-admin per-tenant access control (disabled feature keys).
     disabledFeatures: z.array(z.string()).default([]),
     // F1 — this member's page whitelist. null = full access for their role
     // (also always null for admins). The web intersects this with
