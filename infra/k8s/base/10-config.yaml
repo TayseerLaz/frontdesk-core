@@ -1,0 +1,52 @@
+# Non-secret configuration.
+#
+# Several of these have defaults in apps/api/src/lib/env.ts that are WRONG for
+# production but do NOT crash the pod — COOKIE_SECURE defaults to false,
+# COOKIE_DOMAIN to localhost, CORS_ORIGINS to http://localhost:3000. A pod that
+# boots happily with those is a portal that cannot hold a session. Treat every
+# key here as required even though the schema calls them optional.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hader-config
+  namespace: hader
+data:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+
+  # Public URLs. WEB_PUBLIC_URL MUST carry the /app suffix: the portal runs
+  # under Next's basePath '/app', and the API mints password-reset, invite,
+  # verify-email and contact-sync QR links off this value. Without /app every
+  # emailed link lands on the marketing site instead of the portal — this is
+  # exactly the 2026-06-23 outage.
+  API_PUBLIC_URL: "https://api.hader.ai"
+  WEB_PUBLIC_URL: "https://hader.ai/app"
+  CORS_ORIGINS: "https://hader.ai"
+
+  # The refresh cookie is set by api.hader.ai and must be sent from hader.ai,
+  # so the domain has to cover both hostnames.
+  COOKIE_DOMAIN: ".hader.ai"
+  COOKIE_SECURE: "true"
+
+  # In-cluster the only thing in front of the API is the ingress controller.
+  # 'true' trusts ANY proxy's X-Forwarded-For, which lets a caller spoof their
+  # source IP past the per-IP rate limiter. Pin it to the pod CIDR that your
+  # ingress controller runs in.
+  TRUST_PROXY: "10.42.0.0/16"
+
+  # Object storage. Credentials live in the Secret, not here.
+  WASABI_ENDPOINT: "https://s3.eu-central-1.wasabisys.com"
+  WASABI_REGION: "eu-central-1"
+  WASABI_BUCKET: "alignbotbucket"
+  WASABI_PUBLIC_URL_BASE: "https://alignbotbucket.s3.eu-central-1.wasabisys.com"
+
+  RATE_LIMIT_AUTH_PER_MINUTE: "10"
+  RATE_LIMIT_API_PER_SECOND: "200"
+  RATE_LIMIT_READ_API_PER_SECOND: "500"
+
+  SENTRY_ENVIRONMENT: "production"
+  SENTRY_TRACES_SAMPLE_RATE: "0.1"
+
+  # Grounding gate: shadow logs and records without altering replies.
+  # Do not move to 'enforce' until the shadow block-rate has been reviewed.
+  GROUNDING_GATE_MODE: "shadow"

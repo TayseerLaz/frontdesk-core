@@ -1,0 +1,537 @@
+@import "tailwindcss";
+/* Tailwind v4 animation utilities (animate-in / fade-in / zoom-in / slide-in…)
+   — the v4 successor to tailwindcss-animate. Powers the Radix overlay
+   enter/exit animations across the app. */
+@import "tw-animate-css";
+
+/* Dark mode is driven by a `.dark` class on <html> (see theme-provider.tsx),
+   NOT the OS preference. Bind Tailwind's `dark:` variant to that class so
+   `dark:*` utilities track the in-app theme toggle instead of prefers-color-
+   scheme (otherwise a light app on a dark-OS machine wrongly gets dark styles —
+   e.g. the oxblood sidebar showing as white). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ----------------------------------------------------------------------------
+   shadcn/ui canonical token bridge.
+   Maps shadcn's expected color tokens onto the existing Oxblood ramp via var()
+   references, so ANY canonical shadcn component (bg-background, bg-primary,
+   bg-card, border-input, ring-ring, text-muted-foreground …) renders on-brand
+   and flips correctly in dark mode — the referenced --color-* tokens are
+   overridden in the .dark block below, and var() resolves at use-time.
+   Purely additive: `foreground` + `border` already exist in the theme; every
+   token here is NEW, so no existing utility changes. Migrating a component to
+   canonical shadcn now Just Works without re-skinning.
+   ---------------------------------------------------------------------------- */
+@theme {
+  --color-background:            var(--color-surface-muted);
+  --color-card:                  var(--color-surface);
+  --color-card-foreground:       var(--color-foreground);
+  --color-popover:               var(--color-surface);
+  --color-popover-foreground:    var(--color-foreground);
+  --color-primary:               var(--color-brand-500);
+  --color-primary-foreground:    var(--color-on-brand);
+  --color-secondary:             var(--color-surface-elevated);
+  --color-secondary-foreground:  var(--color-foreground);
+  --color-muted:                 var(--color-surface-elevated);
+  --color-muted-foreground:      var(--color-foreground-muted);
+  --color-accent:                var(--color-brand-50);
+  --color-accent-foreground:     var(--color-brand-700);
+  --color-destructive:           var(--color-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-input:                 var(--color-border-strong);
+  --color-ring:                  var(--color-brand-400);
+}
+
+/* Accessibility: honour the OS "reduce motion" setting globally. The Radix
+   overlay animations use unprefixed `animate-in`/`animate-out` (they must run
+   regardless of the motion-safe variant so exit animations fire), so neutralise
+   ALL animation/transition durations here for users who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================================
+   Hader AI design tokens — Oxblood + Sand + Signal palette.
+   Brand book at /Hader AI Brand Book _standalone_.html:
+     --serif:   Fraunces           (display + headings)
+     --sans:    Plus Jakarta Sans  (body)
+     --mono:    JetBrains Mono     (code, IDs, SKUs)
+     --oxblood: #360516            (primary brand)
+     --sand:    #cfc0a9            (warm secondary)
+     --signal:  #e53e34            (accent / CTA / alert)
+     bg cream:  #faf9f5
+     near-blk:  #0a0b0e
+   The semantic Tailwind tokens below (brand-*, coral-*, etc.) keep their
+   names so no component has to be touched — only their hex values change.
+   ============================================================================ */
+
+@theme {
+  /* Two-font system (neutral-minimal). Plus Jakarta Sans for all UI/body;
+     JetBrains Mono for SKUs / prices / IDs / quantities / timestamps via the
+     `font-mono` utility — tabular numerics so data reads precise. */
+  --font-sans:  var(--font-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-serif: var(--font-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono:  var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* ---- Spacing scale (4pt, semantic) ------------------------------------ */
+  --space-1: 0.125rem;  /* 2  */
+  --space-2: 0.25rem;   /* 4  */
+  --space-3: 0.375rem;  /* 6  */
+  --space-4: 0.5rem;    /* 8  */
+  --space-5: 0.75rem;   /* 12 */
+  --space-6: 1rem;      /* 16 — default page/section padding (was 24–32) */
+  --space-7: 1.5rem;    /* 24 */
+  --space-8: 2rem;      /* 32 */
+  --space-9: 3rem;      /* 48 */
+
+  /* ---- Density (compact): shared sizing for rows/controls/fields --------- */
+  --density-row: 2.25rem;  /* 36px table/list row */
+  --control-h:   2rem;     /* 32px buttons/segmented */
+  --field-h:     2.125rem; /* 34px inputs/selects */
+
+  /* ---- Motion: transform/opacity only, smooth deceleration -------------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur:      180ms;
+
+  /* "On-brand" — the text/icon colour to use ON TOP of bg-brand-500.
+     Light mode: white (over oxblood). Dark mode flips this to oxblood
+     in the .dark block below (over white). Use text-on-brand wherever
+     you have bg-brand-500. */
+  --color-on-brand: #ffffff;
+
+  /* Brand — Oxblood ramp (anchored at 500 = #360516). Top half desaturates
+     into dusty rose so light surfaces, hover tints, and focus rings have
+     enough contrast against the cream background. */
+  --color-brand-50:  #faf0f1;
+  --color-brand-100: #f0d8de;
+  --color-brand-200: #d9aebb;
+  --color-brand-300: #b87a8d;
+  --color-brand-400: #844758;
+  --color-brand-500: #360516;
+  --color-brand-600: #2c0412;
+  --color-brand-700: #25030f;
+  --color-brand-800: #1c020c;
+  --color-brand-900: #110108;
+
+  /* Coral — Signal red ramp (anchored at 500 = #e53e34). Used for escalation,
+     CTA emphasis, and the brand's "alert" accent in the brand book. */
+  --color-coral-50:  #fdecea;
+  --color-coral-100: #fbd6d3;
+  --color-coral-200: #f7adab;
+  --color-coral-300: #f17b78;
+  --color-coral-400: #ed5751;
+  --color-coral-500: #e53e34;
+  --color-coral-600: #c1342c;
+  --color-coral-700: #9c2a24;
+
+  /* Sand — warm secondary, used for soft fills, dividers, and the
+     "warm neutral" badge variant. Not part of the existing ramp so
+     it's exposed as flat tokens. */
+  --color-sand-50:  #f9f5ee;
+  --color-sand-100: #f0e8d8;
+  --color-sand-200: #e5d8c1;
+  --color-sand-300: #cfc0a9;
+  --color-sand-500: #b39d7f;
+  --color-sand-700: #6f5f48;
+
+  /* Surfaces — neutral-minimal (OKLCH). Near-monochrome with only a WHISPER
+     of warmth (chroma ~0.004) so the canvas feels cohesive with oxblood
+     without reading as "cream". Oxblood is demoted to a rare accent. */
+  --color-surface:          oklch(99.2% 0.003 50);   /* cards / raised */
+  --color-surface-muted:    oklch(97.6% 0.004 60);   /* page background */
+  --color-surface-elevated: oklch(96.2% 0.005 55);   /* wells / hover fills */
+  --color-border:           oklch(91.5% 0.005 55);   /* hairline 1px */
+  --color-border-strong:    oklch(85% 0.007 55);
+
+  /* Foreground — neutral ink (NOT oxblood). Very dark warm-gray for body;
+     muted + subtle step up in lightness for secondary/tertiary text. */
+  --color-foreground:        oklch(24% 0.01 40);
+  --color-foreground-muted:  oklch(46% 0.012 45);
+  --color-foreground-subtle: oklch(60% 0.01 50);
+
+  /* Semantic — warmth-matched. */
+  --color-success: #2e8849;
+  --color-success-100: #d8f2de;
+  --color-warning: #8a6a12;
+  --color-warning-100: #fff3d1;
+  --color-danger: #c13241;
+  --color-danger-100: #ffe0e4;
+  --color-info: #1b4f72;
+  --color-info-100: #dceeff;
+
+  /* Radii — tight (Linear-class). Was 8/14/20/28/36 — too soft/round; the
+     literal source of the "doesn't feel like the best SaaS" feeling. */
+  --radius-xs: 0.25rem;   /* 4  */
+  --radius-sm: 0.375rem;  /* 6  */
+  --radius-md: 0.5rem;    /* 8  */
+  --radius-lg: 0.75rem;   /* 12 */
+  --radius-xl: 1rem;      /* 16 */
+
+  /* Shadows — restrained. Borders carry structure; shadows are reserved for
+     true overlays (popover/dialog/command). Much lighter than before. */
+  --shadow-sm: 0 1px 2px rgba(20, 14, 16, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 14, 16, 0.06), 0 1px 2px rgba(20, 14, 16, 0.04);
+  --shadow-lg: 0 12px 32px rgba(20, 14, 16, 0.10), 0 2px 6px rgba(20, 14, 16, 0.05);
+  --shadow-brand: 0 6px 18px rgba(54, 5, 22, 0.20);
+  --shadow-coral: 0 6px 18px rgba(229, 62, 52, 0.20);
+}
+
+/* ============================================================================
+   DARK MODE — Tailwind v4 `dark` variant. Toggled by adding `dark` class to
+   <html> (handled by the ThemeToggle component + system preference). Tokens
+   are overridden in @theme so every Tailwind utility re-themes automatically.
+   ============================================================================ */
+.dark {
+  /* "On-brand" flips to oxblood in dark mode — brand-500 is white here,
+     so text/icons sitting on it need to be dark to stay legible. */
+  --color-on-brand: #360516;
+
+  /* Brand — anchors on pure white (#ffffff) in dark mode. Oxblood at
+     500 was invisible on a near-black surface, so the action color
+     inverts to white instead. Lower stops are progressively darker
+     neutrals so brand-tinted backgrounds + hover fills still feel like
+     "brand chrome" against the dark floor; upper stops stay near-white
+     so anything that uses brand-600+ as a text or focus colour also
+     reads cleanly. */
+  --color-brand-50:  #1a1818;
+  --color-brand-100: #2a2528;
+  --color-brand-200: #3d3539;
+  --color-brand-300: #5a4f54;
+  --color-brand-400: #8a7d82;
+  --color-brand-500: #ffffff;
+  --color-brand-600: #f5f5f5;
+  --color-brand-700: #ebebeb;
+  --color-brand-800: #dedede;
+  --color-brand-900: #c8c8c8;
+
+  /* Surfaces — neutral near-black (OKLCH), whisper-warm only. Neutral-minimal:
+     no oxblood-tinted chrome; the dark canvas is calm graphite. */
+  --color-surface:          oklch(20% 0.004 60);   /* cards */
+  --color-surface-muted:    oklch(16% 0.004 60);   /* page background */
+  --color-surface-elevated: oklch(24% 0.005 60);   /* wells / hover */
+  --color-border:           oklch(30% 0.005 60);
+  --color-border-strong:    oklch(38% 0.006 60);
+
+  /* Foreground — neutral off-whites (not sand). */
+  --color-foreground:        oklch(95% 0.004 70);
+  --color-foreground-muted:  oklch(72% 0.006 65);
+  --color-foreground-subtle: oklch(58% 0.006 65);
+
+  /* Sand on dark — pulled darker so it doesn't shout next to the brand. */
+  --color-sand-50:  #2a2620;
+  --color-sand-100: #3a3429;
+  --color-sand-200: #51483a;
+  --color-sand-300: #cfc0a9;
+  --color-sand-500: #b39d7f;
+  --color-sand-700: #6f5f48;
+
+  /* Semantic — bumped saturation so they read on dark. */
+  --color-success: #4ade80;
+  --color-success-100: #14322a;
+  --color-warning: #facc15;
+  --color-warning-100: #3a2c0a;
+  --color-danger: #f87171;
+  --color-danger-100: #3a1b1f;
+  --color-info: #60a5fa;
+  --color-info-100: #112338;
+
+  /* Shadows — black with a soft white halo for brand-tinted lifts
+     (the dark-mode brand is white, so the glow follows). */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 14px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-brand: 0 10px 26px rgba(255, 255, 255, 0.18);
+}
+
+/* ----------------------------------------------------------------------------
+   Dark-mode utility overrides.
+
+   A lot of pages were authored before dark mode existed and use hardcoded
+   Tailwind palette classes (bg-white, bg-emerald-50 text-emerald-700, etc.)
+   that don't re-theme via tokens. Instead of touching every file, we
+   re-skin those exact class combinations when the user is in dark mode.
+   This is intentionally narrow — only the classes actually used in the
+   codebase, mapped to readable dark equivalents.
+---------------------------------------------------------------------------- */
+.dark .bg-white { background-color: var(--color-surface); }
+
+/* Status-pill pairs (broadcasts, recipients, members, inbox tags) */
+.dark .bg-emerald-50  { background-color: rgba(74, 222, 128, 0.12); }
+.dark .text-emerald-700, .dark .text-emerald-800 { color: #6ee7b7; }
+.dark .bg-emerald-100 { background-color: rgba(74, 222, 128, 0.18); }
+
+.dark .bg-amber-50  { background-color: rgba(250, 204, 21, 0.12); }
+.dark .text-amber-700, .dark .text-amber-800 { color: #fde047; }
+.dark .bg-amber-100 { background-color: rgba(250, 204, 21, 0.18); }
+
+.dark .bg-yellow-50  { background-color: rgba(250, 204, 21, 0.12); }
+.dark .text-yellow-700, .dark .text-yellow-800 { color: #fde047; }
+
+.dark .bg-red-50  { background-color: rgba(248, 113, 113, 0.12); }
+.dark .text-red-600, .dark .text-red-700 { color: #fca5a5; }
+.dark .bg-red-100 { background-color: rgba(248, 113, 113, 0.18); }
+
+.dark .bg-blue-50  { background-color: rgba(96, 165, 250, 0.12); }
+.dark .text-blue-700 { color: #93c5fd; }
+.dark .bg-blue-100 { background-color: rgba(96, 165, 250, 0.18); }
+
+.dark .bg-cyan-50  { background-color: rgba(34, 211, 238, 0.12); }
+.dark .text-cyan-700 { color: #67e8f9; }
+
+.dark .bg-slate-100, .dark .bg-zinc-100, .dark .bg-gray-100 {
+  background-color: var(--color-surface-elevated);
+}
+.dark .text-slate-500, .dark .text-slate-600, .dark .text-zinc-500,
+.dark .text-zinc-600, .dark .text-gray-500, .dark .text-gray-600 {
+  color: var(--color-foreground-muted);
+}
+.dark .text-slate-700, .dark .text-slate-800, .dark .text-slate-900,
+.dark .text-zinc-800, .dark .text-zinc-900, .dark .text-gray-800, .dark .text-gray-900 {
+  color: var(--color-foreground);
+}
+
+.dark .border-zinc-200, .dark .border-slate-200, .dark .border-gray-200 {
+  border-color: var(--color-border);
+}
+.dark .bg-zinc-50, .dark .bg-slate-50, .dark .bg-gray-50 {
+  background-color: var(--color-surface-elevated);
+}
+
+/* divider classes used by lists */
+.dark .divide-border > * + * { border-color: var(--color-border); }
+
+/* ============================================================================
+   BASE
+   ============================================================================ */
+@layer base {
+  *, ::before, ::after { border-color: var(--color-border); }
+  /* overscroll on BOTH html + body — html is the actual scroller (Safari). */
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    background: var(--color-surface-muted);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.006em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Stop the page rubber-banding past the top/bottom (and scroll-chaining). */
+    overscroll-behavior: none;
+  }
+  /* Neutral-minimal: no display serif. Headings are Plus Jakarta Sans with
+     more WEIGHT (not size) for hierarchy, tight tracking for a crisp,
+     professional feel. Mono (JetBrains) is applied per-element via font-mono. */
+  h1, h2, h3, h4 { font-weight: 600; }
+  h1 { line-height: 1.15; letter-spacing: -0.025em; }
+  h2 { line-height: 1.2;  letter-spacing: -0.02em; }
+  h3, h4 { line-height: 1.3; letter-spacing: -0.014em; }
+  p { line-height: 1.55; }
+  td, th { line-height: 1.4; }
+  /* Tabular numerics wherever mono is used (prices, IDs, quantities). */
+  .font-mono { font-feature-settings: "tnum", "zero"; letter-spacing: -0.01em; }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+}
+
+/* ============================================================================
+   UTILITIES — page container + balance + the `.al-*` opt-in classes for any
+   markup that wants to use the explicit design-system class names verbatim.
+   ============================================================================ */
+@layer utilities {
+  .container-page { max-width: 1280px; margin-inline: auto; padding-inline: 1.5rem; }
+  .text-balance { text-wrap: balance; }
+
+  /* Lavender glow used on the active sidebar pill + primary buttons. */
+  .shadow-brand { box-shadow: var(--shadow-brand); }
+  .shadow-coral { box-shadow: var(--shadow-coral); }
+}
+
+/* ============================================================================
+   ALIGNED design-system class set — direct port of tokens.css. Lets any
+   component opt into the explicit `.al-btn`, `.al-card`, `.al-badge`, etc.
+   without going through Tailwind utilities. Useful when porting straight
+   from the design artboards or when a page wants the *exact* shapes.
+   ============================================================================ */
+
+.al, .al * { box-sizing: border-box; }
+.al {
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  background: var(--color-surface-muted);
+}
+
+/* Buttons -------------------------------------------------------------- */
+.al-btn {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 999px;
+  padding: 11px 22px;
+  cursor: pointer;
+  transition: transform 0.08s, background 0.15s, box-shadow 0.15s, border-color 0.15s, color 0.15s;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  letter-spacing: -0.005em;
+}
+.al-btn:active { transform: scale(0.985); }
+.al-btn-primary { background: var(--color-brand-500); color: #fff; box-shadow: var(--shadow-brand); }
+.al-btn-primary:hover { background: var(--color-brand-600); }
+.al-btn-coral { background: var(--color-coral-500); color: #fff; box-shadow: var(--shadow-coral); }
+.al-btn-coral:hover { background: var(--color-coral-600); }
+.al-btn-dark { background: #1a1828; color: #fff; }
+.al-btn-dark:hover { background: #2e2a40; }
+.al-btn-ghost { background: transparent; color: var(--color-foreground); border-color: var(--color-border-strong); }
+.al-btn-ghost:hover { background: var(--color-surface); }
+.al-btn-soft { background: var(--color-brand-100); color: var(--color-brand-700); }
+.al-btn-soft:hover { background: var(--color-brand-200); }
+.al-btn-sm { padding: 7px 14px; font-size: 12.5px; }
+.al-btn-lg { padding: 14px 26px; font-size: 15px; }
+.al-btn-icon { padding: 0; width: 38px; height: 38px; border-radius: 50%; }
+
+/* Inputs --------------------------------------------------------------- */
+.al-input, .al-select, .al-textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-foreground);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 12px 18px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.al-textarea { border-radius: 1.25rem; padding: 14px 18px; resize: vertical; }
+.al-input::placeholder, .al-textarea::placeholder { color: var(--color-foreground-subtle); }
+.al-input:focus, .al-select:focus, .al-textarea:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 4px rgba(124, 107, 255, 0.12);
+}
+.al-field { display: flex; flex-direction: column; gap: 6px; }
+.al-label { font-size: 12px; font-weight: 600; color: var(--color-foreground); padding-left: 4px; }
+
+/* Cards ---------------------------------------------------------------- */
+.al-card {
+  background: var(--color-surface);
+  border-radius: 1.75rem;
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+}
+.al-card-lg { padding: 28px; border-radius: 2.25rem; }
+.al-card-flat { background: var(--color-surface); border-radius: 1.75rem; padding: 20px; border: 1px solid var(--color-border); }
+
+/* Badges --------------------------------------------------------------- */
+.al-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--color-brand-100);
+  color: var(--color-brand-700);
+  white-space: nowrap;
+}
+.al-badge.coral { background: var(--color-coral-100); color: var(--color-coral-700); }
+.al-badge.green { background: var(--color-success-100); color: var(--color-success); }
+.al-badge.yellow { background: var(--color-warning-100); color: var(--color-warning); }
+.al-badge.blue { background: var(--color-info-100); color: var(--color-info); }
+.al-badge.red { background: var(--color-danger-100); color: var(--color-danger); }
+.al-badge.gray { background: var(--color-surface-muted); color: var(--color-foreground-muted); }
+.al-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* Avatars -------------------------------------------------------------- */
+.al-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-brand-500), var(--color-brand-700));
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  flex: none;
+}
+.al-avatar.coral { background: linear-gradient(135deg, var(--color-coral-500), #e55f3f); }
+.al-avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+.al-avatar.lg { width: 56px; height: 56px; font-size: 18px; }
+
+/* Sidebar nav items (used by .al-style sidebars; the React Sidebar uses
+   Tailwind utilities and is updated separately) */
+.al-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  color: var(--color-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.al-nav-item:hover { background: var(--color-surface-muted); color: var(--color-foreground); }
+.al-nav-item.active { background: var(--color-brand-500); color: #fff; box-shadow: var(--shadow-brand); }
+.al-nav-item.active .ico, .al-nav-item.active svg { color: #fff; }
+
+/* Table ---------------------------------------------------------------- */
+.al-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13.5px; }
+.al-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-foreground-subtle);
+  padding: 14px 16px;
+  background: var(--color-surface-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+.al-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-foreground);
+  vertical-align: middle;
+}
+.al-table tr:last-child td { border-bottom: none; }
+.al-table tr:hover td { background: var(--color-surface-elevated); }
+
+/* Toggle --------------------------------------------------------------- */
+.al-toggle {
+  width: 38px; height: 22px;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.al-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: left 0.15s;
+}
+.al-toggle.on { background: var(--color-brand-500); }
+.al-toggle.on::after { left: 19px; }

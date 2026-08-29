@@ -1,0 +1,46 @@
+# Schema migration + RLS policy application.
+#
+# Run this to completion BEFORE rolling api/worker. Migrations are additive and
+# backward-compatible by convention, so the old pods keep serving while it runs.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# It MUST be `pnpm --filter @platform/db migrate:deploy`, never a bare
+# `prisma migrate deploy`. The package script is:
+#     prisma migrate deploy && pnpm rls:apply
+# and rls:apply (scripts/apply-rls.ts) is what installs prisma/rls.sql — the
+# Postgres row-level-security policies that are the actual enforcement layer
+# for multi-tenant isolation. Running only the prisma half produces a database
+# that migrates cleanly, starts fine, and serves every tenant's data to every
+# other tenant. The applier is idempotent; run it every deploy.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Jobs are immutable once created. Re-applying an unchanged manifest fails with
+# "field is immutable", so suffix the name per release (kustomize images/
+# nameSuffix, or `kubectl replace --force -f`).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hader-migrate
+  namespace: hader
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: hader-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/tayseerlaz/hader-api:latest
+          # The image WORKDIR is apps/api; the --filter needs the workspace root.
+          command: ["sh", "-c", "cd /app && pnpm --filter @platform/db migrate:deploy"]
+          envFrom:
+            - configMapRef:
+                name: hader-config
+            - secretRef:
+                name: hader-secrets
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits:   { memory: "2Gi" }

@@ -1,0 +1,88 @@
+# Nightly encrypted Postgres backup → Wasabi.
+#
+# This is the control whose absence turned a server loss into a data loss.
+# Apply it in the SAME session you bring the cluster up, not "later" — and
+# verify a restore before you trust it. A backup that has never been restored
+# is a hypothesis, not a backup.
+#
+# Requires in hader-secrets: WASABI_ACCESS_KEY_ID, WASABI_SECRET_ACCESS_KEY,
+# POSTGRES_PASSWORD, and AGE_RECIPIENT (the age PUBLIC key).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# The age PRIVATE key is what decrypts these dumps. It must NOT live in this
+# cluster. Store it in a password manager and offline. An encrypted backup
+# whose private key died with the server is indistinguishable from no backup.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hader-pg-backup
+  namespace: hader
+spec:
+  schedule: "5 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              env:
+                - name: PGHOST
+                  # Direct, not the pooler: pg_dump needs a session connection.
+                  value: hader-postgres
+                - name: PGUSER
+                  value: aligned
+                - name: PGDATABASE
+                  value: aligned
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef: { name: hader-secrets, key: POSTGRES_PASSWORD }
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef: { name: hader-secrets, key: WASABI_ACCESS_KEY_ID }
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef: { name: hader-secrets, key: WASABI_SECRET_ACCESS_KEY }
+                - name: AGE_RECIPIENT
+                  valueFrom:
+                    secretKeyRef: { name: hader-secrets, key: AGE_RECIPIENT }
+                - name: WASABI_ENDPOINT
+                  valueFrom:
+                    configMapKeyRef: { name: hader-config, key: WASABI_ENDPOINT }
+                - name: WASABI_BUCKET
+                  valueFrom:
+                    configMapKeyRef: { name: hader-config, key: WASABI_BUCKET }
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  apk add --no-cache age aws-cli >/dev/null
+                  STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+                  DUMP=/tmp/aligned-$STAMP.dump
+                  echo "dumping…"
+                  pg_dump --format=custom --no-owner --no-privileges --file="$DUMP"
+                  # Verify BEFORE shipping: pg_restore --list parses the table
+                  # of contents, so a corrupt dump fails here rather than
+                  # silently replacing a good remote backup.
+                  pg_restore --list "$DUMP" >/dev/null
+                  echo "dump OK ($(stat -c%s "$DUMP") bytes)"
+                  age --encrypt --recipient "$AGE_RECIPIENT" --output "$DUMP.age" "$DUMP"
+                  aws --endpoint-url "$WASABI_ENDPOINT" s3 cp "$DUMP.age" \
+                      "s3://$WASABI_BUCKET/backups/aligned/aligned-$STAMP.dump.age"
+                  echo "uploaded."
+              resources:
+                requests: { cpu: "100m", memory: "256Mi" }
+                limits:   { memory: "1Gi" }
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: { sizeLimit: 20Gi }

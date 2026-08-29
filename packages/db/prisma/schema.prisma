@@ -1,0 +1,3756 @@
+// ============================================================================
+// ALIGNED Business Platform — Prisma schema (Day 1: org / user / auth core)
+// Day 2 will extend with Product, Service, BusinessInfo, FAQ, etc.
+// All tenant-scoped tables MUST have organization_id and matching RLS policy
+// (see prisma/rls.sql, applied after every migrate via `pnpm rls:apply`).
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_DATABASE_URL")
+  extensions = [pgcrypto, citext, pg_trgm]
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum OrgRole {
+  admin
+  editor
+  viewer
+}
+
+enum OrgStatus {
+  active
+  suspended
+  deleted
+}
+
+// AI tier per tenant. Routes chat completions to a provider stack:
+//   basic  — Groq Llama 3.3 70B primary + OpenAI gpt-4o-mini fallback (cheap)
+//   middle — OpenAI gpt-4o (full model, premium quality)
+//   max    — Anthropic Claude Opus 4.x (top-tier reasoning, highest cost)
+// Editable from /hq. Default is `basic` so brand-new tenants
+// don't accidentally land on a $$$ plan.
+enum AiPlan {
+  basic
+  middle
+  max
+  // Flagship "Ultra" tier — hybrid orchestration: Claude Haiku 4.5 for the
+  // cheap auxiliary passes (intent classification + per-contact persona
+  // summarization) and Claude Sonnet 4.6 for the final grounded reply.
+  // Pairs the grounding pipeline + post-LLM hallucination scanner with
+  // per-user memory for the best speed/reasoning/faithfulness combo.
+  ultra
+}
+
+enum UserStatus {
+  pending // email not yet verified
+  active
+  disabled
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+enum AuditAction {
+  user_created
+  user_updated
+  user_deactivated
+  user_reactivated
+  user_removed
+  user_role_changed
+  org_created
+  org_suspended
+  // Distinct admin actions (previously all overloaded onto org_suspended, which
+  // made audit queries for real suspensions return false positives).
+  org_deleted
+  org_plan_changed
+  org_features_changed
+  org_data_exported
+  invitation_sent
+  invitation_accepted
+  invitation_revoked
+  api_key_created
+  api_key_revoked
+  password_changed
+  password_reset_requested
+  password_reset_by_admin
+  email_verified
+  login_succeeded
+  login_failed
+  logout
+  // Sprint 1 M-2 — refresh-token reuse detection
+  refresh_token_reuse_detected
+  // H-01 — refresh-token grace-window re-issue (observability for replays)
+  refresh_token_grace_reissue
+  // ALIGNED HQ impersonation — transparent to the tenant in their audit log.
+  aligned_admin_accessed
+  aligned_admin_exited
+  // Integration credentials a tenant entered — ALIGNED-HQ-only (hidden from the
+  // tenant's own audit view); the values are stored encrypted in the metadata.
+  integration_credentials_set
+  // A contact unsubscribed (STOP / template opt-out button). Tenant + HQ visible.
+  contact_unsubscribed
+  // Catalog (Day 2)
+  product_created
+  product_updated
+  product_deleted
+  service_created
+  service_updated
+  service_deleted
+  category_created
+  category_updated
+  category_deleted
+  business_info_updated
+  faq_created
+  faq_updated
+  faq_deleted
+  policy_created
+  policy_updated
+  policy_deleted
+  asset_uploaded
+  asset_deleted
+  // Day 3 — imports / connectors / webhooks / api keys
+  import_started
+  import_completed
+  import_failed
+  api_key_used_first_time
+  webhook_endpoint_created
+  webhook_endpoint_deleted
+  webhook_delivered
+  webhook_failed
+  connector_created
+  connector_updated
+  connector_deleted
+  connector_sync_started
+  connector_sync_succeeded
+  connector_sync_failed
+  // Day 4
+  revision_restored
+  notification_marked_read
+  org_pilot_onboarded
+  // Phase 4 — Broadcasts
+  contact_created
+  contact_updated
+  contact_deleted
+  segment_created
+  segment_updated
+  segment_deleted
+  broadcast_created
+  broadcast_updated
+  broadcast_sent
+  broadcast_paused
+  broadcast_resumed
+  broadcast_cancelled
+  broadcast_completed
+  // Bookings
+  booking_created
+  booking_updated
+  booking_deleted
+  // Carts
+  cart_created
+  cart_updated
+  cart_deleted
+  // AI plan tier (basic / middle / max) changed by an ALIGNED admin.
+  ai_plan_changed
+  // ALIGNED admin edited the tenant's admin-only bot system-prompt addendum.
+  bot_prompt_updated
+  // Phone integrations (voice gateway)
+  phone_integration_created
+  phone_integration_updated
+  phone_integration_deleted
+  // Tenant wallet & metered WhatsApp billing
+  wallet_topped_up
+  wallet_adjusted
+  wallet_price_changed
+  wallet_metering_toggled
+  wallet_thresholds_updated
+  // Sales Scan ("Teach the bot with your own data"). sales_scan_granted is the
+  // authoritative consent trail — the grant row holds the verbatim text + hash.
+  sales_scan_granted
+  sales_scan_revoked
+  sales_scan_data_deleted
+
+  // "Sync contacts with phone" — QR-mediated address-book import.
+  // contact_sync_completed carries the tenant's marketing attestation.
+  contact_sync_started
+  contact_sync_completed
+  contact_sync_staged
+  contact_sync_applied
+  contact_sync_reverted
+}
+
+enum RevisionEntityType {
+  product
+  service
+  business_info
+  faq
+  policy
+}
+
+enum RevisionAction {
+  created
+  updated
+  deleted
+  restored
+}
+
+enum NotificationKind {
+  import_succeeded
+  import_partial
+  import_failed
+  sync_succeeded
+  sync_failed
+  webhook_disabled
+  api_key_first_use
+  generic
+  // Phase 5.9 — billing dunning auto-suspend.
+  org_suspended_for_billing
+  // Shopify — a scrape finished and items are waiting in the review queue,
+  // or a commit/import run completed.
+  shopify_review_ready
+  shopify_import_done
+  // Cart flow — pings admins when a new cart lands so the inbox stays
+  // out of the kitchen's way.
+  cart_received
+  // Booking flow — voice/chat booking lands → bell ping (voice has no inbox
+  // thread, so the notification is the only operator surface).
+  booking_received
+  // Inbox teamwork — a conversation was assigned to you (or taken over from
+  // you). Drives the bell, the FCM mirror, and the portal sound popup.
+  thread_assigned
+  // Payment confirmation (F-04) — a gateway webhook confirmed an order paid.
+  order_paid
+  // Quota usage crossed a threshold (75/80/85/90/95/100% of a plan cap).
+  quota_warning
+}
+
+enum NotificationSeverity {
+  info
+  success
+  warning
+  error
+}
+
+enum ImportJobStatus {
+  pending
+  validating
+  processing
+  succeeded
+  partial // some rows failed
+  failed
+  cancelled
+}
+
+enum ImportEntityKind {
+  product
+  service
+  faq
+  business_info
+}
+
+enum ImportRowStatus {
+  succeeded
+  failed
+  skipped
+}
+
+enum ConnectorAuthKind {
+  none
+  api_key // header X-Custom-Key: <secret>
+  bearer
+  basic
+  hmac
+}
+
+enum ConnectorStatus {
+  active
+  paused
+  failing
+  disabled
+}
+
+enum SyncRunStatus {
+  pending
+  running
+  succeeded
+  failed
+  partial
+}
+
+enum SyncTrigger {
+  scheduled
+  manual
+  webhook
+}
+
+// Shopify integration ---------------------------------------------------------
+enum ShopifyConnectionStatus {
+  active
+  failing
+  disabled
+}
+
+enum ShopifyStagedSection {
+  product
+  contact
+  business_info
+  policy
+  faq
+  location
+}
+
+enum ShopifyStagedStatus {
+  pending
+  approved
+  rejected
+  imported
+}
+
+enum WebhookDeliveryStatus {
+  pending
+  in_flight
+  delivered
+  failed
+  giving_up
+}
+
+enum WebhookEventKind {
+  product_created
+  product_updated
+  product_deleted
+  service_created
+  service_updated
+  service_deleted
+  business_info_updated
+  faq_changed
+  policy_changed
+  catalog_changed // umbrella event for clients that just want any change
+  // Phase 4 — Broadcasts
+  broadcast_started
+  broadcast_completed
+  broadcast_failed
+  broadcast_recipient_failed
+  // Bookings
+  booking_created
+  booking_status_changed
+  booking_reminder_sent
+  // Carts
+  cart_created
+  cart_status_changed
+  cart_item_added
+  // Payments (F-04)
+  order_paid
+}
+
+enum AssetKind {
+  image
+  document
+  csv_upload
+  other
+}
+
+enum DayOfWeek {
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+  sunday
+}
+
+enum PriceUnit {
+  flat
+  per_hour
+  per_day
+  per_session
+  per_unit
+}
+
+enum FaqVisibility {
+  public // exposed to chatbot read API
+  private // internal only
+}
+
+// ----------------------------------------------------------------------------
+// Organization (tenant)
+// ----------------------------------------------------------------------------
+
+model Organization {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                String    @unique @db.Citext
+  name                String
+  status              OrgStatus @default(active)
+  // AI tier the tenant is on. Drives provider routing in lib/openai.ts
+  // (`basic` = Groq + gpt-4o-mini fallback; `middle` = OpenAI gpt-4o;
+  // `max` = Anthropic Claude Sonnet; `ultra` = Haiku-assisted Sonnet with
+  // per-contact persona memory). Editable from /hq.
+  aiPlan              AiPlan    @default(basic) @map("ai_plan")
+  // ALIGNED-admin-set monthly AI-message allowance for this tenant. One AI
+  // message = one bot reply (chat) or one bot turn (voice). When the month's
+  // count reaches this cap, the bot pauses (leaves chats for a human) until the
+  // 1st. Tenants see ONLY messages (never tokens). null = UNLIMITED (admin
+  // opt-out of metering); the column default seeds new/existing tenants at 2000.
+  monthlyAiMessageCap Int?      @default(2000) @map("monthly_ai_message_cap")
+  // ALIGNED-admin per-tenant access control. Feature keys listed here are
+  // DISABLED for this org: their portal pages are hidden + route-guarded, and
+  // 'ai' additionally turns off the bot's auto-reply (manual inbox only — a
+  // pure social-media handler). Empty = full access. See ORG_FEATURES in shared.
+  disabledFeatures    String[]  @default([]) @map("disabled_features")
+  // What this tenant pays ALIGNED per month (USD), entered manually by an
+  // ALIGNED admin. Drives the per-tenant Billing & overview (paid vs cost).
+  monthlyPaidUsd      Float?    @map("monthly_paid_usd")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  memberships              Membership[]
+  invitations              Invitation[]
+  apiKeys                  ApiKey[]
+  auditLogs                AuditLog[]
+  sessions                 Session[]
+  products                 Product[]
+  productVariants          ProductVariant[]
+  productImages            ProductImage[]
+  categories               Category[]
+  services                 Service[]
+  servicePricingTiers      ServicePricingTier[]
+  availabilityWindows      AvailabilityWindow[]
+  businessInfo             BusinessInfo?
+  locations                Location[]
+  contactChannels          ContactChannel[]
+  faqs                     FAQ[]
+  policies                 Policy[]
+  assets                   Asset[]
+  // Day 3
+  importJobs               ImportJob[]
+  importJobRows            ImportJobRow[]
+  apiConnectors            ApiConnector[]
+  syncRuns                 SyncRun[]
+  // Shopify integration
+  shopifyConnection        ShopifyConnection?
+  shopifyScrapeRuns        ShopifyScrapeRun[]
+  shopifyStagedItems       ShopifyStagedItem[]
+  webhookEndpoints         WebhookEndpoint[]
+  webhookDeliveries        WebhookDelivery[]
+  // Day 4
+  catalogRevisions         CatalogRevision[]
+  notifications            Notification[]
+  // Hader mobile app — push-notification device registrations.
+  deviceTokens             DeviceToken[]
+  // Raw Meta webhook payloads no handler consumes yet (Coexistence history/smb_*).
+  metaWebhookEvents        MetaWebhookEvent[]
+  conversationFeedback     ConversationFeedback[]
+  stockWatches             StockWatch[]
+  // Phase 1.5 / Phase 3
+  whatsappChannels         WhatsAppChannel[]
+  whatsappThreads          WhatsAppThread[]
+  messengerChannel         MessengerChannel?
+  // Phase 2
+  botConfig                BotConfig?
+  // Payments (per-tenant, multi-provider)
+  paymentConfig            PaymentConfig?
+  // Phase 3 §5.1.3 + §5.1.4
+  subscription             Subscription?
+  branding                 BrandingConfig?
+  dataExports              DataExport[]
+  // Phase 4 — Broadcasts
+  contacts                 Contact[]
+  contactMemories          ContactMemory[]
+  contactTags              ContactTag[]
+  segments                 Segment[]
+  broadcasts               Broadcast[]
+  broadcastRecipients      BroadcastRecipient[]
+  broadcastEvents          BroadcastEvent[]
+  // Wallet & metered billing (opt-in; wallet absent = unmetered)
+  tenantWallet             TenantWallet?
+  walletLedger             WalletLedger[]
+  // Phase 5.4 — Sequences (drip)
+  sequences                Sequence[]
+  sequenceSteps            SequenceStep[]
+  sequenceEnrollments      SequenceEnrollment[]
+  // Bookings — customer intakes captured by the AI bot
+  bookings                 Booking[]
+  // Carts — customer orders captured by the AI bot or entered manually
+  carts                    Cart[]
+  // Phase 8 — AI message provenance / audit trail
+  systemPromptSnapshots    SystemPromptSnapshot[]
+  messageProvenances       MessageProvenance[]
+  provenanceSuppressions   ProvenanceSuppression[]
+  provenanceFlagDecisions  ProvenanceFlagDecision[]
+  // Voice media gateway — phone calls handled by the Aseer-time voicebot
+  voiceCalls               VoiceCall[]
+  voiceCallTurns           VoiceCallTurn[]
+  phoneIntegrations        PhoneIntegration[]
+  // Google Calendar — per-tenant one-way booking sync (opt-in; absent = off)
+  googleCalendarConnection GoogleCalendarConnection?
+  // Sales Scan ("Teach the bot with your own data") — opt-in, HQ-activated
+  salesScanGrants          SalesScanGrant[]
+  salesMessages            SalesMessage[]
+  salesScanSummaries       SalesScanSummary[]
+  // "Sync contacts with phone" — QR-mediated address-book import
+  contactSyncSessions      ContactSyncSession[]
+  contactSyncStagedItems   ContactSyncStagedItem[]
+
+  @@index([status])
+  @@map("organizations")
+}
+
+// ----------------------------------------------------------------------------
+// User — global identity. A user can belong to multiple orgs via Membership.
+// ----------------------------------------------------------------------------
+
+model User {
+  id                         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                      String     @unique @db.Citext
+  emailVerifiedAt            DateTime?  @map("email_verified_at")
+  passwordHash               String     @map("password_hash")
+  firstName                  String?    @map("first_name")
+  lastName                   String?    @map("last_name")
+  avatarUrl                  String?    @map("avatar_url")
+  status                     UserStatus @default(pending)
+  isSuperAdmin             Boolean    @default(false) @map("is_super_admin")
+  // Email verification + password reset tokens (hashed). Single-use, short TTL.
+  emailVerificationTokenHash String?    @map("email_verification_token_hash")
+  emailVerificationExpiresAt DateTime?  @map("email_verification_expires_at")
+  passwordResetTokenHash     String?    @map("password_reset_token_hash")
+  passwordResetExpiresAt     DateTime?  @map("password_reset_expires_at")
+  lastLoginAt                DateTime?  @map("last_login_at")
+  failedLoginAttempts        Int        @default(0) @map("failed_login_attempts")
+  lockedUntil                DateTime?  @map("locked_until")
+  // Phase 5.5 — TOTP 2FA (RFC 6238). Secret base32. Recovery codes hashed
+  // individually so a single code leak doesn't expose others.
+  totpEnabled                Boolean    @default(false) @map("totp_enabled")
+  totpSecret                 String?    @map("totp_secret")
+  totpEnrolledAt             DateTime?  @map("totp_enrolled_at")
+  recoveryCodesHashed        String[]   @default([]) @map("recovery_codes_hashed")
+  // Dashboard widget layout — the ids of widgets the user currently
+  // has on their /dashboard, in render order. Persisted server-side
+  // so the layout follows the operator across devices / browsers /
+  // cleared cookies. NULL = "use the registry's defaults".
+  dashboardLayout            Json?      @map("dashboard_layout")
+  createdAt                  DateTime   @default(now()) @map("created_at")
+  updatedAt                  DateTime   @updatedAt @map("updated_at")
+
+  memberships                   Membership[]
+  sessions                      Session[]
+  invitationsSent               Invitation[]             @relation("InvitedBy")
+  invitationsAccepted           Invitation[]             @relation("AcceptedBy")
+  auditLogs                     AuditLog[]               @relation("AuditActor")
+  // Phase 3
+  assignedThreads               WhatsAppThread[]         @relation("WhatsAppThreadAssignee")
+  // Phase 8 — provenance feedback authorship
+  provenanceSuppressionsCreated ProvenanceSuppression[]  @relation("ProvenanceSuppressionAuthor")
+  provenanceFlagDecisionsMade   ProvenanceFlagDecision[] @relation("ProvenanceFlagDecider")
+  // Hader mobile app — push-notification device registrations.
+  deviceTokens                  DeviceToken[]
+
+  @@index([status])
+  @@map("users")
+}
+
+// ----------------------------------------------------------------------------
+// Membership — user ↔ org with role
+// ----------------------------------------------------------------------------
+
+model Membership {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  role           OrgRole  @default(viewer)
+  isActive       Boolean  @default(true) @map("is_active")
+  // Protected/owner membership: cannot have its role changed, be deactivated,
+  // or be removed by ANYONE (even another admin). Used to lock the primary
+  // ALIGNED HQ owner account so a second admin can't demote or remove it.
+  isProtected    Boolean  @default(false) @map("is_protected")
+  // Phase 3 §5.1.1 — skill-based routing. Free-form lowercase tags
+  // (e.g. ["billing", "spanish", "tier-2"]). Threads with a
+  // `requiredSkill` are auto-assigned only to members carrying it.
+  skills         String[] @default([])
+  // F1 (roadmap 2026-08-26) — per-member page whitelist. JSONB (not a scalar
+  // list) because NULL is load-bearing: null = full access for the role
+  // (backward compatible), [] = none, [...keys] = whitelist from the shared
+  // pageAccessOptions() registry. Admins are always exempt. Parse with
+  // parsePageAccess() — never trust the shape raw.
+  pageAccess     Json?    @map("page_access")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, role])
+  @@map("memberships")
+}
+
+// ----------------------------------------------------------------------------
+// Session — refresh-token-backed sessions, one row per device/login
+// ----------------------------------------------------------------------------
+
+model Session {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String    @map("user_id") @db.Uuid
+  organizationId         String?   @map("organization_id") @db.Uuid
+  refreshTokenHash       String    @unique @map("refresh_token_hash")
+  // Sprint 1 M-2 — previously-rotated refresh hash. On refresh we move the
+  // current hash here, then store the new hash in refreshTokenHash. If a
+  // refresh token whose hash matches previousTokenHash is presented, that
+  // means someone is replaying a rotated token: revoke the session.
+  previousTokenHash      String?   @unique @map("previous_token_hash")
+  // 2026-06-01 — timestamp the previous hash was rotated. The refresh
+  // handler uses this for a short replay-grace window: if a presented
+  // refresh token matches `previous_token_hash` and the rotation
+  // happened within the last few seconds, treat it as a concurrent
+  // same-tab refresh (race between SessionProvider bootstrap and any
+  // useQuery 401-retry on a hard reload) rather than malicious replay.
+  // Outside the window: keep the existing revoke-and-audit behaviour.
+  previousTokenRotatedAt DateTime? @map("previous_token_rotated_at")
+  // Sprint 1 H-3 — set to true only for ALIGNED-admin impersonation sessions
+  // (POST /hq/orgs/:id/impersonate). Regular logins / switch-org
+  // leave this false. The refresh handler uses this flag to decide whether
+  // the no-membership admin-role synthesis is legitimate.
+  isImpersonation        Boolean   @default(false) @map("is_impersonation")
+  userAgent              String?   @map("user_agent")
+  ipAddress              String?   @map("ip_address") @db.Inet
+  expiresAt              DateTime  @map("expires_at")
+  revokedAt              DateTime? @map("revoked_at")
+  lastUsedAt             DateTime  @default(now()) @map("last_used_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ----------------------------------------------------------------------------
+// Invitation — invite a teammate to an org with a specific role
+// ----------------------------------------------------------------------------
+
+model Invitation {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  email          String           @db.Citext
+  role           OrgRole          @default(viewer)
+  // F1 — page whitelist the membership is created with on accept (null = all).
+  pageAccess Json? @map("page_access")
+  tokenHash      String           @unique @map("token_hash")
+  status         InvitationStatus @default(pending)
+  invitedById    String           @map("invited_by_id") @db.Uuid
+  acceptedById   String?          @map("accepted_by_id") @db.Uuid
+  acceptedAt     DateTime?        @map("accepted_at")
+  expiresAt      DateTime         @map("expires_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitedBy", fields: [invitedById], references: [id])
+  acceptedBy   User?        @relation("AcceptedBy", fields: [acceptedById], references: [id])
+
+  @@unique([organizationId, email])
+  @@index([status, expiresAt])
+  @@map("invitations")
+}
+
+// ----------------------------------------------------------------------------
+// ApiKey — issued per-org for chatbot read API + outbound integrations
+// ----------------------------------------------------------------------------
+
+model ApiKey {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  prefix         String    @unique // displayed in UI, e.g. "ak_live_abc123"
+  keyHash        String    @map("key_hash")
+  scopes         String[]  @default([]) // e.g. ["read:catalog","read:business-info"]
+  lastUsedAt     DateTime? @map("last_used_at")
+  expiresAt      DateTime? @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  createdById    String    @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // A voice key auto-issued for a phone line back-links here (onDelete SetNull
+  // on the line side; revoking the key leaves the line keyless rather than
+  // dangling).
+  phoneIntegration PhoneIntegration?
+
+  @@index([organizationId])
+  @@index([revokedAt])
+  @@map("api_keys")
+}
+
+// ----------------------------------------------------------------------------
+// AuditLog — every meaningful state change. Kept tenant-scoped (org_id).
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?     @map("organization_id") @db.Uuid
+  actorUserId    String?     @map("actor_user_id") @db.Uuid
+  action         AuditAction
+  entityType     String?     @map("entity_type")
+  entityId       String?     @map("entity_id") @db.Uuid
+  metadata       Json?
+  ipAddress      String?     @map("ip_address") @db.Inet
+  userAgent      String?     @map("user_agent")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  // Sprint 4 — tamper-evident hash chain. Computed by a BEFORE INSERT
+  // trigger; the application never sets these directly.
+  //
+  //   prev_hash = the hash of the immediately-preceding row for this org
+  //               (NULL for the org's first row).
+  //   hash      = sha256(canonical(row) || prev_hash)
+  //
+  // Any retroactive edit to a row breaks its hash, AND every later row's
+  // prev_hash → cascades through the chain. The verifier in
+  // apps/api/scripts/verify-audit-chain.ts walks the chain quarterly.
+  prevHash       String?     @map("prev_hash")
+  hash           String?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// CATALOG (Day 2)
+// ----------------------------------------------------------------------------
+// All tables tenant-scoped via organization_id + Postgres RLS (see rls.sql).
+// Money is stored as Int (minor units, e.g. cents) to avoid float drift.
+// Search indexes use pg_trgm for fast ILIKE / similarity queries on name/desc.
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Asset — generic file in object storage (Wasabi). Used for product images
+// today, will be reused for CSV uploads on Day 3 and avatars later.
+// ----------------------------------------------------------------------------
+
+model Asset {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  kind           AssetKind
+  storageKey     String    @unique @map("storage_key") // S3 object key
+  contentType    String    @map("content_type")
+  byteSize       Int       @map("byte_size")
+  width          Int?
+  height         Int?
+  checksumSha256 String?   @map("checksum_sha256")
+  uploadedById   String?   @map("uploaded_by_id") @db.Uuid
+  metadata       Json?
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productImages ProductImage[]
+
+  @@index([organizationId, kind, createdAt(sort: Desc)])
+  @@map("assets")
+}
+
+// ----------------------------------------------------------------------------
+// Category — self-referencing tree, tenant-scoped, manual sort order
+// ----------------------------------------------------------------------------
+
+model Category {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  parentId       String?  @map("parent_id") @db.Uuid
+  name           String
+  slug           String   @db.Citext
+  description    String?
+  sortOrder      Int      @default(0) @map("sort_order")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Category?    @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     Category[]   @relation("CategoryTree")
+  products     Product[]
+  services     Service[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, parentId, sortOrder])
+  @@map("categories")
+}
+
+// ----------------------------------------------------------------------------
+// Product
+// ----------------------------------------------------------------------------
+
+model Product {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  categoryId       String?   @map("category_id") @db.Uuid
+  sku              String    @db.Citext
+  name             String
+  slug             String    @db.Citext
+  description      String? // rich text / markdown stored as text
+  shortDescription String?   @map("short_description")
+  // Price is stored in minor units (e.g. cents). Currency is per-org for v1.
+  priceMinor       Int?      @map("price_minor")
+  currency         String    @default("USD") @db.Char(3)
+  compareAtMinor   Int?      @map("compare_at_minor")
+  isAvailable      Boolean   @default(true) @map("is_available")
+  stockQuantity    Int?      @map("stock_quantity")
+  trackInventory   Boolean   @default(false) @map("track_inventory")
+  attributes       Json? // freeform key/value
+  searchText       String?   @map("search_text") // denormalised name+desc for trigram search
+  // Phase 2 Step 3 — text-embedding-3-small vector for top-K catalog
+  // injection in the bot pipeline. Stored as a Float[] of length 1536.
+  // Cleared whenever name/shortDescription changes (a trigger or the
+  // catalog write paths clear it); a backfill script + on-create hook
+  // re-populate. Nullable + soft-fallback: products with no embedding
+  // are always included in the candidate set so a missing embedding
+  // never silently hides a product from the bot.
+  embedding        Float[]   @default([]) @map("embedding")
+  embeddingHash    String?   @map("embedding_hash") // sha256 of name+desc when embedded; lets us skip re-embedding
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at") // soft-delete
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  variants     ProductVariant[]
+  images       ProductImage[]
+
+  stockWatches StockWatch[]
+
+  @@unique([organizationId, sku])
+  @@unique([organizationId, slug])
+  @@index([organizationId, isAvailable, createdAt(sort: Desc)])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, deletedAt])
+  // pg_trgm GIN index added in raw SQL after migration (Prisma can't express it):
+  //   CREATE INDEX products_search_trgm_idx ON products USING gin (search_text gin_trgm_ops);
+  @@map("products")
+}
+
+model ProductVariant {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  sku            String   @db.Citext
+  name           String // e.g. "Red / Large"
+  options        Json // {"color":"red","size":"large"}
+  priceMinor     Int?     @map("price_minor") // overrides parent if set
+  stockQuantity  Int?     @map("stock_quantity")
+  isAvailable    Boolean  @default(true) @map("is_available")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, sku])
+  @@index([productId, sortOrder])
+  @@map("product_variants")
+}
+
+model ProductImage {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String    @map("organization_id") @db.Uuid
+  productId             String    @map("product_id") @db.Uuid
+  assetId               String    @map("asset_id") @db.Uuid
+  altText               String?   @map("alt_text")
+  sortOrder             Int       @default(0) @map("sort_order")
+  isPrimary             Boolean   @default(false) @map("is_primary")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  // Phase 11.3 — cache of the Meta-side media_id for this image so the
+  // WhatsApp send path can skip the per-message upload (~1-2 s round-
+  // trip). Meta media_ids are valid for 30 days; the bot send path
+  // re-uploads when stale or when the active channel changed.
+  metaMediaId           String?   @map("meta_media_id")
+  metaMediaIdUploadedAt DateTime? @map("meta_media_id_uploaded_at")
+  // Media_ids are scoped to the WhatsApp business account (phone_number_id).
+  // Cached id only valid if the active primary channel matches this id.
+  metaMediaIdChannelId  String?   @map("meta_media_id_channel_id") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  asset        Asset        @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, assetId])
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+// ----------------------------------------------------------------------------
+// Service — like Product but with duration + pricing tiers + availability
+// ----------------------------------------------------------------------------
+
+model Service {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  categoryId       String?   @map("category_id") @db.Uuid
+  slug             String    @db.Citext
+  name             String
+  description      String?
+  shortDescription String?   @map("short_description")
+  durationMinutes  Int?      @map("duration_minutes")
+  basePriceMinor   Int?      @map("base_price_minor")
+  currency         String    @default("USD") @db.Char(3)
+  priceUnit        PriceUnit @default(flat) @map("price_unit")
+  isAvailable      Boolean   @default(true) @map("is_available")
+  bookingRules     Json?     @map("booking_rules") // freeform: { min_notice_hours, max_party_size, ... }
+  searchText       String?   @map("search_text")
+  // text-embedding-3-small vector for top-K candidate selection (mirrors Product).
+  embedding        Float[]   @default([]) @map("embedding")
+  embeddingHash    String?   @map("embedding_hash")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  pricingTiers ServicePricingTier[]
+  availability AvailabilityWindow[]
+
+  stockWatches StockWatch[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, isAvailable, createdAt(sort: Desc)])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, deletedAt])
+  @@map("services")
+}
+
+model ServicePricingTier {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  serviceId      String    @map("service_id") @db.Uuid
+  name           String // e.g. "Standard", "Premium"
+  description    String?
+  priceMinor     Int       @map("price_minor")
+  currency       String    @default("USD") @db.Char(3)
+  priceUnit      PriceUnit @default(flat) @map("price_unit")
+  sortOrder      Int       @default(0) @map("sort_order")
+  features       String[]  @default([])
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, sortOrder])
+  @@map("service_pricing_tiers")
+}
+
+model AvailabilityWindow {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  serviceId      String    @map("service_id") @db.Uuid
+  dayOfWeek      DayOfWeek @map("day_of_week")
+  // Times stored as minutes since midnight (0..1440). Simpler than TIME for grids.
+  startMinute    Int       @map("start_minute")
+  endMinute      Int       @map("end_minute")
+  effectiveFrom  DateTime? @map("effective_from") // optional date range
+  effectiveUntil DateTime? @map("effective_until")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, dayOfWeek])
+  @@map("availability_windows")
+}
+
+// ----------------------------------------------------------------------------
+// BusinessInfo — single row per org, hours stored as JSON for flexibility.
+// Locations / contacts / FAQs / policies are separate tables.
+// ----------------------------------------------------------------------------
+
+model BusinessInfo {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String   @unique @map("organization_id") @db.Uuid
+  legalName       String?  @map("legal_name")
+  tagline         String?
+  about           String? // rich text
+  websiteUrl      String?  @map("website_url")
+  // Operating hours: { "monday": [{open: "09:00", close: "17:00"}], ... }
+  operatingHours  Json?    @map("operating_hours")
+  // Exceptions / holidays: [{date: "2026-12-25", closed: true, note: "Christmas"}]
+  hoursExceptions Json?    @map("hours_exceptions")
+  timezone        String   @default("UTC")
+  currency        String   @default("USD") @db.Char(3)
+  metadata        Json?
+  // Booking form definition: { title, intentKeywords[], fields[] }.
+  // Operator-defined fields the AI bot asks the customer to fill in
+  // when they ask to book a meeting / consultation / appointment.
+  bookingForm     Json?    @map("booking_form")
+  // Shop / cart form definition: { enabled, title, intentKeywords[],
+  // fields[], minOrderMinor, deliveryFeeMinor, freeDeliveryAboveMinor,
+  // confirmationMessage }. Mirrors bookingForm in spirit — the AI bot
+  // asks the customer for these fields once they've finished building
+  // their cart, then emits a [CART: {...}] marker. Independent of
+  // bookings: a business can enable both, either, or neither.
+  shopForm        Json?    @map("shop_form")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("business_info")
+}
+
+model Location {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String // e.g. "Downtown branch"
+  addressLine1   String?  @map("address_line1")
+  addressLine2   String?  @map("address_line2")
+  city           String?
+  region         String?
+  postalCode     String?  @map("postal_code")
+  country        String?  @db.Char(2)
+  latitude       Decimal? @db.Decimal(9, 6)
+  longitude      Decimal? @db.Decimal(9, 6)
+  phone          String?
+  email          String?  @db.Citext
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, sortOrder])
+  @@map("locations")
+}
+
+model ContactChannel {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  kind           String // "phone" | "email" | "whatsapp" | "instagram" | "x" | ...
+  label          String?
+  value          String // the actual phone/email/URL
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, sortOrder])
+  @@map("contact_channels")
+}
+
+model FAQ {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  question       String
+  answer         String // rich text / markdown
+  tags           String[]      @default([])
+  visibility     FaqVisibility @default(public)
+  sortOrder      Int           @default(0) @map("sort_order")
+  isPublished    Boolean       @default(true) @map("is_published")
+  searchText     String?       @map("search_text")
+  // text-embedding-3-small vector for top-K FAQ retrieval (mirrors Product).
+  embedding      Float[]       @default([]) @map("embedding")
+  embeddingHash  String?       @map("embedding_hash")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isPublished, sortOrder])
+  // pg_trgm index added in raw SQL.
+  @@map("faqs")
+}
+
+model Policy {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  kind           String // "return" | "shipping" | "privacy" | "terms" | custom
+  title          String
+  content        String // rich text / markdown
+  isPublished    Boolean  @default(true) @map("is_published")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, kind])
+  @@index([organizationId, sortOrder])
+  @@map("policies")
+}
+
+// ============================================================================
+// IMPORTS / CONNECTORS / WEBHOOKS (Day 3)
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// ImportJob — async CSV/XLSX upload, processed by BullMQ worker.
+// One ImportJobRow per source row, recording success/failure + parsed payload.
+// ----------------------------------------------------------------------------
+
+model ImportJob {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  entityKind     ImportEntityKind @map("entity_kind")
+  status         ImportJobStatus  @default(pending)
+  // Source file in object storage (Wasabi). Optional for in-memory imports.
+  sourceAssetId  String?          @map("source_asset_id") @db.Uuid
+  sourceFilename String?          @map("source_filename")
+  // Column mapping selected by the user: { "Product Name": "name", "Cost": "priceMinor" }
+  columnMapping  Json?            @map("column_mapping")
+  // Counts
+  totalRows      Int              @default(0) @map("total_rows")
+  processedRows  Int              @default(0) @map("processed_rows")
+  succeededRows  Int              @default(0) @map("succeeded_rows")
+  failedRows     Int              @default(0) @map("failed_rows")
+  skippedRows    Int              @default(0) @map("skipped_rows")
+  // Lifecycle
+  startedAt      DateTime?        @map("started_at")
+  finishedAt     DateTime?        @map("finished_at")
+  errorMessage   String?          @map("error_message")
+  createdById    String?          @map("created_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rows         ImportJobRow[]
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("import_jobs")
+}
+
+model ImportJobRow {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  importJobId    String          @map("import_job_id") @db.Uuid
+  rowNumber      Int             @map("row_number") // 1-based, includes header offset
+  status         ImportRowStatus
+  // Resulting entity (when succeeded) — e.g. product id created/updated.
+  resultEntityId String?         @map("result_entity_id") @db.Uuid
+  // Parsed source data (raw before validation) for debugging.
+  rawData        Json?           @map("raw_data")
+  errors         Json? // [{path, message}]
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  importJob    ImportJob    @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([importJobId, status])
+  @@index([importJobId, rowNumber])
+  @@map("import_job_rows")
+}
+
+// ----------------------------------------------------------------------------
+// ApiConnector — outbound pull from a client's external system (REST).
+// SyncRun records each execution.
+// ----------------------------------------------------------------------------
+
+model ApiConnector {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String            @map("organization_id") @db.Uuid
+  name                String
+  entityKind          ImportEntityKind  @map("entity_kind")
+  endpointUrl         String?           @map("endpoint_url")
+  authKind            ConnectorAuthKind @default(none) @map("auth_kind")
+  // Encrypted-at-rest credentials would normally live in a vault; for v1 we store
+  // them in JSONB and recommend pg_crypto in prod. The structure depends on authKind:
+  //   bearer:  { token: "..." }
+  //   api_key: { headerName: "X-…", value: "..." }
+  //   basic:   { username: "...", password: "..." }
+  //   hmac:    { secret: "...", header: "X-Sig" }
+  authConfig          Json?             @map("auth_config")
+  // Cron schedule. NULL = webhook-only (inbound).
+  scheduleCron        String?           @map("schedule_cron")
+  // Mapping spec (same shape as ImportJob.columnMapping).
+  columnMapping       Json?             @map("column_mapping")
+  // Webhook secret used to verify inbound calls (HMAC over body).
+  webhookSecret       String?           @map("webhook_secret")
+  status              ConnectorStatus   @default(active)
+  lastRunAt           DateTime?         @map("last_run_at")
+  lastSuccessAt       DateTime?         @map("last_success_at")
+  consecutiveFailures Int               @default(0) @map("consecutive_failures")
+  createdById         String?           @map("created_by_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  syncRuns     SyncRun[]
+
+  @@index([organizationId, status])
+  @@map("api_connectors")
+}
+
+model SyncRun {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  connectorId     String        @map("connector_id") @db.Uuid
+  trigger         SyncTrigger
+  status          SyncRunStatus @default(pending)
+  startedAt       DateTime?     @map("started_at")
+  finishedAt      DateTime?     @map("finished_at")
+  recordsFetched  Int           @default(0) @map("records_fetched")
+  recordsUpserted Int           @default(0) @map("records_upserted")
+  recordsFailed   Int           @default(0) @map("records_failed")
+  errorMessage    String?       @map("error_message")
+  metadata        Json?
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connector    ApiConnector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  @@index([connectorId, createdAt(sort: Desc)])
+  @@index([organizationId, status, createdAt(sort: Desc)])
+  @@map("sync_runs")
+}
+
+// ----------------------------------------------------------------------------
+// Shopify integration — connect a merchant's Shopify store, scrape its catalog
+// /customers/business-info into a staging area for review+approval, then commit
+// approved items into the live catalog. Auto-sync (cron) + webhooks keep
+// already-imported items current. Gated by the `shopify` org feature.
+// ----------------------------------------------------------------------------
+
+model ShopifyConnection {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String                  @unique @map("organization_id") @db.Uuid
+  // Permanent myshopify domain, e.g. "1tnjz1-wa.myshopify.com".
+  storeDomain         String                  @map("store_domain")
+  // AES-256-GCM encrypted JSON: { accessToken: "shpat_…", apiSecret: "shpss_…" }.
+  // Same enc:v1: scheme as ApiConnector.authConfig (encryptJsonSecret).
+  credentials         String?
+  status              ShopifyConnectionStatus @default(active)
+  // Display name / currency captured on verify (for the settings UI).
+  shopName            String?                 @map("shop_name")
+  shopCurrency        String?                 @map("shop_currency")
+  lastVerifyStatus    String?                 @map("last_verify_status")
+  // Auto-sync: when true a repeatable BullMQ job re-scrapes on this cron.
+  autoSyncEnabled     Boolean                 @default(true) @map("auto_sync_enabled")
+  scheduleCron        String?                 @map("schedule_cron")
+  webhookRegisteredAt DateTime?               @map("webhook_registered_at")
+  lastScrapeAt        DateTime?               @map("last_scrape_at")
+  lastSuccessAt       DateTime?               @map("last_success_at")
+  consecutiveFailures Int                     @default(0) @map("consecutive_failures")
+  createdById         String?                 @map("created_by_id") @db.Uuid
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scrapeRuns   ShopifyScrapeRun[]
+  stagedItems  ShopifyStagedItem[]
+
+  @@map("shopify_connections")
+}
+
+model ShopifyScrapeRun {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  connectionId    String        @map("connection_id") @db.Uuid
+  // 'scrape' pulls from Shopify into staging; 'commit' imports approved rows.
+  phase           String        @default("scrape")
+  trigger         SyncTrigger
+  status          SyncRunStatus @default(pending)
+  startedAt       DateTime?     @map("started_at")
+  finishedAt      DateTime?     @map("finished_at")
+  productsFound   Int           @default(0) @map("products_found")
+  contactsFound   Int           @default(0) @map("contacts_found")
+  otherFound      Int           @default(0) @map("other_found")
+  recordsImported Int           @default(0) @map("records_imported")
+  recordsFailed   Int           @default(0) @map("records_failed")
+  errorMessage    String?       @map("error_message")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connection   ShopifyConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, createdAt(sort: Desc)])
+  @@index([organizationId, status, createdAt(sort: Desc)])
+  @@map("shopify_scrape_runs")
+}
+
+model ShopifyStagedItem {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  connectionId   String               @map("connection_id") @db.Uuid
+  scrapeRunId    String?              @map("scrape_run_id") @db.Uuid
+  section        ShopifyStagedSection
+  // Stable Shopify identifier (product id, customer id, policy kind, page id…).
+  externalId     String               @map("external_id")
+  title          String
+  // Normalized to the existing upsert shape (productSchema / contact / etc.).
+  normalized     Json
+  // Original Shopify payload, kept for debugging + re-normalization.
+  raw            Json?
+  status         ShopifyStagedStatus  @default(pending)
+  // Set once committed — doubles as the Shopify→local link for live updates.
+  resultEntityId String?              @map("result_entity_id")
+  errorMessage   String?              @map("error_message")
+  importedAt     DateTime?            @map("imported_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connection   ShopifyConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, section, externalId])
+  @@index([organizationId, section, status])
+  @@map("shopify_staged_items")
+}
+
+// ----------------------------------------------------------------------------
+// Outbound webhooks — notify customer systems / chatbot when catalog changes.
+// HMAC-SHA256 signature in `X-Signature` header.
+// ----------------------------------------------------------------------------
+
+model WebhookEndpoint {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String             @map("organization_id") @db.Uuid
+  url                 String
+  description         String?
+  // Subscribed event kinds. Empty/null = subscribe to all.
+  eventKinds          WebhookEventKind[] @default([]) @map("event_kinds")
+  signingSecret       String             @map("signing_secret") // displayed once on create
+  isActive            Boolean            @default(true) @map("is_active")
+  // For automatic disabling after too many consecutive failures.
+  consecutiveFailures Int                @default(0) @map("consecutive_failures")
+  lastDeliveryAt      DateTime?          @map("last_delivery_at")
+  createdById         String?            @map("created_by_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   WebhookDelivery[]
+
+  @@index([organizationId, isActive])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String                @map("organization_id") @db.Uuid
+  endpointId      String                @map("endpoint_id") @db.Uuid
+  eventKind       WebhookEventKind      @map("event_kind")
+  payload         Json
+  status          WebhookDeliveryStatus @default(pending)
+  attempts        Int                   @default(0)
+  // Last response (truncated body kept for diagnostics).
+  responseStatus  Int?                  @map("response_status")
+  responseBody    String?               @map("response_body")
+  responseHeaders Json?                 @map("response_headers")
+  scheduledFor    DateTime              @default(now()) @map("scheduled_for")
+  attemptedAt     DateTime?             @map("attempted_at")
+  deliveredAt     DateTime?             @map("delivered_at")
+  errorMessage    String?               @map("error_message")
+  createdAt       DateTime              @default(now()) @map("created_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  endpoint     WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, createdAt(sort: Desc)])
+  @@index([status, scheduledFor])
+  @@map("webhook_deliveries")
+}
+
+// ============================================================================
+// VERSIONING + NOTIFICATIONS (Day 4)
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// CatalogRevision — append-only history of catalog mutations.
+// One row per create/update/delete on a tracked entity. The `snapshot` is the
+// post-mutation state for create/update, and the pre-deletion state for delete.
+// Restores read the snapshot and apply it back to the live row.
+// ----------------------------------------------------------------------------
+
+model CatalogRevision {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  entityType     RevisionEntityType @map("entity_type")
+  entityId       String             @map("entity_id") @db.Uuid
+  action         RevisionAction
+  snapshot       Json
+  // Optional human-readable summary (e.g. "Updated price from $19 to $24")
+  summary        String?
+  actorUserId    String?            @map("actor_user_id") @db.Uuid
+  // The "version number" for this entity, monotonically increasing per (entityType, entityId).
+  // Computed by the application (count + 1) inside the same transaction so it stays consistent.
+  versionNumber  Int                @map("version_number")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, versionNumber])
+  @@index([organizationId, entityType, entityId, createdAt(sort: Desc)])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("catalog_revisions")
+}
+
+// ----------------------------------------------------------------------------
+// Notification — in-app notifications shown in the bell icon dropdown.
+// Generated by the worker on import/sync events and by API key first-use.
+// ----------------------------------------------------------------------------
+
+model Notification {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  // If set, only this user sees the notification. NULL = visible to all org members.
+  targetUserId   String?              @map("target_user_id") @db.Uuid
+  kind           NotificationKind
+  severity       NotificationSeverity @default(info)
+  title          String
+  body           String?
+  // Optional deep link (e.g. /imports/<id>)
+  link           String?
+  // Optional reference back to the entity that triggered this.
+  entityType     String?              @map("entity_type")
+  entityId       String?              @map("entity_id") @db.Uuid
+  metadata       Json?
+  readAt         DateTime?            @map("read_at")
+  // Per-user read state when targetUserId is NULL: stored as user IDs that have
+  // read the notification. Cheap for small teams; revisit if orgs grow.
+  readByUserIds  String[]             @default([]) @map("read_by_user_ids") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, targetUserId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+// ============================================================================
+// PHASE 1.5
+// ----------------------------------------------------------------------------
+// WhatsAppChannel — per-org WhatsApp Cloud API config. Stores Meta credentials
+// (WABA ID, phone number ID, app secret, system-user access token), the
+// platform-generated webhook verify token, and the bot's greeting/profile
+// fields. One row per organisation.
+//
+// Security note: accessToken + appSecret are stored plain in this column.
+// Same model as ApiConnector.authConfig — RLS-isolated, never returned over
+// the API except masked. Encryption-at-rest is the disk's job; encryption
+// at the application layer is a TODO before broad rollout.
+// ----------------------------------------------------------------------------
+
+model WhatsAppChannel {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  // Multiple numbers per org are supported (Phase 3 §5.1.2). Exactly ONE
+  // row per org is marked primary; the partial unique index in the
+  // accompanying migration enforces this.
+  isPrimary          Boolean   @default(true) @map("is_primary")
+  // Human-readable label shown in the UI when an org has > 1 number.
+  label              String?
+  // ---- Meta-side identifiers (visible-ish, copied from Meta dashboard) ----
+  wabaId             String?   @map("waba_id")
+  phoneNumberId      String?   @map("phone_number_id")
+  displayPhoneNumber String?   @map("display_phone_number") // E.164, for UI
+  appId              String?   @map("app_id")
+  // ---- Secrets — never returned plain in API responses ---------------------
+  accessToken        String?   @map("access_token")
+  appSecret          String?   @map("app_secret")
+  // ---- Platform-generated, given to client to paste into Meta -------------
+  webhookVerifyToken String    @map("webhook_verify_token")
+  // ---- Bot profile + behaviour --------------------------------------------
+  greetingMessage    String?   @map("greeting_message")
+  businessName       String?   @map("business_name")
+  businessAbout      String?   @map("business_about")
+  businessAddress    String?   @map("business_address")
+  businessEmail      String?   @map("business_email")
+  // ---- Operational state ---------------------------------------------------
+  isActive           Boolean   @default(false) @map("is_active")
+  // Per-number AI bot switch. The bot auto-replies on this number only when the
+  // org's BotConfig.deployedAt is set AND isActive AND botEnabled. Lets a tenant
+  // run several numbers but deploy the bot on a chosen subset (1 → all).
+  botEnabled         Boolean   @default(false) @map("bot_enabled")
+  lastVerifiedAt     DateTime? @map("last_verified_at")
+  lastVerifyStatus   String?   @map("last_verify_status") // 'success' | 'token_invalid' | 'phone_not_found' | network error string
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  threads             WhatsAppThread[]
+  broadcastRecipients BroadcastRecipient[]
+
+  @@index([organizationId])
+  /// Owner lookup by WABA — `history` may identify its subject only by WABA id,
+  /// because the phone number can be absent from our DB at that moment. NOT
+  /// unique: one WABA legitimately holds several numbers.
+  @@index([wabaId])
+  /// A partial UNIQUE index on `phone_number_id` (WHERE NOT NULL) also exists,
+  /// added in 20260820160000_coexistence_attribution. Prisma cannot express a
+  /// partial unique index — same situation as whatsapp_channels_one_primary_per_org.
+  /// It is what makes a fleet-wide phone-number -> org lookup authoritative.
+  @@map("whatsapp_channels")
+}
+
+// Per-tenant Facebook Messenger + Instagram channel. Both are Meta and share
+// the Page Send API: a Facebook Page powers Messenger; an Instagram Business
+// account linked to that Page powers IG DMs. One row per org holds the page +
+// linked IG. pageAccessToken + appSecret are AES-256-GCM-encrypted at rest.
+model MessengerChannel {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String    @unique @map("organization_id") @db.Uuid
+  pageId             String?   @map("page_id")
+  pageName           String?   @map("page_name")
+  // Instagram Business account id linked to the page (for IG DMs; Phase C).
+  igAccountId        String?   @map("ig_account_id")
+  pageAccessToken    String?   @map("page_access_token")
+  appSecret          String?   @map("app_secret")
+  webhookVerifyToken String    @map("webhook_verify_token")
+  isActive           Boolean   @default(false) @map("is_active")
+  lastVerifyStatus   String?   @map("last_verify_status")
+  lastVerifiedAt     DateTime? @map("last_verified_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("messenger_channels")
+}
+
+// WhatsAppMessage — every inbound message Meta delivers to our webhook is
+// persisted here for support / debugging. Outbound replies (sent via
+// /whatsapp/test-send for now) are also persisted with direction='outbound'.
+// Phase 1.5 does not yet auto-respond — this is just an audit table.
+
+model WhatsAppMessage {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  // Phase 3 §5.1.1 — every message belongs to exactly one thread (per
+  // customer phone). Set by the inbound webhook + outbound send paths.
+  threadId        String?   @map("thread_id") @db.Uuid
+  direction       String // 'inbound' | 'outbound'
+  // Channel this message belongs to: 'whatsapp' (default) | 'messenger' |
+  // 'instagram'. Lets the unified inbox carry every channel.
+  channel         String    @default("whatsapp")
+  // Meta's wamid for inbound; for outbound, the messages[0].id from the response.
+  metaMessageId   String?   @map("meta_message_id")
+  fromNumber      String?   @map("from_number")
+  toNumber        String?   @map("to_number")
+  messageType     String?   @map("message_type") // 'text' | 'template' | 'image' | ...
+  body            String?
+  // Phase 3 §5.1.1 — Meta delivery / read state for outbound messages.
+  // Updated by the message_status webhook. Values mirror Meta:
+  // 'sent' | 'delivered' | 'read' | 'failed' | null.
+  metaStatus      String?   @map("meta_status")
+  metaStatusAt    DateTime? @map("meta_status_at")
+  // Phase 3: when message has media, the asset row holding the file we
+  // received from Meta or sent through Meta. NULL for text messages.
+  mediaAssetId    String?   @map("media_asset_id") @db.Uuid
+  // Length of an audio/voice message in whole seconds, so a client can render
+  // "🎙 0:14" without downloading the clip. Meta supplies NO duration — not on
+  // the webhook `audio` object, not on GET /{media-id} — so this is measured
+  // locally from the decoded bytes during the existing ffmpeg transcode.
+  // NULL whenever that measurement wasn't possible (storage unconfigured,
+  // ffmpeg missing/failed) and for every non-audio row. Never estimated.
+  durationSeconds Int?      @map("duration_seconds")
+  // Full payload from Meta (or what we sent) — for debugging.
+  rawPayload      Json?     @map("raw_payload")
+  receivedAt      DateTime  @default(now()) @map("received_at")
+
+  thread     WhatsAppThread?    @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  provenance MessageProvenance?
+
+  @@index([organizationId, receivedAt(sort: Desc)])
+  @@index([threadId, receivedAt(sort: Asc)])
+  // NOTE: (organization_id, meta_message_id) is UNIQUE via a PARTIAL index
+  // created in migration 20260824120000 (Prisma cannot express `WHERE
+  // meta_message_id IS NOT NULL`, and plenty of rows legitimately have none).
+  // Until then the only dedup was an application findFirst filtered on
+  // `direction: 'inbound'`, so outbound rows had none at all — and Meta
+  // redelivers. Insert paths that can race must catch P2002.
+  @@map("whatsapp_messages")
+}
+
+/// Landing pad for Meta webhook payloads no handler consumes yet.
+///
+/// The webhook route reads exactly `value.messages` and `value.statuses` and
+/// never looks at `change.field`, so every other subscribed field is answered
+/// 200 and dropped. Meta does not retry a 200. For the Coexistence `history`
+/// field that drop is PERMANENT — it is delivered once, within 24h of onboarding,
+/// and cannot be re-requested without full offboarding.
+///
+/// Rows here are raw and unparsed on purpose: capture first, interpret later.
+model MetaWebhookEvent {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// The org whose callback URL received this — NOT necessarily the org the
+  /// payload belongs to. Embedded Signup events for a new tenant land on the
+  /// app-level callback before any per-WABA override exists, so the true owner
+  /// is resolved at replay time from `phoneNumberId` / `wabaId`.
+  organizationId String    @map("organization_id") @db.Uuid
+  /// Meta's `entry[].changes[].field` — 'history', 'smb_message_echoes', etc.
+  field          String
+  phoneNumberId  String?   @map("phone_number_id")
+  /// Meta's `entry[].id` (the WABA id). For `history` this is the only owner
+  /// hint, because the number may not be in our DB yet.
+  wabaId         String?   @map("waba_id")
+  /// The whole `changes[]` element, verbatim. Never rewritten.
+  payload        Json
+  receivedAt     DateTime  @default(now()) @map("received_at")
+  /// Stamped once a real handler has consumed the row. Null = still waiting.
+  processedAt    DateTime? @map("processed_at")
+
+  /// The org that actually OWNS this payload, resolved from `phoneNumberId` at
+  /// capture time. Distinct from `organizationId` above, which is only ever the
+  /// org whose callback URL received the delivery. Null when the number is not in
+  /// our DB yet — for a self-onboarding tenant that is the expected first state,
+  /// and `wabaId` is then the only owner hint.
+  ///
+  /// A replay MUST scope its business writes to THIS column, never to
+  /// `organizationId`, or one tenant's corpus lands in another's inbox.
+  resolvedOrganizationId String? @map("resolved_organization_id") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([field, receivedAt])
+  @@index([organizationId, receivedAt(sort: Desc)])
+  @@index([phoneNumberId, resolvedOrganizationId])
+  @@map("meta_webhook_events")
+}
+
+// ----------------------------------------------------------------------------
+// Phase 3 §5.1.1 — Conversation inbox.
+// One WhatsAppThread per (org, customer phone). Messages are linked via
+// `whatsapp_messages.thread_id`. Status / assignment / tags / internal
+// notes hang off the thread.
+// ----------------------------------------------------------------------------
+
+enum WhatsAppThreadStatus {
+  open
+  pending
+  resolved
+  escalated
+}
+
+model WhatsAppThread {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String               @map("organization_id") @db.Uuid
+  // Channel: 'whatsapp' (default) | 'messenger' | 'instagram'. Threads for all
+  // channels live here so the inbox + provenance + carts work everywhere.
+  channel              String               @default("whatsapp")
+  // The per-customer identifier on this channel. For WhatsApp it equals the
+  // phone (also stored in customer_phone); for Messenger it's the PSID, for
+  // Instagram the IGSID. customer_phone holds this same value (generic id)
+  // so the existing (org, customer_phone) unique dedupes every channel.
+  channelUserId        String?              @map("channel_user_id")
+  // The specific WhatsApp number this thread belongs to (multi-number support).
+  // NULL for Messenger/Instagram threads and any WhatsApp thread whose number
+  // couldn't be resolved. Drives the per-number inbox filter + reply routing
+  // (the bot/operator always replies from this number). Dedup is enforced by
+  // two partial unique indexes in the migration, not a Prisma @@unique:
+  //   (org, customer_phone) WHERE whatsapp_channel_id IS NULL   — messenger/IG/legacy
+  //   (org, customer_phone, whatsapp_channel_id) WHERE NOT NULL — multi-number WA
+  whatsAppChannelId    String?              @map("whatsapp_channel_id") @db.Uuid
+  customerPhone        String               @map("customer_phone")
+  // Operator-set nickname / business name. Free-form. Mirrored from
+  // Contact.displayName on rename so /inbox and /contacts stay in sync.
+  customerName         String?              @map("customer_name")
+  // Mirror of Meta's WhatsApp profile name from inbound contacts[].
+  // profile.name. Read-only; refreshed on every inbound. Lets the
+  // inbox row show both the operator's rename AND what the customer
+  // actually goes by on WhatsApp.
+  customerWhatsappName String?              @map("customer_whatsapp_name")
+  status               WhatsAppThreadStatus @default(open)
+  // Per-thread state for the deterministic scripted flow (BotConfig.scriptedFlow):
+  // { nodeId, done, answers }. Null until the flow starts for this conversation.
+  flowState            Json?                @map("flow_state")
+  assignedToUserId     String?              @map("assigned_to_user_id") @db.Uuid
+  // Optional skill that auto-assign should match a member by.
+  requiredSkill        String?              @map("required_skill")
+  // Phase 6 — per-thread bot reply-mode override. NULL = inherit
+  // BotConfig.replyMode. Lets operators flip a single conversation
+  // to text or voice without changing the org-wide default.
+  botReplyMode         String?              @map("bot_reply_mode")
+  lastMessageAt        DateTime             @default(now()) @map("last_message_at")
+  lastMessagePreview   String?              @map("last_message_preview")
+  inboundCount         Int                  @default(0) @map("inbound_count")
+  outboundCount        Int                  @default(0) @map("outbound_count")
+  // Read/answered state for the inbox filters. lastInboundAt = newest customer
+  // message; lastReadAt = when an operator last opened the thread. Unread when
+  // lastInboundAt > lastReadAt; answered when lastMessageAt > lastInboundAt.
+  lastInboundAt        DateTime?            @map("last_inbound_at")
+  // F2 (roadmap 2026-08-26) — set when the post-conversation rating ask was
+  // sent; the NEXT inbound is checked for a 1-5 reply BEFORE the bot runs,
+  // then the stamp clears either way (never trap the customer in a survey).
+  awaitingFeedbackAt   DateTime?            @map("awaiting_feedback_at")
+  lastReadAt           DateTime?            @map("last_read_at")
+  // Follow-up cadence stamps (worker follow-up-tick). stage: 0 = fresh,
+  // 1 = first no-reply follow-up sent, 2 = cadence closed (second sent, or an
+  // idle check-in claimed the slot). A customer reply implicitly resets the
+  // cadence because eligibility compares lastInboundAt > followUpLastSentAt —
+  // nothing is ever written on the inbound hot path.
+  followUpStage        Int                  @default(0) @map("follow_up_stage") @db.SmallInt
+  followUpLastSentAt   DateTime?            @map("follow_up_last_sent_at")
+  /// When the business last answered this thread FROM THEIR OWN HANDSET, under
+  /// Coexistence (Meta's `smb_message_echoes`). Meta's timestamp, not now().
+  ///
+  /// This exists because a handset reply produces no HTTP request to Hader, so
+  /// `assignedToUserId` — the only thing that pauses the bot for a human — is
+  /// never set and the bot would answer a customer the owner just answered by
+  /// hand. There is no Hader user to assign, and inventing one would put a lie
+  /// in the data, so the fact gets its own column and its own gate.
+  ///
+  /// Compared against the INBOUND message's timestamp, never against now():
+  /// "the owner already answered this message" is the question, and a customer
+  /// who writes again afterwards must still get a reply.
+  handsetRepliedAt     DateTime?            @map("handset_replied_at")
+  // Search blob — concatenation of recent messages, kept up-to-date by the
+  // upsert path. pg_trgm GIN index added in the migration.
+  searchText           String               @default("") @map("search_text")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  whatsAppChannel WhatsAppChannel?    @relation(fields: [whatsAppChannelId], references: [id], onDelete: SetNull)
+  assignedTo      User?               @relation("WhatsAppThreadAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  messages        WhatsAppMessage[]
+  tags            WhatsAppThreadTag[]
+  notes           WhatsAppNote[]
+  bookings        Booking[]
+  carts           Cart[]
+  feedback        ConversationFeedback?
+  stockWatches    StockWatch[]
+
+  // NOTE: uniqueness is enforced by two PARTIAL unique indexes created in the
+  // migration (see whatsAppChannelId comment above) so the same customer can
+  // have a separate thread per WhatsApp number. No Prisma @@unique here →
+  // inbound thread resolution uses findFirst + create (not upsert).
+  @@index([organizationId, whatsAppChannelId, lastMessageAt(sort: Desc)])
+  @@index([organizationId, lastMessageAt(sort: Desc)])
+  @@index([organizationId, status, lastMessageAt(sort: Desc)])
+  @@map("whatsapp_threads")
+}
+
+// ----------------------------------------------------------------------------
+// F2 (roadmap 2026-08-26) — post-conversation customer feedback (CSAT).
+// One row per asked thread (unique threadId — a conversation is rated once).
+// The rating arrives as a 1-5 typed reply intercepted BEFORE the bot runs.
+// handlerMix ('ai' | 'human' | 'mixed') is computed AT ASK TIME from the
+// thread's outbound messages — the owner's "split it to customer and ai":
+// CSAT is reportable for AI-only threads vs human-touched threads.
+model ConversationFeedback {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  threadId          String    @unique @map("thread_id") @db.Uuid
+  contactId         String?   @map("contact_id") @db.Uuid
+  channel           String    @default("whatsapp")
+  handlerMix        String    @map("handler_mix") // 'ai' | 'human' | 'mixed'
+  aiMessageCount    Int       @default(0) @map("ai_message_count")
+  humanMessageCount Int       @default(0) @map("human_message_count")
+  rating            Int? // 1-5; null = asked but never answered
+  comment           String?
+  askedAt           DateTime  @default(now()) @map("asked_at")
+  respondedAt       DateTime? @map("responded_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  thread       WhatsAppThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  contact      Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, askedAt])
+  @@index([organizationId, contactId, askedAt])
+  @@map("conversation_feedback")
+}
+
+// ----------------------------------------------------------------------------
+// F5 (roadmap 2026-08-26) — back-in-stock watches. Created AUTOMATICALLY when
+// a customer asks about an unavailable product/service (owner decision: no
+// opt-in button); the worker tick notifies them when it comes back. Exactly
+// one of productId/serviceId is set (CHECK in the migration); uniqueness per
+// (org, entity, contact) via partial unique indexes. A repeat ask after a
+// notification re-arms the row (notifiedAt cleared).
+model StockWatch {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  productId      String?   @map("product_id") @db.Uuid
+  serviceId      String?   @map("service_id") @db.Uuid
+  contactId      String    @map("contact_id") @db.Uuid
+  threadId       String?   @map("thread_id") @db.Uuid
+  // The customer's message that triggered the flag — shown on the contact
+  // profile ("adds his inquiry in the info").
+  inquiryText    String?   @map("inquiry_text")
+  source         String    @default("bot_auto") // 'bot_auto' | 'operator'
+  createdAt      DateTime  @default(now()) @map("created_at")
+  notifiedAt     DateTime? @map("notified_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  service      Service?        @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  contact      Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  thread       WhatsAppThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+
+  // The tick's scan: pending watches per org.
+  @@index([organizationId, notifiedAt])
+  @@map("stock_watches")
+}
+
+// ----------------------------------------------------------------------------
+// Booking — one row per completed intake. The bot collects every field in
+// BusinessInfo.bookingForm.fields[] from the customer in WhatsApp, then we
+// snapshot the form (with values) here so the row stays correct even if the
+// form is edited later.
+// ----------------------------------------------------------------------------
+model Booking {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  threadId           String?   @map("thread_id") @db.Uuid
+  // Origin channel: 'whatsapp' | 'messenger' | 'instagram' | 'voice'. Voice
+  // bookings have threadId=null; this lets /bookings badge them and the reminder
+  // tick skip voice-origin rows (callers aren't WhatsApp-reachable).
+  channel            String    @default("whatsapp")
+  // For voice bookings, the originating call's UUID (links the booking back to
+  // its transcript). Free text (AudioSocket UUID), not an FK.
+  callUuid           String?   @map("call_uuid")
+  customerPhone      String    @map("customer_phone")
+  customerName       String?   @map("customer_name")
+  // Frozen snapshot of the form at booking time:
+  // [{ key, label, type, required, value }]
+  fields             Json      @default("[]")
+  status             String    @default("new")
+  notes              String?
+  // Resolved appointment timestamp. The bookings page parses the
+  // (possibly natural-language) date+time fields on the row and PATCHes
+  // this back; the reminder tick reads it directly to decide when to fire.
+  // Nullable because not every booking has a parseable appointment.
+  appointmentAt      DateTime? @map("appointment_at")
+  // Operator-picked, pre-approved WhatsApp template to send as the
+  // 2-hour reminder. NULL = reminder disabled for this booking.
+  reminderTemplateId String?   @map("reminder_template_id") @db.Uuid
+  // Stamped by the reminder tick after a successful Meta send so we
+  // never send twice for the same booking.
+  reminderSentAt     DateTime? @map("reminder_sent_at")
+  // Stamped by the follow-up tick after the post-appointment check-in sends
+  // (BotConfig.followUps.afterBooking) — one follow-up per booking, ever.
+  followUpSentAt     DateTime? @map("follow_up_sent_at")
+  // Google Calendar one-way sync (Hader → Calendar). googleEventId = the event
+  // id in the tenant's connected calendar; googleSyncedAt = last successful push
+  // (the sync tick re-pushes bookings whose updatedAt is newer than this).
+  googleEventId      String?   @map("google_event_id")
+  googleSyncedAt     DateTime? @map("google_synced_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  thread           WhatsAppThread?   @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  reminderTemplate WhatsAppTemplate? @relation(fields: [reminderTemplateId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt(sort: Desc)])
+  @@index([organizationId, customerPhone])
+  // Tick query: confirmed bookings with a reminder configured whose
+  // appointment falls inside the firing window. Partial index is the
+  // cheapest way to make the tick scan tiny.
+  @@index([status, reminderSentAt, appointmentAt], map: "bookings_reminder_due_idx")
+  @@map("bookings")
+}
+
+// Per-tenant Google Calendar connection for one-way booking → Calendar sync.
+// OAuth tokens are AES-GCM-encrypted at rest via encryptSecret. One row per org.
+model GoogleCalendarConnection {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @unique @map("organization_id") @db.Uuid
+  // The connected Google account (for display) + the target calendar.
+  googleEmail    String?   @map("google_email")
+  calendarId     String    @default("primary") @map("calendar_id")
+  // OAuth tokens (encrypted). refreshToken is long-lived; accessToken is
+  // refreshed on demand and cached with its expiry.
+  accessToken    String?   @map("access_token")
+  refreshToken   String    @map("refresh_token")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  // Booking → calendar behaviour. pushBookings off = bookings stay in Hader.
+  // meetingMode 'online' attaches a Google Meet link; 'onsite' sends the
+  // business address instead. autoConfirm lets the bot confirm the booking
+  // itself, which keeps the confirmation inside WhatsApp's 24-hour window.
+  pushBookings   Boolean   @default(true) @map("push_bookings")
+  meetingMode    String    @default("onsite") @map("meeting_mode")
+  autoConfirm    Boolean   @default(true) @map("auto_confirm")
+  // When true, slots the operator is already busy for in Google Calendar are
+  // withheld from what the bot offers (and flagged if booked anyway).
+  blockOnBusy    Boolean   @default(true) @map("block_on_busy")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("google_calendar_connections")
+}
+
+// ----------------------------------------------------------------------------
+// Cart / Shop — sibling to Booking. One row per customer order. The AI bot
+// collects items + the BusinessInfo.shopForm.fields[] answers from the
+// customer in WhatsApp, then emits a [CART: {...}] marker that the inbound
+// receiver translates into one Cart row + N CartItem rows.
+//
+// Status flow (Phase 1, simple): new → confirmed → completed (+ cancelled).
+// All non-`new` transitions are operator-driven from the dashboard.
+// ----------------------------------------------------------------------------
+model Cart {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  threadId           String?   @map("thread_id") @db.Uuid
+  // Origin channel of the order: 'whatsapp' | 'messenger' | 'instagram' | 'voice'.
+  // Voice orders have threadId=null, so before this column they were only
+  // distinguishable by a notes string — unfilterable + unreportable. Defaults to
+  // 'whatsapp' so historical rows + the WhatsApp hot path are unaffected.
+  channel            String    @default("whatsapp")
+  // For voice orders, the phone line (DID) the call came in on, so operators can
+  // route fulfillment by line. SetNull so deleting a line keeps order history.
+  phoneIntegrationId String?   @map("phone_integration_id") @db.Uuid
+  // For voice orders, the originating call's UUID — links the order to its
+  // transcript AND makes order submission idempotent (a retried submit_order
+  // with the same callUuid returns the existing order instead of duplicating).
+  callUuid           String?   @map("call_uuid")
+  customerPhone      String    @map("customer_phone")
+  customerName       String?   @map("customer_name")
+  // Frozen snapshot of the shopForm's `fields[]` answers — same shape
+  // as Booking.fields. [{ key, label, type, required, value }].
+  fields             Json      @default("[]")
+  // Cart-level money. All in `currency`. subtotalMinor = sum of
+  // CartItem.lineTotalMinor; totalMinor = subtotal + delivery.
+  // BigInt: high-denomination currencies (LBP, IRR) in x100 minor units blow
+  // past 32-bit Int (2.1B) on large carts — e.g. 200 drinks at 120,000 LBP.
+  subtotalMinor      BigInt    @default(0) @map("subtotal_minor")
+  deliveryMinor      BigInt    @default(0) @map("delivery_minor")
+  totalMinor         BigInt    @default(0) @map("total_minor")
+  currency           String    @default("USD") @db.Char(3)
+  // 'new' | 'confirmed' | 'completed' | 'cancelled'
+  status             String    @default("new")
+  notes              String?
+  // Denormalized count for fast list rendering — kept in sync by the
+  // route layer (no Prisma middleware to do it implicitly).
+  itemsCount         Int       @default(0) @map("items_count")
+  // ---- Payment confirmation (F-04) ---------------------------------------
+  // The gateway that minted the order's payment link, and the external
+  // reference we correlate inbound payment webhooks against (e.g. the
+  // MyFatoorah InvoiceId). paymentStatus: null = no online payment expected,
+  // 'pending' = link issued/awaiting payment, 'paid' = webhook confirmed,
+  // 'failed' = gateway reported a failed/expired payment. paidAt is set once.
+  paymentProvider    String?   @map("payment_provider")
+  paymentRef         String?   @map("payment_ref")
+  paymentStatus      String?   @map("payment_status")
+  paidAt             DateTime? @map("paid_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  thread           WhatsAppThread?   @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  phoneIntegration PhoneIntegration? @relation(fields: [phoneIntegrationId], references: [id], onDelete: SetNull)
+  items            CartItem[]
+
+  @@index([organizationId, status, createdAt(sort: Desc)])
+  @@index([organizationId, customerPhone])
+  // Per-channel analytics + filtering (voice vs whatsapp vs messenger orders).
+  @@index([organizationId, channel, createdAt(sort: Desc)], map: "carts_org_channel_created_idx")
+  // Voice order idempotency + traceability lookup by originating call.
+  @@index([organizationId, callUuid], map: "carts_org_call_uuid_idx")
+  // Fast webhook correlation: look up the order by gateway + external ref.
+  @@index([organizationId, paymentProvider, paymentRef])
+  @@map("carts")
+}
+
+model CartItem {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  cartId         String   @map("cart_id") @db.Uuid
+  // FK snapshots — products / services may change or get soft-deleted
+  // after the cart is placed. We keep `name`, `sku`, `variantLabel` as
+  // frozen text so historical orders render correctly.
+  productId      String?  @map("product_id") @db.Uuid
+  serviceId      String?  @map("service_id") @db.Uuid
+  variantId      String?  @map("variant_id") @db.Uuid
+  sku            String?
+  name           String
+  variantLabel   String?  @map("variant_label")
+  quantity       Int      @default(1)
+  unitPriceMinor BigInt   @map("unit_price_minor")
+  lineTotalMinor BigInt   @map("line_total_minor")
+  // True when this line came from a voice order whose spoken name could NOT be
+  // matched to the catalog: it's stored at price 0 and the operator must price
+  // it before fulfilment. Distinguishes "needs pricing" from a genuinely-free item.
+  needsPricing   Boolean  @default(false) @map("needs_pricing")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+model WhatsAppThreadTag {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  threadId       String   @map("thread_id") @db.Uuid
+  tag            String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  thread WhatsAppThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, tag])
+  @@index([organizationId, tag])
+  @@map("whatsapp_thread_tags")
+}
+
+// Internal notes — visible to agents only, never sent to Meta.
+model WhatsAppNote {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  threadId       String   @map("thread_id") @db.Uuid
+  authorUserId   String?  @map("author_user_id") @db.Uuid
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  thread WhatsAppThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt(sort: Asc)])
+  @@map("whatsapp_notes")
+}
+
+// Per-org canned response template for fast agent replies.
+model CannedResponse {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  shortcut       String // e.g. "/hours" — typed in the reply box
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([organizationId, shortcut])
+  @@index([organizationId])
+  @@map("canned_responses")
+}
+
+// Phase 3 §5.1.2 — submitted WhatsApp message templates with their Meta
+// approval status. Required for sending outside the 24h customer window.
+model WhatsAppTemplate {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String   @map("organization_id") @db.Uuid
+  name                  String // Meta-side template name
+  language              String   @default("en_US")
+  category              String // 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+  bodyText              String   @map("body_text")
+  // Full Meta-shaped components array (header / body / footer /
+  // buttons + per-placeholder examples). Source of truth when
+  // submitting to Meta; bodyText is kept for search + the
+  // chatbot-read API.
+  components            Json?
+  status                String   @default("draft") // 'draft' | 'pending' | 'approved' | 'rejected'
+  rejectionReason       String?  @map("rejection_reason")
+  metaTemplateId        String?  @map("meta_template_id")
+  // Media-header (IMAGE/VIDEO/DOCUMENT) cached into Wasabi so the inbox can show
+  // it (Meta's header_handle URLs are CSP-blocked + expire). Populated lazily on
+  // first inbox view from the template's components header_handle.
+  headerMediaStorageKey String?  @map("header_media_storage_key")
+  headerMediaType       String?  @map("header_media_type") // 'image' | 'video' | 'document'
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Bookings that picked this template as their 2-hour reminder.
+  reminderBookings Booking[]
+
+  @@unique([organizationId, name, language])
+  @@index([organizationId])
+  @@map("whatsapp_templates")
+}
+
+// ============================================================================
+// PHASE 2 — AI Bot Builder
+// ----------------------------------------------------------------------------
+// BotConfig holds the per-org bot personality, conversation flow, response
+// templates, languages, and escalation rules. KnowledgeBase rows are the
+// LLM-extracted facts (FAQs, products, policies) the bot answers from.
+// CrawlJob + CrawlPage track the website-analysis pipeline.
+// BotSimulationSession persists test transcripts so accuracy scores can be
+// re-shown without re-running the LLM.
+// ============================================================================
+
+enum CrawlJobStatus {
+  pending
+  running
+  succeeded
+  partial
+  failed
+  cancelled
+}
+
+model BotConfig {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId          String    @unique @map("organization_id") @db.Uuid
+  // Personality preset name + free-form override.
+  personality             String? // 'formal' | 'casual' | 'friendly' | 'clinical' | custom
+  customPersonality       String?   @map("custom_personality")
+  // ALIGNED-admin-only prompt addendum. Free-form instructions injected VERBATIM
+  // into the bot's system prompt (after the core rules, before the catalog) for
+  // this tenant. NOT exposed or editable via the tenant-facing /bot routes —
+  // only set from the ALIGNED admin org-detail "AI" section. Same string shown
+  // in the admin compiled-prompt preview (single source of truth).
+  adminSystemPromptAppend String?   @map("admin_system_prompt_append")
+  // Detected by the LLM during analysis. Used to seed the personality picker.
+  detectedTone            String?   @map("detected_tone")
+  // The greeting text the bot opens with.
+  greeting                String?
+  // If true, the bot's FIRST reply in a thread addresses the customer
+  // by their WhatsApp profile name (Meta's contacts[].profile.name,
+  // stored on WhatsAppThread.customerWhatsappName). Subsequent replies
+  // are unaffected. Defaults off so existing tenants don't see new
+  // behaviour without opting in.
+  greetByName             Boolean   @default(false) @map("greet_by_name")
+  // Tappable quick-reply buttons under bot replies (WhatsApp interactive
+  // buttons + Instagram/Messenger quick replies). Operator toggle on /bot.
+  quickRepliesEnabled     Boolean   @default(true) @map("quick_replies_enabled")
+  // F11 (roadmap 2026-08-26) — operator-configured quick buttons:
+  // [{label ≤20ch, replyText?, always}] max 3. `always` buttons are merged
+  // deterministically into every AI reply (configured win the slots); a tap
+  // on a label with replyText answers without the LLM. Parsed defensively by
+  // lib/quick-buttons.ts — never trust this shape raw.
+  customButtons           Json?     @map("custom_buttons")
+  // F2 — post-conversation feedback config ({enabled}). Tenant toggle in the
+  // bot builder; the org-level `feedback` feature key is the HQ gate.
+  feedback                Json?
+  // Comma-separated language codes the bot replies in. Default 'en'.
+  languages               String    @default("en")
+  // Escalation rules — what triggers a handoff to a human, business hours, etc.
+  escalationRules         Json?     @map("escalation_rules")
+  // Conversation flow — for now a JSON object keyed by intent (greeting,
+  // product_inquiry, booking, support, escalation) with prompt overrides.
+  // Drag-and-drop editor shipping later replaces this with a node graph.
+  conversationFlow        Json?     @map("conversation_flow")
+  // Pre-generated response templates: { intent_key: "template text" }
+  responseTemplates       Json?     @map("response_templates")
+  // Deterministic scripted flow (a guided button-driven state machine that
+  // runs BEFORE the LLM and replies with the operator's EXACT text + buttons).
+  // JSON: { enabled, channel, entryNodeId, nodes: { <id>: { text, buttons[],
+  // waitFor, next, action, voiceAssetId } } }. Null / disabled = pure LLM bot.
+  scriptedFlow            Json?     @map("scripted_flow")
+  // Automated follow-ups (no-reply chase / post-booking check-in / idle
+  // re-engagement) — validated by followUpsConfigSchema in @platform/shared
+  // (follow-ups.ts). enabledAt inside is stamped server-side on the off→on
+  // transition so the worker tick never reaches behind it. Null = off.
+  followUps               Json?     @map("follow_ups")
+  // True once the client clicks "Deploy". Inbound webhook's bot-runtime
+  // hook only fires when this is set + WhatsAppChannel.isActive is true.
+  deployedAt              DateTime? @map("deployed_at")
+  // Simple version counter, bumped on every PUT. Surfaced in the UI so
+  // the operator can see when something changed.
+  version                 Int       @default(1)
+  // Phase 6 — TTS reply mode.
+  //   text            : current behaviour. Plain WhatsApp text reply.
+  //   voice           : every reply spoken with Google Cloud TTS.
+  //   match_customer  : voice when the customer's last inbound was a
+  //                     voice note; text otherwise.
+  replyMode               String    @default("text") @map("reply_mode")
+  // TTS provider — `google` (default) or `elevenlabs`. Each provider
+  // has independent credentials in env; falling back to text if the
+  // chosen provider isn't configured.
+  ttsProvider             String    @default("google") @map("tts_provider")
+  // Voice identifier — for Google this is the voice NAME
+  // (en-US-Neural2-J, ar-XA-Wavenet-B). For ElevenLabs it's the 20-char
+  // VOICE ID. Falls back to provider-specific env defaults when null.
+  ttsVoiceName            String?   @map("tts_voice_name")
+  // Optional Wasabi storage key for an image that's attached to the
+  // bot's greeting reply (e.g. a brand banner or "welcome" graphic).
+  // When set, the bot sends this image alongside any reply that opens
+  // with a greeting word (hi/hello/مرحبا/etc.). Dedup keeps it from
+  // re-attaching within a 24h window per thread.
+  greetingImageStorageKey String?   @map("greeting_image_storage_key")
+  // Optional voice note sent as the introductory greeting (alongside the
+  // greeting image). For a scripted flow it plays with the entry node.
+  greetingVoiceStorageKey String?   @map("greeting_voice_storage_key")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("bot_configs")
+}
+
+// One CrawlJob per analyze request. It walks pages, extracts text, and
+// fans out LLM analysis. Done once per onboarding; clients re-run when
+// their site changes.
+model CrawlJob {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  rootUrl        String         @map("root_url")
+  status         CrawlJobStatus @default(pending)
+  // Limits: max pages crawled (cap on cost) + how deep to follow links.
+  maxPages       Int            @default(30) @map("max_pages")
+  maxDepth       Int            @default(2) @map("max_depth")
+  pagesCrawled   Int            @default(0) @map("pages_crawled")
+  pagesFailed    Int            @default(0) @map("pages_failed")
+  errorMessage   String?        @map("error_message")
+  startedAt      DateTime?      @map("started_at")
+  finishedAt     DateTime?      @map("finished_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  pages CrawlPage[]
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("crawl_jobs")
+}
+
+model CrawlPage {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  crawlJobId     String   @map("crawl_job_id") @db.Uuid
+  url            String
+  title          String?
+  // Cleaned text — boilerplate stripped. Capped at 100 KB per page.
+  bodyText       String?  @map("body_text")
+  fetchStatus    Int?     @map("fetch_status")
+  errorMessage   String?  @map("error_message")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  crawlJob CrawlJob @relation(fields: [crawlJobId], references: [id], onDelete: Cascade)
+
+  @@index([crawlJobId])
+  @@map("crawl_pages")
+}
+
+// Knowledge-base entries the bot answers from. Sourced by LLM extraction
+// from the crawl + Phase 1 catalog data. Each row is one FAQ-shaped fact.
+model KnowledgeBaseEntry {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  // 'faq' | 'product' | 'policy' | 'service' | 'business_info' | 'custom'
+  kind           String
+  question       String
+  answer         String
+  // Where it came from, for trust & traceability.
+  sourceUrl      String?  @map("source_url")
+  sourceType     String   @default("ai") @map("source_type") // 'ai' | 'manual'
+  // The client can edit AI-generated entries; we mark approved=true once
+  // they've reviewed the row.
+  approved       Boolean  @default(false)
+  // pg_trgm-indexed search blob = question || ' ' || answer.
+  searchText     String   @default("") @map("search_text")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, kind])
+  @@index([organizationId, approved])
+  @@map("knowledge_base_entries")
+}
+
+// Test scenarios: pre-defined transcripts the operator runs to score the
+// bot before deploy. We persist the LAST run so the UI can show last
+// scores without re-spending LLM tokens on every page load.
+// Bot test scenarios — DB-backed (replaces the formerly-hardcoded
+// `SCENARIOS` array in bot.routes.ts). Each org owns its own set, generated
+// from its current knowledge base + catalog by an LLM and editable / deletable
+// by the operator. Re-generating from a refreshed KB produces a new batch.
+model BotTestScenario {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  // Stable slug per scenario (e.g. "menu_question_juices", "delivery_zones",
+  // "halal_query"). Used to dedupe across regenerations.
+  key            String
+  // The user-side prompt the bot should be tested against.
+  prompt         String
+  // Plain-English description of what a passing response looks like —
+  // fed to the LLM-as-judge alongside the bot's reply.
+  expectation    String
+  // 'ai_generated' = derived from current KB; 'manual' = operator-authored
+  // and preserved across regenerations.
+  source         String   @default("ai_generated")
+  // Soft sort key so operators can drag-reorder later if they like.
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([organizationId, key])
+  @@index([organizationId, sortOrder])
+  @@map("bot_test_scenarios")
+}
+
+// Bot conversation-flow candidates — the AI builder recommends 3-5 flow
+// templates tailored to the business (e.g. "Quick Order Bot", "Hospitality
+// Concierge", "Support First"). Exactly one is marked active and its `flow`
+// JSON gets mirrored into BotConfig.conversationFlow so the runtime keeps
+// reading a single source of truth.
+model BotConversationFlowOption {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  name            String
+  description     String
+  // Flow JSON in the same { nodes: [{ intent, label, response }] } shape
+  // bot-engine already consumes.
+  flow            Json
+  // The LLM's pick for this business — exactly one option per org carries
+  // `isRecommended = true`; the others are alternatives.
+  isRecommended   Boolean  @default(false) @map("is_recommended")
+  // Why the LLM thinks this fits — short, shown under the card title.
+  recommendReason String?  @map("recommend_reason")
+  isSelected      Boolean  @default(false) @map("is_selected")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, isSelected])
+  @@map("bot_conversation_flow_options")
+}
+
+model BotTestRun {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  scenarioKey      String    @map("scenario_key") // e.g. 'product_question'
+  scenarioPrompt   String    @map("scenario_prompt")
+  botResponse      String    @map("bot_response")
+  // 0..100 — LLM-as-judge score against expected behaviour.
+  score            Int?
+  judgeNotes       String?   @map("judge_notes")
+  // Operator override — when the human disagrees with the judge. The
+  // original LLM score on `score` is kept for audit; UI prefers
+  // overrideScore when present.
+  overrideScore    Int?      @map("override_score")
+  overrideNotes    String?   @map("override_notes")
+  overrideByUserId String?   @map("override_by_user_id") @db.Uuid
+  overrideAt       DateTime? @map("override_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([organizationId, scenarioKey, createdAt(sort: Desc)])
+  @@map("bot_test_runs")
+}
+
+// Live preview — every simulator turn is persisted so we can replay it.
+// Threaded by sessionId (a client-side uuid).
+model BotSimulationTurn {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  sessionId      String   @map("session_id")
+  role           String // 'user' | 'assistant'
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId, sessionId, createdAt])
+  @@map("bot_simulation_turns")
+}
+
+// ============================================================================
+// PHASE 3 §5.1.3 — Subscription & billing.
+// ----------------------------------------------------------------------------
+// Plan seeded once per environment (Starter/Growth/Enterprise + Free).
+// Subscription is per-org, mirrors Stripe state.
+// UsageEvent is append-only; UsageMonthly is a roll-up so cap checks are O(1).
+// ============================================================================
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  cancelled
+  free // post-trial without payment — read-only soft cap
+  paused
+}
+
+model Plan {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Stable code used in env-driven seeds + Stripe Price metadata.
+  code                 String   @unique
+  name                 String
+  isActive             Boolean  @default(true) @map("is_active")
+  // Caps — null = unlimited.
+  productCap           Int?     @map("product_cap")
+  serviceCap           Int?     @map("service_cap")
+  memberCap            Int?     @map("member_cap")
+  monthlyMessageCap    Int?     @map("monthly_message_cap")
+  monthlyImportCap     Int?     @map("monthly_import_cap")
+  // Dedicated cap on broadcast campaigns started per calendar month
+  // (a "broadcast" = one campaign, regardless of recipient count).
+  // Recipient sends still count against monthlyMessageCap; this is a
+  // separate ceiling so heavy senders can't burn the plan with one
+  // gigantic fanout.
+  monthlyBroadcastCap  Int?     @map("monthly_broadcast_cap")
+  apiKeyCap            Int?     @map("api_key_cap")
+  webhookCap           Int?     @map("webhook_cap")
+  // Pricing display + Stripe wiring.
+  priceMonthlyMinor    Int?     @map("price_monthly_minor")
+  priceYearlyMinor     Int?     @map("price_yearly_minor")
+  currency             String   @default("USD")
+  stripePriceMonthlyId String?  @map("stripe_price_monthly_id")
+  stripePriceYearlyId  String?  @map("stripe_price_yearly_id")
+  // UI copy.
+  description          String?
+  highlights           String[] @default([])
+  sortOrder            Int      @default(100) @map("sort_order")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String             @unique @map("organization_id") @db.Uuid
+  planId               String             @map("plan_id") @db.Uuid
+  status               SubscriptionStatus @default(trialing)
+  // Stripe identifiers — only set once a real payment method is attached.
+  stripeCustomerId     String?            @map("stripe_customer_id")
+  stripeSubscriptionId String?            @map("stripe_subscription_id")
+  trialEndsAt          DateTime?          @map("trial_ends_at")
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+// Append-only event log.
+model UsageEvent {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  // 'message_outbound', 'message_inbound', 'product_write', 'service_write',
+  // 'import_started', 'api_call', etc.
+  kind           String
+  count          Int      @default(1)
+  occurredAt     DateTime @default(now()) @map("occurred_at")
+
+  @@index([organizationId, kind, occurredAt(sort: Desc)])
+  @@map("usage_events")
+}
+
+// Per-org-per-month roll-up populated by a daily worker job.
+model UsageMonthly {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
+  // YYYY-MM key, lex-sortable.
+  yearMonth          String   @map("year_month")
+  kind               String
+  count              Int      @default(0)
+  // Quota thresholds (75/80/85/90/95/100) already notified this month, so we
+  // ping the tenant once per threshold crossing instead of on every increment.
+  notifiedThresholds Int[]    @default([]) @map("notified_thresholds")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([organizationId, yearMonth, kind])
+  @@index([organizationId, yearMonth])
+  @@map("usage_monthly")
+}
+
+// ============================================================================
+// PHASE 3 §5.1.4 — Branding (white-label) + Meta onboarding progress.
+// ============================================================================
+
+model BrandingConfig {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String    @unique @map("organization_id") @db.Uuid
+  // Logo asset id (uploaded via existing Asset table).
+  logoAssetId      String?   @map("logo_asset_id") @db.Uuid
+  // Hex string, e.g. "#0070C9".
+  accentColor      String?   @map("accent_color")
+  // Custom domain like inbox.theircompany.com — DNS is the client's job.
+  customCname      String?   @map("custom_cname")
+  // CNAME validation state — set by the validate-cname endpoint:
+  // null | 'pending' | 'verified' | 'failed'. Caddy's on-demand TLS asks
+  // our /caddy/ask endpoint which only allows certs for 'verified' rows.
+  cnameStatus      String?   @map("cname_status")
+  cnameVerifiedAt  DateTime? @map("cname_verified_at")
+  cnameLastCheckAt DateTime? @map("cname_last_check_at")
+  cnameError       String?   @map("cname_error")
+  // Free-form footer or signature.
+  footerText       String?   @map("footer_text")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("branding_configs")
+}
+
+// Phase 3 §5.1.4 — GDPR data portability. One row per export request.
+// The worker assembles a zip of the org's data, uploads it to Wasabi, and
+// emails a signed URL to the requester. We retain rows for audit; the
+// underlying storage object is the operator's call (TTL'd by the bucket).
+model DataExport {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  // The user who clicked Export. Notified by email when the file is ready.
+  requestedByUserId String    @map("requested_by_user_id") @db.Uuid
+  status            String    @default("pending") // pending | running | succeeded | failed
+  // Which dataset sections to include (keys from shared EXPORT_SECTIONS). EMPTY
+  // = everything (the tenant self-service export sends nothing → full export).
+  // The admin UI sends an explicit selection so operators pick what's in the file.
+  sections          String[]  @default([]) @map("sections")
+  // Output format: 'csv' (ZIP of spreadsheets) or 'pdf' (formal report document).
+  format            String    @default("csv") @map("format")
+  // 'combined' = one file; 'separate' = one document per section (zipped).
+  // Only affects the PDF format; CSV is always one file per data type.
+  layout            String    @default("combined") @map("layout")
+  // Storage key inside Wasabi (e.g. "exports/<orgId>/<exportId>.zip"); set
+  // when the worker finishes uploading. Signed URLs are minted on demand.
+  storageKey        String?   @map("storage_key")
+  fileSizeBytes     Int?      @map("file_size_bytes")
+  errorMessage      String?   @map("error_message")
+  startedAt         DateTime? @map("started_at")
+  finishedAt        DateTime? @map("finished_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("data_exports")
+}
+
+// One row per (org, step). Tracks the client's progress through Meta's
+// 7-step business-verification + WhatsApp-onboarding workflow.
+model MetaOnboardingStep {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  stepKey        String    @map("step_key")
+  completedAt    DateTime? @map("completed_at")
+  notes          String?
+
+  @@unique([organizationId, stepKey])
+  @@index([organizationId])
+  @@map("meta_onboarding_steps")
+}
+
+// ============================================================================
+// PHASE 4 — Broadcasts
+// ----------------------------------------------------------------------------
+// Persistent contacts + segments + bulk template campaigns sent through Meta.
+// Per-recipient delivery state is updated by the existing message_status
+// webhook (lookup by meta_message_id). The fanout worker materializes
+// BroadcastRecipient rows; the send worker calls Meta one row at a time
+// through the existing token-bucket rate limiter.
+// ============================================================================
+
+enum ContactSource {
+  manual
+  csv
+  inbox_auto
+  import
+  /// Pushed from a tenant's own phone address book via the QR sync flow.
+  phone_sync
+}
+
+enum BroadcastStatus {
+  draft
+  scheduled
+  sending
+  paused
+  completed
+  cancelled
+  failed
+}
+
+enum BroadcastAudienceKind {
+  csv
+  segment
+  manual
+  tags
+}
+
+enum BroadcastVariant {
+  A
+  B
+}
+
+enum RecipientStatus {
+  pending
+  queued
+  sent
+  delivered
+  read
+  failed
+  skipped
+}
+
+enum BroadcastEventKind {
+  created
+  scheduled
+  started
+  paused
+  resumed
+  cancelled
+  completed
+  failed
+  recipient_failed_burst
+}
+
+// One contact per phone number per org. Tag membership lives in ContactTag.
+// `attributes` is free-form JSON that CSV imports + manual edits can populate
+// (e.g. { "first_name": "Jane", "city": "Austin", "loyalty_tier": "gold" }).
+// Variable mapping in broadcasts can pull from `attributes` keys directly.
+model Contact {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  phoneE164      String        @map("phone_e164")
+  // Operator-entered email address (optional). First-class column so it can be
+  // shown + edited on the contact and searched — distinct from attributes.email
+  // (which importers historically wrote); backfilled from that on introduction.
+  email          String?
+  // Operator-set nickname / business name. Free-form. Survives Meta
+  // updates so a customer's preferred internal name isn't overwritten.
+  displayName    String?       @map("display_name")
+  // WhatsApp profile name (from Meta's inbound contacts[].profile.name).
+  // Refreshed on every inbound message; read-only in the UI.
+  whatsappName   String?       @map("whatsapp_name")
+  locale         String? // BCP 47 tag (e.g. en, en_US)
+  // Phase 5.3 — opt-in/out + IANA timezone for send-window enforcement.
+  // optedOutAt blocks future sends for every source. optedInAt is informational for most
+  // sources, but IS enforced for source='phone_sync': an address book imported without the
+  // tenant attesting consent is excluded from broadcast audiences (broadcasts.routes.ts,
+  // contacts.routes.ts). Scoped that way deliberately — a fleet-wide gate would zero out
+  // every existing tenant's audience, since nothing ever set optedInAt before.
+  optedInAt      DateTime?     @map("opted_in_at")
+  optedOutAt     DateTime?     @map("opted_out_at")
+  // Operator block. When set, the bot never auto-replies to this contact and
+  // they're excluded from broadcasts (distinct from optedOut, which is the
+  // customer's own STOP request, and from deletedAt soft-delete).
+  blockedAt      DateTime?     @map("blocked_at")
+  timezone       String? // IANA timezone (e.g. "America/Los_Angeles")
+  // Origin channel: 'whatsapp' (phoneE164 is a real number, broadcast-able),
+  // 'instagram' / 'messenger' (phoneE164 holds the PSID/IGSID, NOT a phone —
+  // excluded from WhatsApp broadcasts; the UI shows the username instead).
+  channel        String        @default("whatsapp")
+  attributes     Json          @default("{}")
+  source         ContactSource @default(manual)
+
+  /// WHO FIRST BROUGHT THIS PERSON IN, from a phone sync — the label typed on the confirm
+  /// screen ("Rita's iPhone"). Written ONCE, on create, and never overwritten.
+  ///
+  /// This is the durable half of sync provenance. The tag carrying the same string is NOT
+  /// durable: `PATCH /contacts/:id` replace-sets tags (contacts.routes.ts ~782 — deleteMany
+  /// by contactId, then recreate from the body), so one routine operator tag edit destroys
+  /// it silently, with no audit row. A column cannot be collateral damage of a tag edit.
+  ///
+  /// ORIGIN, not presence — and the distinction is the whole point when the same number is
+  /// in two people's phones. Rita syncs and creates the contact; Sami syncs later and has
+  /// the same number. Overwriting would claim Sami introduced them, which is false. So this
+  /// stays Rita's forever, and Sami's sync records itself as an additional TAG instead.
+  /// Origin is single-valued and historical; presence is multi-valued and current.
+  ///
+  /// NULL = not introduced by a phone sync (or introduced before this shipped). A contact
+  /// that arrived from WhatsApp inbound and merely also sits in Rita's phone keeps NULL here
+  /// and gains her tag — both true.
+  syncedFromLabel String? @map("synced_from_label")
+
+  /// F8 (roadmap 2026-08-26) — external ERP reference ("SAP #" in the UI).
+  /// UNIQUE per org (owner confirmed SAP numbers are unique per customer) via
+  /// a PARTIAL unique index in the migration (WHERE external_ref IS NOT NULL —
+  /// Prisma cannot express partial uniques, same as whatsapp_threads). CSV
+  /// imports use it as the FIRST merge key (phone second), so a customer who
+  /// changed numbers updates in place instead of duplicating.
+  externalRef     String? @map("external_ref")
+
+  /// The sync run that created this contact. NO relation and NO foreign key, deliberately:
+  /// the reaper prunes contact_sync_sessions after 7 days, and a cascade would then erase
+  /// the contact or null the trail. A dangling id is still useful — audit_logs keeps
+  /// contact_sync_started/completed rows for this id permanently, carrying the acting user
+  /// and the verbatim label, so contact -> run -> person stays reachable forever.
+  syncedFromSessionId String?   @map("synced_from_session_id") @db.Uuid
+  /// Established reachability on WhatsApp. NULL = never established, which is the truth
+  /// for every contact until a WhatsApp-path sync says otherwise.
+  ///
+  /// INVARIANT: never put this in a broadcast-audience `where`. It is NULL fleet-wide, so
+  /// any audience filter over it silently zeroes every tenant's reach.
+  whatsappReachable   Boolean?  @map("whatsapp_reachable")
+  lastInboundAt       DateTime? @map("last_inbound_at")
+  lastOutboundAt      DateTime? @map("last_outbound_at")
+  // Soft-delete flag — suppressed contacts skip send but rows persist for audit.
+  deletedAt           DateTime? @map("deleted_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tags         ContactTag[]
+  conversationFeedback ConversationFeedback[]
+  stockWatches StockWatch[]
+  recipients   BroadcastRecipient[]
+  enrollments  SequenceEnrollment[]
+  voiceCalls   VoiceCall[]
+
+  @@unique([organizationId, phoneE164])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, deletedAt])
+  @@map("contacts")
+}
+
+model ContactTag {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  contactId      String   @map("contact_id") @db.Uuid
+  tag            String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, tag])
+  @@index([organizationId, tag])
+  @@map("contact_tags")
+}
+
+// Per-contact persona / memory for the `ultra` AI plan. Distilled facts
+// worth remembering across conversations — NOT a transcript cache. Keyed
+// by phone (not threadId) so memory survives re-opened / re-created
+// threads. Written by a cheap Haiku summarization pass after a reply;
+// read + injected into the system prompt before the next reply.
+model ContactMemory {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  phoneE164       String    @map("phone_e164")
+  // Compact natural-language persona block injected verbatim into the
+  // system prompt (preferred language, tone, recurring needs, do-nots).
+  persona         String?
+  // Structured durable facts the summarizer extracts — past orders /
+  // bookings, preferences, names. Free-form JSON so the shape can grow
+  // without a migration.
+  facts           Json      @default("{}")
+  // Detected primary language (en / ar / fr) — biases reply language.
+  language        String?
+  // Operator-curated "User info" — free text edited by staff in the Contacts
+  // UI. The AI summarizer NEVER touches this field, so an operator's edit is
+  // never clobbered. When set it SUPERSEDES `persona` in the system prompt, so
+  // the bot always honours what staff wrote about this customer.
+  operatorNote    String?   @map("operator_note")
+  operatorNoteAt  DateTime? @map("operator_note_at")
+  // How many conversation turns have been folded into `persona` so far —
+  // lets the summarizer decide when a refresh is worth the token spend.
+  turnsSummarized Int       @default(0) @map("turns_summarized")
+  lastSummaryAt   DateTime? @map("last_summary_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, phoneE164])
+  @@index([organizationId, updatedAt(sort: Desc)])
+  @@map("contact_memory")
+}
+
+// `filter` is a normalized AST: { mode: 'all'|'any', clauses: [...] }.
+// Schema enforced in Zod (packages/shared/src/schemas/broadcast.ts) and
+// evaluated by apps/api/src/modules/contacts/segment-evaluator.ts.
+model Segment {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  description    String?
+  filter         Json
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  broadcasts   Broadcast[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("segments")
+}
+
+// One campaign. Recipients live in BroadcastRecipient. A/B test toggles
+// variant_b_template_id + variant_b_variables; without A/B the broadcast is
+// 100% variant A. Variables maps are { templateParamIndex: source } where
+// source = { kind: 'csv'|'attribute'|'static', value: string }.
+model Broadcast {
+  id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String                @map("organization_id") @db.Uuid
+  name                   String
+  status                 BroadcastStatus       @default(draft)
+  // The number(s) this broadcast sends from. `channelId` is the first/back-compat
+  // single number; `channelIds` is the full selected set. When > 1, the fanout
+  // worker splits recipients round-robin across them (each contact messaged once)
+  // and stamps BroadcastRecipient.whatsAppChannelId. Empty set ⇒ falls back to
+  // channelId.
+  channelId              String                @map("channel_id") @db.Uuid
+  channelIds             String[]              @default([]) @map("channel_ids") @db.Uuid
+  audienceKind           BroadcastAudienceKind @map("audience_kind")
+  csvAssetId             String?               @map("csv_asset_id") @db.Uuid
+  segmentId              String?               @map("segment_id") @db.Uuid
+  // Tag-based audience. Populated when audienceKind = 'tags'. The fanout
+  // worker resolves these to Contact rows at send time by intersecting
+  // ContactTag.tag against this list (mode picks OR vs AND).
+  audienceTags           String[]              @default([]) @map("audience_tags")
+  audienceTagsMode       String                @default("any") @map("audience_tags_mode") // 'any' (OR) | 'all' (AND)
+  // Compliance override: when true, recipients who unsubscribed (optedOutAt)
+  // are NOT skipped by the send worker — the operator explicitly chose "send
+  // anyway". Default false: opted-out contacts are always skipped.
+  includeOptedOut        Boolean               @default(false) @map("include_opted_out")
+  // A/B test
+  abTest                 Boolean               @default(false) @map("ab_test")
+  variantATemplateId     String                @map("variant_a_template_id") @db.Uuid
+  variantBTemplateId     String?               @map("variant_b_template_id") @db.Uuid
+  variantAVariables      Json                  @default("{}") @map("variant_a_variables")
+  variantBVariables      Json?                 @map("variant_b_variables")
+  // Scheduling
+  scheduledFor           DateTime?             @map("scheduled_for")
+  startedAt              DateTime?             @map("started_at")
+  completedAt            DateTime?             @map("completed_at")
+  // Batched/throttled send: release recipients in waves of `batchSize` every
+  // `batchIntervalMinutes`. 0 = no batching (send all at once, rate-limited).
+  // The fanout worker stamps each recipient's send job with a computed delay.
+  batchSize              Int                   @default(0) @map("batch_size")
+  batchIntervalMinutes   Int                   @default(0) @map("batch_interval_minutes")
+  // Phase 5.3 — send window in the channel's timezone (or per-contact if set).
+  // Hours stored as 0-23. Send worker requeues recipients outside the window.
+  sendWindowStartHour    Int?                  @map("send_window_start_hour")
+  sendWindowEndHour      Int?                  @map("send_window_end_hour")
+  sendWindowTimezone     String?               @map("send_window_timezone")
+  // Phase 5.3 — post-hoc A/B winner determination. Set when broadcast completes.
+  // Strategy: 'read_rate' | 'response_rate' | 'manual' | null (no determination).
+  abWinnerStrategy       String?               @map("ab_winner_strategy")
+  abWinnerVariant        BroadcastVariant?     @map("ab_winner_variant")
+  abWinnerDecidedAt      DateTime?             @map("ab_winner_decided_at")
+  // Counters — kept consistent by the fanout/send workers + webhook handler.
+  totalRecipients        Int                   @default(0) @map("total_recipients")
+  queuedCount            Int                   @default(0) @map("queued_count")
+  sentCount              Int                   @default(0) @map("sent_count")
+  deliveredCount         Int                   @default(0) @map("delivered_count")
+  readCount              Int                   @default(0) @map("read_count")
+  failedCount            Int                   @default(0) @map("failed_count")
+  // How many recipients replied within the attribution window after this
+  // campaign reached them (set on inbound; see lib/broadcast-response.ts).
+  respondedCount         Int                   @default(0) @map("responded_count")
+  // Wallet billing snapshot (§4.3). Set at accept-time for metered tenants; NULL
+  // for unmetered. Held at accept, settled per successful send, released at term.
+  billingUnitPriceMicros BigInt?               @map("billing_unit_price_micros")
+  billingMetaCostMicros  BigInt?               @map("billing_meta_cost_micros")
+  billingHeldMicros      BigInt                @default(0) @map("billing_held_micros")
+  billingSettledMicros   BigInt                @default(0) @map("billing_settled_micros")
+  billingReleased        Boolean               @default(false) @map("billing_released")
+  // The user who clicked Send. May be NULL if the user is later deleted.
+  createdByUserId        String?               @map("created_by_user_id") @db.Uuid
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  segment      Segment?             @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  recipients   BroadcastRecipient[]
+  events       BroadcastEvent[]
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, status])
+  @@map("broadcasts")
+}
+
+model BroadcastRecipient {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String           @map("organization_id") @db.Uuid
+  broadcastId       String           @map("broadcast_id") @db.Uuid
+  contactId         String?          @map("contact_id") @db.Uuid
+  // The WhatsApp number this recipient is sent from. Assigned at fanout (round-
+  // robin across Broadcast.channelIds). NULL ⇒ send worker falls back to
+  // Broadcast.channelId.
+  whatsAppChannelId String?          @map("whatsapp_channel_id") @db.Uuid
+  phoneE164         String           @map("phone_e164")
+  variant           BroadcastVariant @default(A)
+  // Resolved per-recipient template parameters: { "1": "Jane", "2": "Gold" }.
+  variables         Json             @default("{}")
+  status            RecipientStatus  @default(pending)
+  // Meta wamid set when send succeeds. message_status webhook joins on this.
+  metaMessageId     String?          @map("meta_message_id")
+  metaErrorCode     String?          @map("meta_error_code")
+  metaErrorMessage  String?          @map("meta_error_message")
+  queuedAt          DateTime?        @map("queued_at")
+  sentAt            DateTime?        @map("sent_at")
+  deliveredAt       DateTime?        @map("delivered_at")
+  readAt            DateTime?        @map("read_at")
+  failedAt          DateTime?        @map("failed_at")
+  // Set when this recipient replied within the attribution window after their
+  // send — the per-campaign "responded" signal.
+  respondedAt       DateTime?        @map("responded_at")
+  attemptCount      Int              @default(0) @map("attempt_count")
+  // Wallet settle idempotency (§4.4): set when this send is charged so a retried
+  // send job never double-charges.
+  billedAt          DateTime?        @map("billed_at")
+  // Set when a billed message later FAILED delivery and its wallet charge was
+  // refunded. Meta bills on delivery, not the send attempt (failed = $0), but
+  // the wallet charges at send — so a failed delivery must credit the tenant
+  // back. The atomic (billed_at IS NOT NULL AND refunded_at IS NULL) claim makes
+  // the refund idempotent against duplicate 'failed' webhooks.
+  refundedAt        DateTime?        @map("refunded_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  broadcast       Broadcast        @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  contact         Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  whatsAppChannel WhatsAppChannel? @relation(fields: [whatsAppChannelId], references: [id], onDelete: SetNull)
+
+  @@index([broadcastId, status])
+  @@index([organizationId, metaMessageId])
+  @@index([broadcastId, createdAt(sort: Asc)])
+  // Reply attribution looks up recent sends to a phone.
+  @@index([organizationId, phoneE164, sentAt])
+  @@map("broadcast_recipients")
+}
+
+// ---------- Tenant wallet & metered WhatsApp billing (see docs/wallet-billing-plan.md) ----------
+
+enum WalletLedgerKind {
+  topup
+  adjust
+  hold
+  settle
+  release
+}
+
+// One prepaid wallet per org. Its ABSENCE means the tenant is unmetered (opt-in):
+// no balance gate, behaves exactly as before. All money in integer micro-USD
+// (1 USD = 1_000_000 µ$). Total tenant money = availableMicros + heldMicros.
+model TenantWallet {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId            String   @unique @map("organization_id") @db.Uuid
+  availableMicros           BigInt   @default(0) @map("available_micros")
+  heldMicros                BigInt   @default(0) @map("held_micros")
+  // Default $0.08 (80_000 µ$). HQ-set per tenant; never below metaCostMicros.
+  pricePerMessageMicros     BigInt   @default(80000) @map("price_per_message_micros")
+  // Enforcement switch. A wallet can exist (price set, visible to the tenant)
+  // while metering is OFF — sends aren't gated. This lets us backfill every
+  // existing tenant to the $0.08 price without blocking anyone. Auto-flips ON on
+  // the first top-up; HQ can also toggle it. isMetered() == this flag.
+  meteringEnabled           Boolean  @default(false) @map("metering_enabled")
+  lowBalanceThresholdMicros BigInt   @default(0) @map("low_balance_threshold_micros")
+  // Balance-depletion alert thresholds (% of the last top-up used). HQ picks any
+  // of 50/75/80/90/100 per tenant; when the balance crosses one, the tenant gets
+  // a notification + a red banner on their dashboard/billing. 100 = empty/paused.
+  alertThresholds           Int[]    @default([80, 100]) @map("alert_thresholds")
+  // The "full tank" reference — the available balance right after the most recent
+  // top-up. %used = (baseline − available) / baseline. Reset on each top-up.
+  alertBaselineMicros       BigInt   @default(0) @map("alert_baseline_micros")
+  // Snapshot of the Meta reference cost when the price was set (for margin). $0.0375.
+  metaCostMicros            BigInt   @default(37500) @map("meta_cost_micros")
+  // Denormalized lifetime counters (cheap dashboards; ledger is source of truth).
+  lifetimeToppedUpMicros    BigInt   @default(0) @map("lifetime_topped_up_micros")
+  lifetimeSpentMicros       BigInt   @default(0) @map("lifetime_spent_micros")
+  lifetimeMessages          Int      @default(0) @map("lifetime_messages")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_wallets")
+}
+
+// Immutable audit trail of every wallet movement. Signed amountMicros: +credit / -debit.
+model WalletLedger {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  kind            WalletLedgerKind
+  amountMicros    BigInt           @map("amount_micros")
+  availableAfter  BigInt           @map("available_after_micros")
+  heldAfter       BigInt           @map("held_after_micros")
+  broadcastId     String?          @map("broadcast_id") @db.Uuid
+  recipientId     String?          @map("recipient_id") @db.Uuid
+  unitPriceMicros BigInt?          @map("unit_price_micros")
+  metaCostMicros  BigInt?          @map("meta_cost_micros")
+  note            String?
+  actorUserId     String?          @map("actor_user_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, kind, createdAt])
+  @@map("wallet_ledger")
+}
+
+// Coarse-grained timeline of campaign events for the detail page.
+model BroadcastEvent {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  broadcastId    String             @map("broadcast_id") @db.Uuid
+  kind           BroadcastEventKind
+  detail         Json?
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  broadcast    Broadcast    @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@index([broadcastId, createdAt(sort: Asc)])
+  @@map("broadcast_events")
+}
+
+// ============================================================================
+// PHASE 5.4 — Drip / sequence campaigns
+// ============================================================================
+
+enum SequenceEnrollmentStatus {
+  active
+  paused
+  completed
+  cancelled
+}
+
+model Sequence {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  name            String
+  description     String?
+  isActive        Boolean  @default(true) @map("is_active")
+  channelId       String   @map("channel_id") @db.Uuid
+  createdByUserId String?  @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps        SequenceStep[]
+  enrollments  SequenceEnrollment[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("sequences")
+}
+
+model SequenceStep {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  sequenceId     String   @map("sequence_id") @db.Uuid
+  stepOrder      Int      @map("step_order")
+  templateId     String   @map("template_id") @db.Uuid
+  delayHours     Int      @default(0) @map("delay_hours")
+  variables      Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sequence     Sequence     @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@unique([sequenceId, stepOrder])
+  @@index([sequenceId])
+  @@map("sequence_steps")
+}
+
+model SequenceEnrollment {
+  id             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  sequenceId     String                   @map("sequence_id") @db.Uuid
+  contactId      String                   @map("contact_id") @db.Uuid
+  status         SequenceEnrollmentStatus @default(active)
+  nextStepIndex  Int                      @default(0) @map("next_step_index")
+  nextStepDueAt  DateTime?                @map("next_step_due_at")
+  enrolledAt     DateTime                 @default(now()) @map("enrolled_at")
+  completedAt    DateTime?                @map("completed_at")
+  cancelledAt    DateTime?                @map("cancelled_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sequence     Sequence     @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([sequenceId, contactId])
+  @@index([organizationId, status, nextStepDueAt])
+  @@map("sequence_enrollments")
+}
+
+// ----------------------------------------------------------------------------
+// Phase 8 — AI message provenance / audit trail.
+//
+// Every outbound bot reply gets one MessageProvenance row capturing exactly
+// what we fed the LLM (system prompt hash + candidate catalog/business-info
+// rows + history) and what the LLM cited / fabricated in its reply. Lets
+// ALIGNED admins audit "where did the bot get this answer from?" for any
+// message in the inbox.
+//
+// The system prompt is content-addressed via SystemPromptSnapshot so we
+// don't store the same 3-5KB prompt with every message — it only changes
+// when the operator edits BotConfig.
+// ----------------------------------------------------------------------------
+
+model SystemPromptSnapshot {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  // SHA-256 of the body, hex-encoded. Dedupes identical prompts within an
+  // org (the prompt only changes when BotConfig is edited).
+  sha256         String   @db.Char(64)
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provenances  MessageProvenance[]
+
+  @@unique([organizationId, sha256])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("system_prompt_snapshots")
+}
+
+model MessageProvenance {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  // The bot's outbound WhatsApp message this provenance describes.
+  // 1:1 — every bot message gets exactly one provenance row.
+  messageId      String @unique @map("message_id") @db.Uuid
+
+  // FK to the deduped system prompt body.
+  systemPromptSnapshotId String @map("system_prompt_snapshot_id") @db.Uuid
+
+  // What the LLM saw on this turn.
+  userPrompt  String @map("user_prompt")
+  historyJson Json   @map("history_json")
+
+  // The candidate set we packed into the prompt (subset of catalog/biz-info).
+  // The Phase 1.2 scanner cross-references these against the reply text to
+  // produce `citations` (what the LLM actually used). Anything the LLM
+  // mentioned that ISN'T in these arrays is a potential hallucination.
+  candidateProductIds  String[] @map("candidate_product_ids") @db.Uuid
+  candidateServiceIds  String[] @map("candidate_service_ids") @db.Uuid
+  candidateFaqIds      String[] @map("candidate_faq_ids") @db.Uuid
+  candidatePolicyKinds String[] @map("candidate_policy_kinds")
+  businessInfoFields   String[] @map("business_info_fields")
+
+  // Filled by the Phase 1.2 post-LLM scanner. Nullable here so Phase 1.1
+  // can ship before the scanner exists.
+  citations       Json?
+  hallucinations  Json?
+  // Phase 13 — per-station pipeline timing trace. Shape:
+  //   { totalMs, laps: [{ station, durationMs, cumulativeMs }] }
+  // Filled by the Stopwatch threaded through maybeReplyAsBot.
+  pipelineTimings Json? @map("pipeline_timings")
+
+  // LLM call metadata.
+  model            String
+  temperature      Float
+  // promptTokens = TOTAL input tokens processed (uncached + cache read + cache
+  // write). The two cache sub-counts below are subsets of it, stored so cost can
+  // be priced at the correct per-bucket rate: Anthropic bills cache reads at
+  // ~10% and cache writes at ~125% of the base input rate; OpenAI cached input
+  // at ~50%. Both default 0 → non-caching providers + pre-caching rows price
+  // exactly as before (all input at the base rate).
+  promptTokens     Int    @map("prompt_tokens")
+  cacheReadTokens  Int    @default(0) @map("cache_read_tokens")
+  cacheWriteTokens Int    @default(0) @map("cache_write_tokens")
+  completionTokens Int    @map("completion_tokens")
+  latencyMs        Int    @map("latency_ms")
+
+  // Grounding gate (lib/grounding-gate.ts). `blocked` = the gate detected an
+  // ungrounded product/price assertion in this reply. In shadow mode the reply
+  // was still sent (blocked records the would-block for tuning); in enforce mode
+  // the sent reply is the safe fallback. `blockReason` is the short cause.
+  blocked     Boolean @default(false)
+  blockReason String? @map("block_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization         Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  message              WhatsAppMessage          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  systemPromptSnapshot SystemPromptSnapshot     @relation(fields: [systemPromptSnapshotId], references: [id], onDelete: Restrict)
+  flagDecisions        ProvenanceFlagDecision[]
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([systemPromptSnapshotId])
+  @@map("message_provenances")
+}
+
+// ----------------------------------------------------------------------------
+// Phase 8 / 1.7 — operator feedback loop.
+//
+// ProvenanceSuppression — phrases the scanner should NOT flag. Org-scoped
+// for tenant-specific noise (e.g. their own brand name overlapping with
+// an English word) and org_id-nullable for GLOBAL entries that apply to
+// every tenant (e.g. order-summary labels like "Subtotal", currency
+// codes, etc.). ALIGNED admins can promote per-org rows to global.
+//
+// ProvenanceFlagDecision — every click on the ✓ Not a problem / ⚠ Yes
+// wrong / 🤷 Skip buttons writes a row here. Drives precision metrics
+// and the auto-suggest "≥3 tenants suppressed this — promote globally?"
+// banner.
+// ----------------------------------------------------------------------------
+
+model ProvenanceSuppression {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // NULL = global (applies to all tenants). Non-NULL = per-org.
+  organizationId  String?   @map("organization_id") @db.Uuid
+  // Lower-cased + whitespace-normalised phrase. Scanner normalises
+  // matchedText the same way at scan time, then SELECTs.
+  phrase          String
+  note            String?
+  createdByUserId String?   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  // Bumped each time the scanner suppresses a flag because of this row.
+  matchesCount    Int       @default(0) @map("matches_count")
+  lastMatchedAt   DateTime? @map("last_matched_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?         @relation("ProvenanceSuppressionAuthor", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("provenance_suppressions")
+}
+
+model ProvenanceFlagDecision {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  provenanceId    String   @map("provenance_id") @db.Uuid
+  // Index into MessageProvenance.hallucinations JSONB array.
+  flagIndex       Int      @map("flag_index")
+  flaggedText     String   @map("flagged_text")
+  // 'false_positive' | 'true_positive' | 'skip'
+  decision        String
+  decidedByUserId String?  @map("decided_by_user_id") @db.Uuid
+  decidedAt       DateTime @default(now()) @map("decided_at")
+  note            String?
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provenance   MessageProvenance @relation(fields: [provenanceId], references: [id], onDelete: Cascade)
+  decidedBy    User?             @relation("ProvenanceFlagDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([provenanceId, flagIndex])
+  @@index([organizationId, decidedAt(sort: Desc)])
+  @@map("provenance_flag_decisions")
+}
+
+// ----------------------------------------------------------------------------
+// Voice calls — ingested by the Aseer-time voice media gateway over
+// /api/v1/voice/* (X-Api-Key, scope voice:calls). One VoiceCall per
+// phone call; turns are the finalized speech transcripts (caller + assistant)
+// streamed in as the call happens. Tenant-scoped + RLS like everything else.
+// ----------------------------------------------------------------------------
+
+enum VoiceCallOutcome {
+  in_progress
+  completed
+  handoff
+  dropped
+}
+
+model VoiceCall {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String           @map("organization_id") @db.Uuid
+  // AudioSocket call UUID — dashed-lowercase hex derived from the Asterisk
+  // UNIQUEID (SHA1), NOT an RFC 4122 uuid. Kept as text on purpose.
+  callUuid              String           @map("call_uuid")
+  // Caller ID exactly as the PBX/gateway delivered it (format varies per
+  // trunk — may or may not be E.164).
+  callerId              String?          @map("caller_id")
+  // Caller ID run through normalizePhoneNumber once at call start, so cross-call
+  // history + Contact linkage don't re-normalize per row. Null for withheld /
+  // anonymous callers (normalizes to < 2 digits).
+  callerPhoneNormalized String?          @map("caller_phone_normalized")
+  // The Contact this caller resolved to (by normalized phone), when known.
+  // SetNull so deleting a contact doesn't erase call history.
+  contactId             String?          @map("contact_id") @db.Uuid
+  dialedExten           String?          @map("dialed_exten")
+  outcome               VoiceCallOutcome @default(in_progress)
+  // Why the call ended the way it did: the model's stated transfer reason on
+  // outcome=handoff, or the bridge's close reason (e.g. "openai-closed") on
+  // outcome=dropped. Null on clean completions.
+  handoffReason         String?          @map("handoff_reason")
+  // Which phone line (PhoneIntegration) this call came in on, when known.
+  // Stamped on call start from the calling credential (the line's API key in
+  // dedicated mode, or the X-Phone-Integration-Id header in gateway mode).
+  // SetNull so deleting a line doesn't erase its call history.
+  phoneIntegrationId    String?          @map("phone_integration_id") @db.Uuid
+  startedAt             DateTime         @map("started_at")
+  endedAt               DateTime?        @map("ended_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  phoneIntegration PhoneIntegration? @relation(fields: [phoneIntegrationId], references: [id], onDelete: SetNull)
+  contact          Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  turns            VoiceCallTurn[]
+
+  @@unique([organizationId, callUuid])
+  @@index([organizationId, startedAt(sort: Desc)])
+  @@index([phoneIntegrationId, startedAt(sort: Desc)])
+  @@index([organizationId, callerPhoneNormalized, startedAt(sort: Desc)], map: "voice_calls_org_caller_norm_idx")
+  @@map("voice_calls")
+}
+
+// ----------------------------------------------------------------------------
+// PhoneIntegration — a phone line (DID) a tenant owns, routed to the Aseer-time
+// voicebot. Many per org. Each line auto-issues its own voice-scoped API key
+// (apiKeyId). phoneNumber is GLOBALLY unique so an inbound DID resolves to
+// exactly one tenant in shared gateway mode (GET /api/v1/voice/resolve).
+// Tenant-scoped + RLS like everything else; the global unique index is the only
+// cross-tenant constraint and never leaks another org's rows (a collision
+// surfaces as a generic 409).
+// ----------------------------------------------------------------------------
+
+// Per-tenant payment configuration. Each org picks ONE provider; the
+// [PAYMENT_LINK] bot marker is resolved through the matching adapter at
+// checkout. `credentials` is an AES-256-GCM-encrypted JSON blob (provider
+// API keys) — never returned to the client in plaintext. Non-secret settings
+// (static link URL, bank-transfer instructions, test mode) are plain columns.
+model PaymentConfig {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @unique @map("organization_id") @db.Uuid
+  // none | cash | bank_transfer | static_link | myfatoorah | stripe | paypal
+  provider       String   @default("none")
+  // Non-secret settings.
+  staticLinkUrl  String?  @map("static_link_url")
+  bankDetails    String?  @map("bank_details")
+  testMode       Boolean  @default(true) @map("test_mode")
+  // Encrypted JSON: provider-specific API keys (e.g. stripeSecretKey,
+  // paypalClientId/paypalSecret, myfatoorahApiKey). Encrypted at rest.
+  credentials    String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("payment_configs")
+}
+
+model PhoneIntegration {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  // Normalized dialed number (DID). Matched against the call's dialed exten.
+  phoneNumber    String    @map("phone_number")
+  isActive       Boolean   @default(true) @map("is_active")
+  // Per-line AI switch (mirrors WhatsAppChannel.botEnabled). When false the
+  // voicebot still records the call but loadVoiceConfig returns no persona, so
+  // the line answers without the AI brain. Defaults true (no behavior change).
+  botEnabled     Boolean   @default(true) @map("bot_enabled")
+  // The voice-scoped API key auto-issued for this line. SetNull if the key is
+  // revoked out-of-band; the line keeps working in gateway mode (which doesn't
+  // use the key) and can be re-keyed.
+  apiKeyId       String?   @unique @map("api_key_id") @db.Uuid
+  lastCallAt     DateTime? @map("last_call_at")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiKey       ApiKey?      @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  calls        VoiceCall[]
+  carts        Cart[]
+
+  @@unique([phoneNumber])
+  @@index([organizationId, isActive])
+  @@map("phone_integrations")
+}
+
+model VoiceCallTurn {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  voiceCallId    String   @map("voice_call_id") @db.Uuid
+  // Client-assigned per-call monotonic sequence. The unique constraint plus
+  // createMany(skipDuplicates) makes turn ingestion idempotent under the
+  // bridge's retry-on-timeout, and (at, seq) gives a stable transcript order.
+  seq            Int
+  role           String // 'caller' | 'assistant'
+  text           String
+  at             DateTime
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  call         VoiceCall    @relation(fields: [voiceCallId], references: [id], onDelete: Cascade)
+
+  @@unique([voiceCallId, seq])
+  @@index([voiceCallId, at])
+  @@index([organizationId])
+  @@map("voice_call_turns")
+}
+
+/// HQ-only bot-eval run (WS3). One run spans EVERY golden set at once, so it
+/// carries NO organization_id and NO RLS — it is ALIGNED infrastructure, read
+/// only through `requireSuperAdmin`, never tenant data. Populated by the eval
+/// runner's `--persist` flag (pre-deploy / manual runs against prod) and
+/// surfaced on /hq/eval.
+model EvalRun {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Where the run was launched from: 'manual' | 'pre-deploy' | 'ci' | 'cli'.
+  trigger     String   @default("cli")
+  /// 'retrieval' (compileOnly hit-rate — the deterministic hard gate) or
+  /// 'full' (+ deterministic checks + LLM judge).
+  mode        String
+  /// The min per-tenant pass rate this run gated on.
+  threshold   Float    @default(0.8)
+  /// Gate verdict: did EVERY tenant meet the threshold.
+  passed      Boolean
+  tenantCount Int      @map("tenant_count")
+  passedCount Int      @map("passed_count")
+  /// Full per-tenant EvalSummary[] (JSON), exactly as the runner produced it.
+  summaries   Json
+  gitSha      String?  @map("git_sha")
+  note        String?
+  durationMs  Int?     @map("duration_ms")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@map("eval_runs")
+}
+
+// ============================================================================
+// Sales Scan — "Teach the bot with your own data"
+// ============================================================================
+// A tenant links the sales WhatsApp number they already use; we capture one week
+// of their real customer DMs (both directions) and hand back a summary of those
+// chats plus an analysis of how they speak.
+//
+// The unit of lifetime is the GRANT, not the tenant: no session exists unless an
+// active grant covers it, and when a window ends the Baileys auth state is purged.
+// See docs/SALES-SCAN-FEATURE-BRAINSTORM.md + docs/SALES-SCAN-REVIEW-BLOCKERS.md.
+
+enum SalesScanStatus {
+  pending /// consent recorded, no session yet
+  linking /// session up, QR on screen, not yet scanned
+  active /// linked and capturing
+  completed /// window ended normally
+  revoked /// tenant stopped it early
+  expired /// absolute grant deadline passed
+  failed /// link or capture failed terminally
+}
+
+enum SalesMessageDirection {
+  in /// from the customer
+  out /// from the tenant (this is where "how they speak" lives)
+}
+
+/// One PERMISSION GRANT = one capture window. Multiple rows per org over time
+/// (that's the re-grant path); at most one non-terminal row at a time, enforced
+/// in code — Prisma cannot express a partial unique index.
+model SalesScanGrant {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  status         SalesScanStatus @default(pending)
+
+  /// E.164 digits, learned once the number links (never supplied by the client).
+  phoneE164  String? @map("phone_e164")
+  /// Requested capture length. Clamped 1..14 at the API boundary.
+  windowDays Int     @default(7) @map("window_days")
+
+  /// Consent evidence. The rendered text is stored verbatim alongside its hash so
+  /// the agreement is reproducible months later even if the copy is reworded.
+  consentVersion    String  @map("consent_version")
+  consentText       String  @map("consent_text")
+  consentTextSha256 String  @map("consent_text_sha256")
+  grantedByUserId   String? @map("granted_by_user_id") @db.Uuid
+
+  grantedAt      DateTime  @default(now()) @map("granted_at")
+  /// ABSOLUTE compliance deadline, set at grant creation and NEVER moved. The
+  /// reaper terminates on min(grantExpiresAt, captureEndsAt) so a queued or
+  /// half-linked grant can never become an open-ended one.
+  grantExpiresAt DateTime  @map("grant_expires_at")
+  linkedAt       DateTime? @map("linked_at")
+  /// linkedAt + windowDays, clamped to never exceed grantExpiresAt. This is the
+  /// countdown the tenant sees.
+  captureEndsAt  DateTime? @map("capture_ends_at")
+
+  endedAt      DateTime? @map("ended_at")
+  endReason    String?   @map("end_reason")
+  /// Auditable proof the window released its Baileys credentials. A row with
+  /// endedAt set and authPurgedAt null is a compliance incident — the purge-retry
+  /// reaper exists to drive this to non-null.
+  authPurgedAt DateTime? @map("auth_purged_at")
+
+  ingestSessionId String? @map("ingest_session_id")
+  messageCount    Int     @default(0) @map("message_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages     SalesMessage[]
+  summary      SalesScanSummary?
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt(sort: Desc)])
+  /// Drives both reapers: expiry sweeps and the purge-retry sweep.
+  @@index([status, grantExpiresAt])
+  @@index([endedAt, authPurgedAt])
+  @@map("sales_scan_grants")
+}
+
+/// Captured DMs. Bodies are payment-credential-stripped before insert; this is
+/// still identifiable third-party personal data — never describe it as anonymised.
+model SalesMessage {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String                @map("organization_id") @db.Uuid
+  grantId              String                @map("grant_id") @db.Uuid
+  waMsgId              String                @map("wa_msg_id")
+  /// Salted hash of the counterparty phone. A join/erasure key only — the
+  /// Lebanese mobile keyspace is small enough that this is NOT de-identification.
+  counterpartyHash     String                @map("counterparty_hash")
+  /// AES-256-GCM ciphertext of the counterparty's E.164 digits, written with the same
+  /// encryptSecret/decryptSecret pair as the WhatsApp channel tokens. Exists so a tenant
+  /// CSV export can name the real sender/receiver while the raw number stays unreadable
+  /// in the table and in any dump. Null for rows captured before this column, or when
+  /// SECRET_ENCRYPTION_KEY was unset at capture time. NEVER put this in a summary or a log.
+  counterpartyPhoneEnc String?               @map("counterparty_phone_enc")
+  direction            SalesMessageDirection
+  kind                 String                @default("text")
+  body                 String?
+  /// Group chats are captured as well as DMs (owner decision 2026-07-30). This boolean is
+  /// the SINGLE source of truth for that tag — the CSV's `chat_kind` label is derived from
+  /// it rather than stored twice, so the two can never disagree. In a group the direction
+  /// is still fromMe, but `counterpartyHash`/`counterpartyPhoneEnc` identify the individual
+  /// PARTICIPANT who spoke, not the group.
+  isGroup              Boolean               @default(false) @map("is_group")
+  /// Group subject, for the export's `chat_name`. Null for DMs. Free text written by third
+  /// parties, so it is payment-credential-stripped on the same path as `body`.
+  chatName             String?               @map("chat_name")
+  sentAt               DateTime              @map("sent_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  grant        SalesScanGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  /// Durable dedup across reconnect/backfill — the engine inserts ON CONFLICT DO NOTHING.
+  @@unique([grantId, waMsgId])
+  @@index([organizationId, grantId, sentAt])
+  @@index([organizationId, counterpartyHash])
+  /// Retention pruning (90-day raw window).
+  @@index([organizationId, createdAt])
+  @@map("sales_messages")
+}
+
+/// The derived artifact the tenant actually sees: chat summary + voice analysis.
+model SalesScanSummary {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  grantId        String @map("grant_id") @db.Uuid
+
+  /// Rendered report. Quoted strings must originate from direction='out' only
+  /// (the tenant's own words) so the artifact carries no verbatim customer text.
+  payload Json
+  status  String @default("ready")
+
+  model            String?
+  promptTokens     Int     @default(0) @map("prompt_tokens")
+  completionTokens Int     @default(0) @map("completion_tokens")
+  cacheReadTokens  Int     @default(0) @map("cache_read_tokens")
+  cacheWriteTokens Int     @default(0) @map("cache_write_tokens")
+  costMicros       BigInt  @default(0) @map("cost_micros")
+  messagesAnalyzed Int     @default(0) @map("messages_analyzed")
+
+  generatedAt DateTime @default(now()) @map("generated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  grant        SalesScanGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@unique([grantId])
+  @@index([organizationId, generatedAt(sort: Desc)])
+  @@map("sales_scan_summaries")
+}
+
+// ---------------------------------------------------------------------------
+// "Sync contacts with phone" — QR-mediated address-book import (2026-07-31).
+//
+// The desktop portal mints a session and renders its token as a QR. The tenant's
+// phone opens that token in a browser and pushes contacts back. The phone is NOT
+// authenticated, so the token is the credential: only its SHA-256 is stored, it
+// is single-use, and it expires in minutes.
+// ---------------------------------------------------------------------------
+
+enum ContactSyncStatus {
+  pending
+  opened
+  /// Contacts are staged and waiting for the tenant to review them.
+  review
+  /// An apply is in flight. NOT terminal — the desktop must keep polling through it.
+  importing
+  completed
+  expired
+  failed
+}
+
+/// One staged/applied row of a sync run.
+enum ContactSyncItemStatus {
+  included
+  excluded
+  applied
+  failed
+}
+
+model ContactSyncSession {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  status         ContactSyncStatus @default(pending)
+
+  /// SHA-256 of the bearer token. Plaintext is returned once, at creation, and never stored.
+  tokenSha256 String @map("token_sha256")
+
+  /// 'android' | 'ios' | 'whatsapp'. The first two hand the tenant a QR that opens a web
+  /// page on their phone. 'whatsapp' inverts that: the QR is scanned by WhatsApp itself
+  /// (Linked Devices), so no phone web page is involved.
+  deviceKind String @map("device_kind")
+
+  /// Current WhatsApp pairing payload, pushed by the ingest service. WhatsApp rotates it
+  /// every ~20s, so this is transient display state and never an audit record.
+  waQr String? @map("wa_qr")
+
+  /// The number that actually got linked — so an operator who pairs the wrong account
+  /// (personal instead of business) can tell after the fact.
+  waPhone String? @map("wa_phone")
+
+  /// "Whose phone is this?", typed on the confirm screen before the QR is shown.
+  ///
+  /// An ASSERTION, not a measurement, and the distinction matters: android/ios phones are
+  /// unauthenticated and never identify themselves, so no path but WhatsApp can observe a
+  /// device identity. This is the one provenance value that works on all three.
+  ///
+  /// Deliberately NOT derived from createdByUserId. That column already records who clicked
+  /// the button, which is frequently NOT whose phone was scanned — a shop owner minting a QR
+  /// for the manager's handset is the ordinary case. Two different facts, two columns.
+  ///
+  /// NULL means the tenant left it blank. Render "Not recorded"; never substitute a name.
+  ///
+  /// CORRECTION to this migration's own header (20260805120000): it claims a column of this
+  /// shape on `contacts` "would not have been free" and uses that to justify carrying the
+  /// durable half on contact_tags. That is wrong, and contradicted by 20260803161000, which
+  /// adds `whatsapp_reachable BOOLEAN` to `contacts` and documents that nullable-with-no-
+  /// default is catalog-only on PG11+ precisely BECAUSE contacts is the hottest tenant
+  /// table. Cost is not the reason to prefer a tag. (The correction lives here, not in the
+  /// migration: that file is applied in production and Prisma checksums it, so editing it
+  /// would fail the next `migrate deploy`.)
+  ///
+  /// The real trade-off, stated honestly: a tag is filterable through UI that already
+  /// exists, but it is NOT durable against `PATCH /contacts/:id`, which replace-sets tags
+  /// (contacts.routes.ts ~782: deleteMany by contactId, then recreate from the body). One
+  /// routine tag edit destroys BOTH the provenance tag and the 'phone-sync' tag that
+  /// planRevert reads for undo eligibility — silently, with no audit row. A durable
+  /// `contacts.synced_from_label` column is the fix; it is not built yet.
+  syncedByLabel String? @map("synced_by_label")
+
+  /// Dial code applied to LOCAL-format numbers ("03 123 456" -> "+96103123456").
+  /// Address books store local format; without this an import yields well-formed
+  /// numbers that match nothing.
+  defaultDialCode String? @map("default_dial_code")
+
+  /// Marketing attestation. NULL = not attested = imported contacts stay opted-out,
+  /// which is the safe default: an address book is not a consented marketing list.
+  marketingAttestedAt DateTime? @map("marketing_attested_at")
+  marketingAttestText String?   @map("marketing_attest_text")
+
+  createdByUserId String?   @map("created_by_user_id") @db.Uuid
+  expiresAt       DateTime  @map("expires_at")
+  openedAt        DateTime? @map("opened_at")
+  completedAt     DateTime? @map("completed_at")
+  failureReason   String?   @map("failure_reason")
+
+  /// When the contacts actually LANDED — the moment the import finished, not when the QR was
+  /// minted. The undo window, the recent-syncs list and the reaper's prune all measure from
+  /// this, because a staged run can sit in review for days: measuring from createdAt told a
+  /// tenant "undo for 7 days" while they actually held however many were left after the
+  /// review. completedAt cannot serve here (it is stamped when the upload is CLAIMED, before
+  /// the import runs, and a staged run claims days before it applies) and updatedAt cannot
+  /// either (@updatedAt moves on every write, so the window would extend itself).
+  ///
+  /// NULL = imported before this column existed, or never imported. Readers fall back to
+  /// createdAt, which preserves the exact prior behaviour for those rows.
+  importedAt DateTime? @map("imported_at")
+
+  /// Staged for review rather than imported straight away. False = today's behaviour,
+  /// which is what any session minted before this shipped must keep.
+  reviewMode       Boolean   @default(false) @map("review_mode")
+  stagedAt         DateTime? @map("staged_at")
+  revertedAt       DateTime? @map("reverted_at")
+  revertedByUserId String?   @map("reverted_by_user_id") @db.Uuid
+
+  contactsReceived Int @default(0) @map("contacts_received")
+  contactsCreated  Int @default(0) @map("contacts_created")
+  contactsUpdated  Int @default(0) @map("contacts_updated")
+  contactsSkipped  Int @default(0) @map("contacts_skipped")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        ContactSyncStagedItem[]
+
+  @@unique([tokenSha256])
+  @@index([organizationId, createdAt(sort: Desc)])
+  /// Drives the expiry sweep.
+  @@index([status, expiresAt])
+  /// The ingest service polls this to claim WhatsApp sessions still awaiting a link.
+  @@index([deviceKind, status])
+  @@map("contact_sync_sessions")
+}
+
+// Hader mobile app — FCM push-notification device registrations (2026-08-03).
+// One row per (user, FCM token). organizationId = the org the user was signed
+// into at registration; the app re-registers on every login/app-start, so a
+// user who switches org gets their token re-pointed. Pruned when FCM reports
+// the token unregistered (lib/push.ts).
+model DeviceToken {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  // 'ios' | 'android'
+  platform       String
+  fcmToken       String   @map("fcm_token")
+  lastSeenAt     DateTime @default(now()) @map("last_seen_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fcmToken])
+  @@index([organizationId])
+  @@map("device_tokens")
+}
+
+/// Per-row ledger: what one sync run did to one phone number.
+///
+/// Three features read this one table, because they are three readings of one fact:
+///   · staged review — rows still 'included'/'excluded', before anything is applied
+///   · undo          — rows with a contactId, to know exactly what this run created
+///   · enrichment    — a groupBy over `effect`, instead of six counter columns
+///
+/// Shape follows ShopifyStagedItem, with one deliberate difference: the unique key is
+/// (sessionId, phoneE164), not a mirror key. Shopify's key is meant to be overwritten by a
+/// re-scrape; a contact sync is a RUN, and reusing a mirror key would let run 2 overwrite
+/// run 1's rows and silently make run 1's undo a no-op.
+///
+/// Almost everything is nullable on purpose — a nameless address-book entry is normal and
+/// must never abort the chunk it sits in.
+model ContactSyncStagedItem {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  sessionId      String @map("session_id") @db.Uuid
+  phoneE164      String @map("phone_e164")
+
+  displayName String? @map("display_name")
+  email       String?
+  company     String?
+
+  status ContactSyncItemStatus @default(included)
+
+  /// Computed once at stage time so the review page need not re-derive it per render.
+  existingContactId String? @map("existing_contact_id")
+
+  /// What the apply did: created | updated | unchanged | skipped_deleted | skipped_failed.
+  /// Plain String, not an enum — this records an outcome, and adding one later should not
+  /// need an ALTER TYPE that can never be undone.
+  effect String?
+
+  /// The contact this row produced. NO relation/FK on purpose: a contact deleted later
+  /// must not cascade away the audit of the run that created it. A dangling id is the
+  /// honest "it's gone" signal, which planRevert treats as already-done.
+  contactId String? @map("contact_id") @db.Uuid
+
+  /// What this run WROTE into a previously-null field. Undo reverts only when the current
+  /// value still equals this, so an operator's later edit survives — and since the import
+  /// only ever writes NULL -> value, the prior value is provably NULL.
+  filledDisplayName String? @map("filled_display_name")
+  filledEmail       String? @map("filled_email")
+
+  errorMessage  String?   @map("error_message")
+  appliedAt     DateTime? @map("applied_at")
+  revertedAt    DateTime? @map("reverted_at")
+  revertOutcome String?   @map("revert_outcome")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  session      ContactSyncSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, phoneE164])
+  @@index([organizationId, sessionId, status])
+  @@index([sessionId, appliedAt])
+  @@map("contact_sync_staged_items")
+}

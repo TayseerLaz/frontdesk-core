@@ -1,0 +1,13 @@
+{
+  "extends": "@platform/config/tsconfig/node.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "types": ["node"],
+    // Baileys ships .d.ts that reference a Long namespace shape our resolved `long`
+    // version doesn't expose. Its own consumers all skipLibCheck for the same reason.
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

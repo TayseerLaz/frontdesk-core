@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hader-api
+  namespace: hader
+spec:
+  selector:
+    app: hader-api
+  ports:
+    - name: http
+      port: 4000
+      targetPort: 4000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hader-api
+  namespace: hader
+spec:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # replicas: 1 IS A CORRECTNESS CONSTRAINT, NOT A CAPACITY CHOICE.
+  #
+  # apps/api/src/server.ts starts six background ticks after app.listen(), in
+  # EVERY api process, and most take no distributed lock:
+  #
+  #   embed-backfill-tick      3 min   no lock   → N× OpenAI embedding spend
+  #   google-calendar-sync     2 min   no lock   → N× writes into tenants' real
+  #                                                Google calendars
+  #   contact-sync-reaper      5 min   no lock   → concurrent bulk updateMany
+  #   sales-scan-reaper        5 min   no lock   → concurrent bulk updateMany
+  #   wallet-alert-tick        3 min   partial   (Redis de-dupes the alert, not
+  #                                                the scan)
+  #   sales-insight-tick       2 min   yes       (a unique index is the lock)
+  #
+  # Scaling to 2 replicas doubles all of that silently — nothing errors.
+  # To scale horizontally, first add an env gate (e.g. RUN_BACKGROUND_TICKS)
+  # around the tick block, run this Deployment with it false at N replicas, and
+  # add a second single-replica Deployment with it true. The ticks are already
+  # lazily `await import()`ed, so the change is small.
+  # ═══════════════════════════════════════════════════════════════════════════
+  replicas: 1
+  strategy:
+    # Recreate, not RollingUpdate: a rolling update would briefly run two
+    # replicas and trip exactly the tick duplication described above.
+    # Switch to RollingUpdate the moment the ticks are split out.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hader-api
+  template:
+    metadata:
+      labels:
+        app: hader-api
+    spec:
+      # Fastify drains in-flight requests on SIGTERM (app.close() +
+      # prisma.$disconnect()); give it room.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: api
+          image: ghcr.io/tayseerlaz/hader-api:latest
+          ports:
+            - name: http
+              containerPort: 4000
+          envFrom:
+            - configMapRef:
+                name: hader-config
+            - secretRef:
+                name: hader-secrets
+          # /health is a static liveness check. /health/ready actually pings
+          # Postgres and Redis and returns 503 when either is down, which is
+          # what should pull the pod out of the Service — do not swap them.
+          livenessProbe:
+            httpGet: { path: /health, port: 4000 }
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            failureThreshold: 4
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 4000 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+          # tsx transpiles at boot; cold start is 10–20s. Without this the
+          # kubelet kills the pod before it ever serves a request.
+          startupProbe:
+            httpGet: { path: /health, port: 4000 }
+            periodSeconds: 5
+            failureThreshold: 24
+          resources:
+            requests: { cpu: "300m", memory: "768Mi" }
+            limits:   { memory: "2Gi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # Required by readOnlyRootFilesystem: tsx writes its transpile
+            # cache to $TMPDIR. Nothing else in the app touches local disk —
+            # uploads are streamed to Wasabi from memory.
+            - name: tmp
+              mountPath: /tmp
+            # Also required: the entrypoint is `pnpm start`, and pnpm expects a
+            # writable HOME for its cache/state. With a read-only root and no
+            # writable $HOME the container fails at exec, before any app code
+            # runs — which looks like a crashloop with no application logs.
+            - name: home
+              mountPath: /home/node
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: home
+          emptyDir: {}
+---
+# /metrics is served unauthenticated on the same port as the API. Caddy used
+# to answer it with a 403 from the edge; in-cluster, keep it reachable from the
+# monitoring namespace only and make sure the Ingress does not expose it.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hader-api
+  namespace: hader
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: hader-api

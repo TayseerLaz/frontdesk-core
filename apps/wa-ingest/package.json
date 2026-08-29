@@ -1,0 +1,28 @@
+{
+  "name": "@platform/wa-ingest",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sales Scan capture service. Reads a tenant's WhatsApp DMs (both directions) inside a time-boxed permission grant, then purges its credentials. READ-ONLY: it has no send capability by construction.",
+  "scripts": {
+    "dev": "tsx watch --conditions=source src/index.ts",
+    "start": "tsx --conditions=source src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@platform/shared": "workspace:*",
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.23",
+    "fastify": "^4.28.1",
+    "pino": "^9.4.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@platform/config": "workspace:*",
+    "@types/node": "^20.16.5",
+    "@types/qrcode": "^1.5.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "platform-core",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "db:generate": "pnpm --filter @platform/db generate",
+    "db:migrate": "pnpm --filter @platform/db migrate",
+    "db:migrate:deploy": "pnpm --filter @platform/db migrate:deploy",
+    "db:seed": "pnpm --filter @platform/db seed",
+    "db:reset": "pnpm --filter @platform/db reset",
+    "qa": "pnpm --filter @platform/e2e preflight && pnpm --filter @platform/e2e test",
+    "qa:gate": "pnpm --filter @platform/e2e test:tenant-isolation",
+    "qa:report": "pnpm --filter @platform/e2e report",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "lodash@<4.17.23": ">=4.17.23",
+      "dompurify@<3.4.13": ">=3.4.13"
+    }
+  }
+}

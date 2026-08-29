@@ -1,0 +1,11 @@
+# ZAP baseline-scan rule overrides for the ALIGNED platform.
+#
+# Format: <RULE_ID>\t<THRESHOLD>\t# comment
+#   THRESHOLD = IGNORE | LOW | MEDIUM | HIGH | INFO
+#
+# Each entry below documents WHY we're tuning ZAP's default verdict for
+# this rule. Re-evaluate every quarter when rotating secrets / reviewing
+# the security audit.
+10063	IGNORE	# Permissions-Policy reporter ZAP doesn't recognize the modern format with =(self)
+10038	IGNORE	# CSP wildcard sources — our policy uses *.wasabisys.com and *.sentry.io intentionally
+10110	IGNORE	# Dangerous JS Functions — Next.js bundles inevitably contain `eval` inside vendor chunks

@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hader-worker-metrics
+  namespace: hader
+  labels:
+    app: hader-worker
+spec:
+  selector:
+    app: hader-worker
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hader-worker
+  namespace: hader
+spec:
+  # The worker is genuinely closer to scalable than the API: its four heavy
+  # ticks (sequence, provenance-digest, dunning, booking-reminder) all take a
+  # Redis SET NX lock, and the rest (inbox-consistency, voice-call-reaper,
+  # draft-cart-ttl, broadcast-reaper) are documented idempotent across replicas.
+  #
+  # Two caveats before raising this:
+  #   • uptime-probe is a plain setInterval self-ping — N replicas produce N×
+  #     the probe traffic and N× the readings.
+  #   • BullMQ concurrency is already per-process (IMPORT_CONCURRENCY=2,
+  #     WEBHOOK_CONCURRENCY=8, …), so replicas multiply real throughput
+  #     against Postgres and the WhatsApp rate limiter. Raise deliberately.
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: hader-worker
+  template:
+    metadata:
+      labels:
+        app: hader-worker
+    spec:
+      # Long: a crawl or import job in flight checks a shutdown flag per page
+      # and re-queues. Cutting this short abandons work mid-batch.
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: worker
+          image: ghcr.io/tayseerlaz/hader-worker:latest
+          ports:
+            - name: metrics
+              containerPort: 9100
+          envFrom:
+            - configMapRef:
+                name: hader-config
+            - secretRef:
+                name: hader-secrets
+          # The worker's HTTP server exposes only /health and /metrics — there
+          # is no /health/ready, so liveness is all we can probe.
+          livenessProbe:
+            httpGet: { path: /health, port: 9100 }
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            failureThreshold: 4
+          startupProbe:
+            httpGet: { path: /health, port: 9100 }
+            periodSeconds: 5
+            failureThreshold: 24
+          resources:
+            requests: { cpu: "300m", memory: "768Mi" }
+            limits:   { memory: "2Gi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # `pnpm start` needs a writable HOME under readOnlyRootFilesystem —
+            # see the note in 40-api.yaml.
+            - name: home
+              mountPath: /home/node
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: home
+          emptyDir: {}

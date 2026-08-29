@@ -1,0 +1,110 @@
+# Prometheus alerting rules for ALIGNED / Hader.
+# Load via prometheus.yml: rule_files: [ "alerts.yml" ].
+#
+# Signals the platform ALREADY emits:
+#   api    /metrics          → http_request_* counters + latency histograms
+#   worker :9100/metrics     → worker_jobs_completed_total / _failed_total / _last_job_duration_seconds
+# Add these exporters (one-line installs) for the rest:
+#   node_exporter (disk/cpu/mem), postgres_exporter (replication/archiver),
+#   redis_exporter, and Caddy's built-in /metrics.
+
+groups:
+  - name: availability
+    rules:
+      - alert: ApiDown
+        expr: up{job="api"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "API instance {{ $labels.instance }} is down"
+      - alert: AllApiDown
+        expr: sum(up{job="api"}) == 0
+        for: 30s
+        labels: { severity: page }
+        annotations: { summary: "ALL API instances down — full outage" }
+      - alert: ReadinessFailing
+        expr: probe_success{job="api-ready"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "API /health/ready failing (Postgres or Redis degraded)" }
+      - alert: WorkerDown
+        expr: up{job="worker"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "Worker {{ $labels.instance }} down — jobs not processing" }
+
+  - name: latency-errors
+    rules:
+      - alert: HighApi5xx
+        expr: |
+          sum(rate(http_requests_total{job="api",status_code=~"5.."}[5m]))
+            / sum(rate(http_requests_total{job="api"}[5m])) > 0.02
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "API 5xx rate >2% for 5m" }
+      - alert: ApiP95Slow
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="api"}[5m])) by (le)) > 0.4
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "API p95 latency >400ms for 10m" }
+
+  - name: workers-queues
+    rules:
+      - alert: JobFailuresSpiking
+        expr: sum(rate(worker_jobs_failed_total[10m])) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Background job failure rate elevated" }
+      - alert: QueueBacklog
+        # requires the bull-exporter or a custom gauge of waiting jobs
+        expr: max(bullmq_queue_waiting) > 1000
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "A BullMQ queue has >1000 waiting jobs for 15m" }
+
+  - name: postgres
+    rules:
+      - alert: PostgresReplicationLag
+        expr: pg_replication_lag_seconds > 30
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "Standby replication lag >30s (RPO at risk)" }
+      - alert: PostgresStandbyMissing
+        expr: pg_stat_replication_count < 1
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "No connected standby — HA degraded to single node" }
+      - alert: WalArchiveFailing
+        # postgres_exporter: pg_stat_archiver_failed_count rising = PITR broken
+        expr: increase(pg_stat_archiver_failed_count[15m]) > 0
+        for: 15m
+        labels: { severity: critical }
+        annotations: { summary: "WAL archiving to Wasabi is FAILING — PITR window frozen" }
+      - alert: PostgresConnectionsHigh
+        expr: sum(pg_stat_activity_count) > 180
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Postgres backend connections near max_connections" }
+
+  - name: host-redis-tls
+    rules:
+      - alert: DiskFillingUp
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.15
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Root disk <15% free on {{ $labels.instance }}" }
+      - alert: DiskCritical
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.05
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "Root disk <5% free — imminent failure (the box OOM/full risk)" }
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Redis down — queues/locks/rate-limits unavailable" }
+      - alert: TLSCertExpiringSoon
+        expr: (caddy_certificate_expiry_seconds - time()) < 7*24*3600
+        for: 1h
+        labels: { severity: warning }
+        annotations: { summary: "A TLS cert expires in <7 days" }

@@ -1,0 +1,17 @@
+[
+  {
+    "key": "order_2_strawberry_small",
+    "goal": "You want to order 2 small strawberry juices (عصير فراولة صغير / small strawberry juice). When asked, your name is Sara, your delivery address is 'Salmiya, Block 4, Street 1, House 7', and you'll pay cash. Confirm the order when the shop summarises it correctly.",
+    "expectItems": [{ "sku": "MENU-286", "quantity": 2 }],
+    "maxTurns": 9
+  },
+  {
+    "key": "order_mixed_two_items",
+    "goal": "You want to order 1 medium strawberry juice (عصير فراولة الوسط) AND 1 baby strawberry juice (عصير فراولة بيبي). Name: Ali. Address: 'Hawally, Block 2'. Pay cash. Confirm when the order is summarised correctly.",
+    "expectItems": [
+      { "sku": "MENU-287", "quantity": 1 },
+      { "sku": "MENU-285", "quantity": 1 }
+    ],
+    "maxTurns": 10
+  }
+]

@@ -1,0 +1,109 @@
+# TLS via cert-manager. Create the ClusterIssuer once:
+#
+#   apiVersion: cert-manager.io/v1
+#   kind: ClusterIssuer
+#   metadata: { name: letsencrypt-prod }
+#   spec:
+#     acme:
+#       server: https://acme-v02.api.letsencrypt.org/directory
+#       email: ops@aligned-tech.com
+#       privateKeySecretRef: { name: letsencrypt-prod }
+#       solvers: [{ http01: { ingress: { class: nginx } } }]
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hader-api
+  namespace: hader
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # Meta/Stripe/MyFatoorah webhook signatures are computed over the RAW
+    # body. Any rewriting or recompression between the edge and Fastify
+    # invalidates them.
+    nginx.ingress.kubernetes.io/enable-rewrite-log: "false"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "Strict-Transport-Security: max-age=63072000; includeSubDomains; preload";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "Referrer-Policy: no-referrer";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["api.hader.ai"]
+      secretName: hader-api-tls
+  rules:
+    - host: api.hader.ai
+      http:
+        paths:
+          # /metrics is served unauthenticated by the API on this same port.
+          # Caddy answered it with a 403 at the edge; reproduce that with a
+          # deny rule in your ingress controller, or it is world-readable.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hader-api
+                port:
+                  number: 4000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hader-web
+  namespace: hader
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Portal deep-links that arrive WITHOUT the /app prefix — invite,
+    # password-reset, verify-email, contact-sync QR and billing returns.
+    # Caddy redirected these under /app; without an equivalent they fall
+    # through to the marketing root and strand the user on a landing page.
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "Strict-Transport-Security: max-age=63072000; includeSubDomains; preload";
+      more_set_headers "X-Content-Type-Options: nosniff";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["hader.ai"]
+      secretName: hader-web-tls
+  rules:
+    - host: hader.ai
+      http:
+        paths:
+          - path: /app
+            pathType: Prefix
+            backend:
+              service:
+                name: hader-web
+                port:
+                  number: 3000
+---
+# Deep-link rescue: permanent redirect of the bare portal paths under /app.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hader-web-deeplinks
+  namespace: hader
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/permanent-redirect-code: "302"
+    nginx.ingress.kubernetes.io/permanent-redirect: "https://hader.ai/app$request_uri"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["hader.ai"]
+      secretName: hader-web-tls
+  rules:
+    - host: hader.ai
+      http:
+        paths:
+          - { path: /invite,         pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
+          - { path: /reset-password, pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
+          - { path: /verify-email,   pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
+          - { path: /sync,           pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
+          - { path: /settings,       pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
+          - { path: /hq,  pathType: Prefix, backend: { service: { name: hader-web, port: { number: 3000 } } } }
+# NOTE: the marketing site at hader.ai/ is NOT in this repo and is NOT covered
+# by any manifest here. It was edited in place on the old server under
+# /opt/aligned/hader-ai-website (index.html, privacy.html, terms.html,
+# data-deletion.html, refund-policy.html). Those files have no git history
+# anywhere. Until they are recovered or rebuilt, hader.ai/ has no backend —
+# and the legal pages it served are referenced by Meta app review.

@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint-typecheck-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aligned
+          POSTGRES_PASSWORD: aligned
+          POSTGRES_DB: aligned_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U aligned -d aligned_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://aligned:aligned@localhost:5432/aligned_test
+      DIRECT_DATABASE_URL: postgresql://aligned:aligned@localhost:5432/aligned_test
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: test-access-secret-change-me-in-production-please-32+chars
+      JWT_REFRESH_SECRET: test-refresh-secret-change-me-in-production-please-32+chars
+      NODE_ENV: test
+      LOG_LEVEL: error
+      # Dummy values so the import/storage tests pass their isStorageConfigured()
+      # gate instead of 400ing (the gate only checks presence, not validity).
+      WASABI_ACCESS_KEY_ID: test-wasabi-key
+      WASABI_SECRET_ACCESS_KEY: test-wasabi-secret
+      WASABI_BUCKET: test-bucket
+      WASABI_REGION: us-east-1
+      WASABI_ENDPOINT: https://s3.test.invalid
+      # 32-byte hex key so the secret-encryption path (F-01) is exercised in
+      # tests. Required only in production (NODE_ENV=production); set here so the
+      # encrypt/decrypt round-trip + connector-secret tests get real coverage.
+      SECRET_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:migrate:deploy
+      # Lint / typecheck / tests are informational while we clean up legacy
+      # strict-mode noise in the api + worker. They don't block merge yet.
+      - run: pnpm lint
+        continue-on-error: true
+      - run: pnpm typecheck
+        continue-on-error: true
+      - run: pnpm test
+        continue-on-error: true
+      # H-7 — surface dependency CVEs (especially the Next.js framework) on every
+      # run. Advisory for now: the tree still carries transitive high advisories
+      # (nanoid/postcss under sub-deps) that need a separate override pass before
+      # this can hard-fail. Runtime `next` is pinned >=15.5.21 in apps/web, which
+      # is the framework CVE class this primarily guards against.
+      - name: Dependency CVE audit (advisory)
+        run: pnpm audit --prod --audit-level high
+        continue-on-error: true
+
+      # HARD DEPLOY GATE — tenant isolation must hold. This includes the
+      # multi-org cross-read test (Phase 1), the Phase 4 broadcasts +
+      # segments + contacts checks, and the Sprint 3 #26 deep RLS probes
+      # that bypass the route layer entirely. Any failure here means a
+      # cross-tenant data leak is possible — block the build, do not deploy.
+      # HARD GATE — pure logic (contact-sync, Google Calendar, Sales Scan invariants).
+      # Runs with NO database and NO environment (vitest.pure.config.ts has an empty
+      # setupFiles), so unlike the rest of apps/api/test these are runnable on a
+      # developer machine before pushing. Prefer test/pure/ for any new gate that does
+      # not genuinely need Postgres — sales-scan-invariants moved here on 2026-08-05
+      # precisely because it was blocking-in-CI but unrunnable locally.
+      #
+      # The syntax check covers EVERY test file. tsconfig.json excludes test/, and the
+      # normal suite cannot boot locally, so on 2026-08-03 a hard-gate test with five
+      # broken string literals passed every local check and went red only here.
+      - name: Pure logic gate (HARD)
+        run: |
+          pnpm --filter @platform/api run test:syntax
+          pnpm --filter @platform/api run typecheck:test
+          pnpm --filter @platform/api run test:pure
+
+      - name: Tenant isolation deploy gate (HARD)
+        run: pnpm --filter @platform/api test -- test/tenant-isolation.test.ts
+
+      # HARD GATE — RLS drift. Fails the build if any organization_id table ships
+      # without RLS enabled+forced+a real (current_org_id/rls_bypassed) policy.
+      # Previously ran only under the continue-on-error `pnpm test`, so a new
+      # tenant table with no policy could merge green (M-7).
+      - name: RLS drift deploy gate (HARD)
+        run: pnpm --filter @platform/api test -- test/rls-drift.test.ts
+
+      # HARD GATE — the eval harness's own logic (retrieval fusion + sparse rank,
+      # scorers, the grounding gate, reply normalisers). These are the checks
+      # that catch bot-quality regressions; if the gate logic itself breaks, the
+      # whole safety net is silently down. Pure-logic tests, no external deps.
+      - name: Eval-harness logic gate (HARD)
+        run: >-
+          pnpm --filter @platform/api test --
+          test/eval-scorers.test.ts
+          test/retrieval.test.ts
+          test/grounding-gate.test.ts
+          test/variant-image-collapse.test.ts
+          test/markdown-normalize.test.ts
+          test/contact-sync.test.ts
+
+      # Sprint 3 — secondary security gates. Each runs the focused vitest
+      # files that exercise a tenant-isolation-adjacent boundary so a
+      # regression in any of them surfaces with a specific failure name.
+      - name: Provenance access gate
+        run: pnpm --filter @platform/api test -- test/provenance-access.test.ts
+      - name: Webhook signature gate
+        run: pnpm --filter @platform/api test -- test/webhook-signature.test.ts
+      - name: Read API key auth gate
+        run: pnpm --filter @platform/api test -- test/read-api.test.ts

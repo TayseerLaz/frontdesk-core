@@ -1,0 +1,24 @@
+-- Voice-note length, in whole seconds, so a client can render "🎙 0:14" in the
+-- message bubble without downloading the audio first (the mobile inbox needs
+-- this; the web inbox uses the native <audio> control, which reads it off the
+-- file it has already fetched).
+--
+-- Meta does NOT provide a duration. The inbound webhook `audio` object carries
+-- only {mime_type, sha256, id, url, voice}, and the media metadata endpoint
+-- GET /{media-id} returns only {messaging_product, url, mime_type, sha256,
+-- file_size, id}. So the value is MEASURED from the decoded audio during the
+-- ffmpeg transcode the ingest path already performs — never estimated from
+-- file_size or bitrate. It stays NULL when that measurement isn't available
+-- (object storage unconfigured, ffmpeg missing or failed) and on every
+-- non-audio row, including all rows written before this migration.
+--
+-- Additive nullable column on an existing tenant table. No RLS work: the
+-- whatsapp_messages policy was installed with the table and applies per-row,
+-- so it covers new columns automatically.
+--
+-- Not backfilled. Historical voice notes whose transcoded MP3 is still in
+-- object storage could in principle be re-measured, but that means downloading
+-- every stored clip, so old rows are simply left NULL and clients must render
+-- NULL as "unknown length" rather than 0:00.
+
+ALTER TABLE "whatsapp_messages" ADD COLUMN IF NOT EXISTS "duration_seconds" INTEGER;

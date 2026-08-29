@@ -1,0 +1,79 @@
+{
+    email ops@aligned-tech.com
+}
+
+hader.ai {
+    encode zstd gzip
+    # Safe headers for the whole site. The portal (/app) sets its OWN CSP /
+    # frame-ancestors / permissions via Next middleware, so the marketing CSP is
+    # scoped to the marketing handle below — otherwise the browser enforces the
+    # intersection of both CSPs on /app and blocks the portal's Wasabi audio,
+    # images, api calls, etc. (media-src 'self' was killing voice-note playback).
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        -Server
+        -Via
+        -X-Powered-By
+    }
+
+    @portal path /app /app/*
+    handle @portal {
+        reverse_proxy 127.0.0.1:3000
+    }
+
+    # Portal deep-links that arrive WITHOUT the /app base path — invite,
+    # password-reset and verify-email emails, plus payment-gateway billing
+    # returns and admin lead links. The portal lives under /app, so without this
+    # they fall through to the marketing SPA catch-all below and the user gets
+    # stranded on the landing page. Redirect them under /app so they reach the
+    # portal. Robust against WEB_PUBLIC_URL drift AND rescues already-sent email
+    # links. {uri} preserves the path + query (e.g. ?token=…).
+    # /sync/* is the contact-sync QR target. The API now mints it with the /app
+    # prefix directly, so this is the belt to that braces — it rescues a link that
+    # gets typed or forwarded, and it is exactly what was missing on 2026-08-03,
+    # when the bare URL resolved to the marketing homepage and its Login button.
+    @portal_deeplinks path /invite/* /reset-password* /verify-email* /sync/* /hq /hq/* /settings /settings/*
+    handle @portal_deeplinks {
+        redir https://hader.ai/app{uri} temporary
+    }
+
+    # Clean legal URLs — the static pages live at /privacy.html + /terms.html;
+    # without this the SPA catch-all below swallows the extensionless paths and
+    # serves the homepage instead.
+    @legal path /privacy /terms /data-deletion /refund-policy
+    handle @legal {
+        redir https://hader.ai{path}.html permanent
+    }
+
+    handle {
+        header {
+            # Google domains per Google's CSP guide for GTM/GA4 (wildcards cover
+            # regional endpoints like region1.google-analytics.com).
+            Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms https://*.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self'; connect-src 'self' https://api.hader.ai https://*.clarity.ms https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+            X-Frame-Options "DENY"
+            Permissions-Policy "camera=(), microphone=(self), geolocation=()"
+            Referrer-Policy "strict-origin-when-cross-origin"
+        }
+        root * /opt/aligned/hader-ai-website
+        file_server
+        try_files {path} /index.html
+    }
+}
+
+api.hader.ai {
+    encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        -Server
+        -Via
+        -X-Powered-By
+    }
+
+    @metrics path /metrics
+    respond @metrics 403
+
+    reverse_proxy 127.0.0.1:4000
+}

@@ -1,0 +1,116 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# NOT DEPLOYABLE AS-IS. Two blockers, both deliberate in the current design.
+#
+# 1. apps/wa-ingest/src/index.ts binds 127.0.0.1 (hardcoded). In Kubernetes a
+#    loopback bind is unreachable from a Service, so this pod would pass its
+#    exec probe and serve nobody. The bind is a SECURITY CONTROL, not an
+#    oversight — apps/wa-ingest/docker-compose.yml calls it "the firewall"
+#    because /v1/status hands out WhatsApp device-linking QR codes. If you move
+#    it to 0.0.0.0 you MUST replace that control with the NetworkPolicy below.
+#
+# 2. It holds live Baileys WhatsApp credentials on disk, one directory per
+#    grant under /data/auth/<grantId>. Losing the volume unlinks every tenant's
+#    device and forces a fresh QR scan. Hence StatefulSet + PVC + replicas: 1.
+#
+# Until sales-scan capture is genuinely being switched on, the right move is to
+# leave this file unapplied. Setting WA_INGEST_URL + WA_INGEST_SECRET is what
+# arms the capture path — 16 review blockers gate pointing it at a real number.
+# ═══════════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: hader-wa-ingest
+  namespace: hader
+spec:
+  clusterIP: None
+  selector:
+    app: hader-wa-ingest
+  ports:
+    - name: http
+      port: 4200
+      targetPort: 4200
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hader-wa-ingest
+  namespace: hader
+spec:
+  serviceName: hader-wa-ingest
+  # Hard 1. Two pods sharing one auth volume corrupt the Baileys session state
+  # and race the device slot; WA_INGEST_MAX_SESSIONS is a per-process cap.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hader-wa-ingest
+  template:
+    metadata:
+      labels:
+        app: hader-wa-ingest
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: wa-ingest
+          # Built from apps/wa-ingest/Dockerfile — its own file, already tuned
+          # for libsignal/glibc. Do not build it from infra/k8s/Dockerfile.
+          image: ghcr.io/tayseerlaz/hader-wa-ingest:latest
+          ports:
+            - name: http
+              containerPort: 4200
+          env:
+            - name: HADER_API_URL
+              value: "http://hader-api:4000"
+            - name: WA_INGEST_DATA_DIR
+              value: /data
+            # Capacity is memory-bound: history sync on link is the peak, and
+            # measurement on the old box put the safe starting point at 3
+            # concurrent sessions. Do not raise without a measured number.
+            - name: WA_INGEST_MAX_SESSIONS
+              value: "3"
+            # Capture stays OFF. Turning it on is a compliance decision, not a
+            # deployment one.
+            - name: WA_CAPTURE_ENABLED
+              value: "false"
+          envFrom:
+            - secretRef:
+                name: hader-secrets
+          livenessProbe:
+            httpGet: { path: /health, port: 4200 }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            # Baileys decrypting a history backlog is the memory peak.
+            limits:   { memory: "2560Mi" }
+          volumeMounts:
+            - name: wa-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: wa-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+---
+# The replacement for the loopback bind. Without this, moving the bind to
+# 0.0.0.0 exposes tenant QR codes to every pod in the cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hader-wa-ingest-lockdown
+  namespace: hader
+spec:
+  podSelector:
+    matchLabels:
+      app: hader-wa-ingest
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hader-api
+      ports:
+        - protocol: TCP
+          port: 4200

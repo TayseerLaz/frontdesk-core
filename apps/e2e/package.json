@@ -1,0 +1,38 @@
+{
+  "name": "@platform/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:auth": "playwright test specs/auth.spec.ts",
+    "test:members": "playwright test specs/members.spec.ts",
+    "test:catalog-products": "playwright test specs/catalog-products.spec.ts",
+    "test:catalog-services": "playwright test specs/catalog-services.spec.ts",
+    "test:business-info": "playwright test specs/business-info.spec.ts",
+    "test:categories": "playwright test specs/categories.spec.ts",
+    "test:imports": "playwright test specs/imports.spec.ts",
+    "test:connectors": "playwright test specs/connectors.spec.ts",
+    "test:api-keys": "playwright test specs/api-keys.spec.ts",
+    "test:webhooks-outbound": "playwright test specs/webhooks-outbound.spec.ts",
+    "test:read-api": "playwright test specs/read-api.spec.ts",
+    "test:admin": "playwright test specs/admin-panel.spec.ts",
+    "test:tenant-isolation": "playwright test specs/tenant-isolation.spec.ts",
+    "preflight": "tsx scripts/preflight.ts",
+    "report": "playwright show-report"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.48.0",
+    "pg": "^8.13.1",
+    "undici": "^6.21.0",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}

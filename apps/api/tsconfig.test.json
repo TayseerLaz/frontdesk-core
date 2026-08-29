@@ -1,0 +1,22 @@
+{
+  // tsconfig.json compiles only src/** and explicitly EXCLUDES test/, so `pnpm typecheck`
+  // has never type-checked a single test file. That is how a test file with unterminated
+  // string literals passed every local check and failed only in CI's esbuild transform.
+  //
+  // Scope note: this covers src/** plus test/pure/**, not the whole legacy suite. Pointing
+  // it at every test file surfaces years of accumulated fixture drift (stale shapes for
+  // ScanCandidates, BotResponseInputs, …) that is unrelated to any current change and
+  // would make the gate red on arrival. The parse-level check in CI covers ALL test files,
+  // which is the failure mode that actually bit us; widening this include is a worthwhile
+  // separate cleanup.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // The base pins rootDir to src/ for the real build. Nothing is emitted here, so widen
+    // it to the package root — otherwise every test file is TS6059 "not under rootDir".
+    "rootDir": ".",
+    "outDir": "./.tsbuild-test"
+  },
+  "include": ["src/**/*", "test/pure/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

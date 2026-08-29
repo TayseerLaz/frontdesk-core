@@ -1,0 +1,18 @@
+# Canonical unit for the ALIGNED web portal (Next.js, `next start`). The web app
+# is compiled by `next build` during deploy, so it does not use the
+# --conditions=source mechanism (that's only for the tsx-run api/worker).
+[Unit]
+Description=ALIGNED Web (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/aligned/app/apps/web
+EnvironmentFile=/opt/aligned/app/.env.production
+ExecStart=/usr/bin/env pnpm start
+Restart=always
+RestartSec=3
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

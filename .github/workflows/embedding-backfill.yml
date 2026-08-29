@@ -1,0 +1,68 @@
+# Backfill product embeddings on the production server.
+#
+# Triggers:
+#   • Manually via workflow_dispatch (click "Run workflow" on the Actions
+#     tab). Operators ship product changes and run this when convenient.
+#   • Scheduled nightly safety-net (currently OFF — flip the cron line on
+#     once you're happy with the manual flow). The auto-embed-on-create
+#     hook in product.routes.ts already covers ~99 % of cases.
+#
+# Cost: text-embedding-3-small is $0.02 / 1M tokens. A 1,000-product
+# catalog backfills for ~$0.001. The script skips products whose stored
+# embedding_hash matches the current name+description hash, so re-runs
+# are cheap.
+#
+# Required secrets (already present from deploy.yml):
+#   DEPLOY_HOST, DEPLOY_PORT, DEPLOY_USER, DEPLOY_SSH_KEY
+name: Backfill product embeddings
+
+on:
+  workflow_dispatch:
+    inputs:
+      org:
+        description: "Optional org id — restrict backfill to a single tenant"
+        required: false
+      limit:
+        description: "Max products to process per run (default 500)"
+        required: false
+        default: "500"
+      dry_run:
+        description: "Set 'true' to print the plan without calling OpenAI"
+        required: false
+        default: "false"
+  # Uncomment when you want the nightly safety-net to run automatically.
+  # schedule:
+  #   - cron: "0 23 * * *"   # 03:00 Asia/Dubai
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger backfill on prod
+        uses: appleboy/ssh-action@v1
+        env:
+          ORG_FLAG: ${{ inputs.org && format('--org {0}', inputs.org) || '' }}
+          LIMIT_FLAG: ${{ format('--limit {0}', inputs.limit) }}
+          DRY_RUN_FLAG: ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 30m
+          script_stop: true
+          envs: ORG_FLAG,LIMIT_FLAG,DRY_RUN_FLAG
+          script: |
+            set -euo pipefail
+            cd /opt/aligned/app
+            echo "=== running product embedding backfill ==="
+            echo "    flags: ${ORG_FLAG} ${LIMIT_FLAG} ${DRY_RUN_FLAG}"
+            # Production runs natively (systemd + tsx), NOT Docker — so run the
+            # script directly with the prod env sourced. --conditions=source so
+            # it imports @platform/db/@platform/shared from source like the
+            # services do (no stale-dist dependency).
+            set -a; . ./.env.production; set +a
+            pnpm --filter @platform/api exec tsx --conditions=source \
+              scripts/backfill-product-embeddings.ts \
+                ${ORG_FLAG} ${LIMIT_FLAG} ${DRY_RUN_FLAG}
+            echo "=== backfill complete ==="

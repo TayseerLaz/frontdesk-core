@@ -1,0 +1,26 @@
+# Canonical unit for the ALIGNED API. Install with:
+#   sudo cp infra/systemd/aligned-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl restart aligned-api
+#
+# IMPORTANT: ExecStart goes through `pnpm start`, whose script passes
+# `tsx --conditions=source` so the running process imports @platform/db and
+# @platform/shared from their TypeScript SOURCE, not the gitignored compiled
+# dist/. That removes the stale-dist footgun (a deploy that forgot to rebuild
+# dist used to silently ship an old Prisma client / Zod schema). Do NOT change
+# ExecStart to a bare `tsx src/server.ts` — that reintroduces the bug.
+[Unit]
+Description=ALIGNED API (Fastify, tsx)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/aligned/app/apps/api
+EnvironmentFile=/opt/aligned/app/.env.production
+ExecStart=/usr/bin/env pnpm start
+Restart=always
+RestartSec=3
+# tsx cold-start is ~10-20s; give it room before systemd considers it failed.
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

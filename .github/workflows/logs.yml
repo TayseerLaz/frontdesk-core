@@ -1,0 +1,103 @@
+name: Server logs (manual)
+
+# Fire from the GH Actions UI or `gh workflow run logs.yml`.
+# Tail the last N minutes of journalctl for each service unit.
+# Output appears inline in the workflow log so you can read it from
+# `gh run view <id> --log`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'How far back (e.g. "10 minutes ago", "1 hour ago", "today")'
+        required: false
+        default: '15 minutes ago'
+      lines:
+        description: 'Max lines per unit'
+        required: false
+        default: '300'
+      grep:
+        description: 'Optional grep filter (regex). Empty = no filter.'
+        required: false
+        default: ''
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Tail journalctl
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -uo pipefail
+            SINCE='${{ inputs.since }}'
+            LINES='${{ inputs.lines }}'
+            GREP='${{ inputs.grep }}'
+
+            echo "================== systemd unit definitions =================="
+            for unit in aligned-api aligned-worker aligned-web; do
+              echo "--- $unit ---"
+              sudo systemctl cat "$unit" 2>/dev/null | grep -E '^(StandardOutput|StandardError|ExecStart|WorkingDirectory|EnvironmentFile)=' || true
+            done
+
+            echo ""
+            echo "================== candidate log files =================="
+            for d in /var/log/aligned /opt/aligned/logs /opt/aligned/app/logs /opt/aligned/app; do
+              if [ -d "$d" ]; then
+                echo "--- $d ---"
+                sudo find "$d" -maxdepth 2 -type f \( -name '*.log' -o -name '*.out' -o -name '*.err' \) -mmin -360 -exec ls -la {} + 2>/dev/null
+              fi
+            done
+
+            echo ""
+            for unit in aligned-api aligned-worker aligned-web; do
+              echo "================== journalctl: $unit =================="
+              if [ -n "$GREP" ]; then
+                sudo journalctl -u "$unit" --no-pager --since "$SINCE" -n "$LINES" | grep -E "$GREP" || echo "(no matches)"
+              else
+                sudo journalctl -u "$unit" --no-pager --since "$SINCE" -n "$LINES"
+              fi
+            done
+
+            echo ""
+            echo "================== app log file tails =================="
+            for f in /var/log/aligned-api.log /var/log/aligned-worker.log /var/log/aligned-web.log; do
+              if [ -f "$f" ]; then
+                echo ""
+                echo "--- $f (last $LINES lines) ---"
+                if [ -n "$GREP" ]; then
+                  sudo tail -n "$LINES" "$f" | grep -E "$GREP" || echo "(no matches)"
+                else
+                  sudo tail -n "$LINES" "$f"
+                fi
+              else
+                echo "(missing: $f)"
+              fi
+            done
+
+            echo ""
+            echo "================== Caddy access/error logs =================="
+            # Caddy logs help us see if Meta's webhook POSTs are even
+            # reaching the box (4xx/5xx at proxy = nothing reaches the api).
+            sudo journalctl -u caddy --no-pager --since "$SINCE" -n "$LINES" 2>/dev/null \
+              | { [ -n "$GREP" ] && grep -E "$GREP" || cat; } | tail -n "$LINES" || echo "(no caddy unit)"
+            # Glob picks up per-domain access logs regardless of which
+            # hostname Caddy is currently serving (alignbot.aligned-tech.com,
+            # api.aligned-tech.com, hader.ai, api.hader.ai, ...).
+            for f in /var/log/caddy/access.log /var/log/caddy/error.log /var/log/caddy/*.log; do
+              if [ -f "$f" ]; then
+                echo ""
+                echo "--- $f (last $LINES lines) ---"
+                if [ -n "$GREP" ]; then
+                  sudo tail -n "$LINES" "$f" | grep -E "$GREP" || echo "(no matches)"
+                else
+                  sudo tail -n "$LINES" "$f"
+                fi
+              fi
+            done

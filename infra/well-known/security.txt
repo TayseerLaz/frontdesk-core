@@ -1,0 +1,8 @@
+# Responsible disclosure contact for hader.ai / api.hader.ai (RFC 9116).
+# DEPLOY: serve this file at https://hader.ai/.well-known/security.txt
+# (and 301 /security.txt -> /.well-known/security.txt). See the deploy note in
+# docs/SECURITY-ASSESSMENT-2026-08-10.md (finding I-8 / security.txt).
+Contact: mailto:ops@aligned-tech.com
+Expires: 2027-08-01T00:00:00.000Z
+Preferred-Languages: en, ar
+Canonical: https://hader.ai/.well-known/security.txt

@@ -1,0 +1,150 @@
+# In-cluster Postgres + pgbouncer.
+#
+# STRONG RECOMMENDATION: use managed Postgres instead and delete this file.
+# A single-replica StatefulSet on one node is not high availability — it is the
+# same single point of failure that just cost this project its production box,
+# only now with more moving parts. Keep it only if the cluster genuinely is the
+# cheapest place to run it, and make sure infra/scripts/backup.sh runs against
+# it as a CronJob from day one.
+#
+# Extensions required by the migrations: citext, pg_trgm, pgcrypto — all ship
+# with the stock image. Embeddings are plain Float[] columns, so pgvector is
+# NOT needed.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hader-postgres
+  namespace: hader
+spec:
+  clusterIP: None
+  selector:
+    app: hader-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hader-postgres
+  namespace: hader
+spec:
+  serviceName: hader-postgres
+  # Never raise this. Two Postgres pods on one PVC corrupt the data directory.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hader-postgres
+  template:
+    metadata:
+      labels:
+        app: hader-postgres
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: aligned
+            - name: POSTGRES_DB
+              value: aligned
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hader-secrets
+                  key: POSTGRES_PASSWORD
+            # The image only runs initdb when the data dir is empty; pointing
+            # at a subdirectory keeps lost+found on the PV from blocking it.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "aligned", "-d", "aligned"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "aligned", "-d", "aligned"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits:   { memory: "4Gi" }
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
+---
+# pgbouncer in TRANSACTION mode. Prisma connects through this for normal
+# traffic (DATABASE_URL, with ?pgbouncer=true) but migrations and the RLS
+# applier must bypass it (DIRECT_DATABASE_URL) — DDL and SET ROLE do not
+# survive transaction pooling.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hader-pgbouncer
+  namespace: hader
+spec:
+  selector:
+    app: hader-pgbouncer
+  ports:
+    - name: pgbouncer
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hader-pgbouncer
+  namespace: hader
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hader-pgbouncer
+  template:
+    metadata:
+      labels:
+        app: hader-pgbouncer
+    spec:
+      containers:
+        - name: pgbouncer
+          image: edoburu/pgbouncer:latest
+          ports:
+            - containerPort: 5432
+          env:
+            - name: DB_HOST
+              value: hader-postgres
+            - name: DB_NAME
+              value: aligned
+            - name: DB_USER
+              value: aligned
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hader-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POOL_MODE
+              value: transaction
+            - name: MAX_CLIENT_CONN
+              value: "1000"
+            - name: DEFAULT_POOL_SIZE
+              value: "25"
+            - name: AUTH_TYPE
+              value: scram-sha-256
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits:   { memory: "256Mi" }

@@ -1,0 +1,92 @@
+# Patroni config TEMPLATE (one per DB node). Patroni = the agent that runs
+# Postgres, holds leader election in etcd, streams replication, and performs
+# AUTOMATED FAILOVER (promotes the standby, reconfigures the rest) in seconds.
+#
+# Replace every <…>. Copy to /etc/patroni/patroni.yml on each DB node, set a
+# UNIQUE `name` per node, and point `restapi`/`postgresql.connect_address` at
+# that node's own IP. Install: `pip3 install 'patroni[etcd3]' psycopg2-binary`.
+#
+# etcd quorum: run etcd on vm-db-1, vm-db-2, and vm-app-1 (3 = tolerate 1 loss).
+
+scope: aligned-pg                       # cluster name (shared by all nodes)
+namespace: /service/
+name: <NODE_NAME>                       # e.g. vm-db-1  (UNIQUE per node)
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: <THIS_NODE_IP>:8008
+
+etcd3:
+  hosts:
+    - <VM_DB_1_IP>:2379
+    - <VM_DB_2_IP>:2379
+    - <VM_APP_1_IP>:2379
+
+bootstrap:
+  # Written to etcd once, on first cluster init; the source of truth for params.
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576    # don't promote a standby >1 MB behind
+    synchronous_mode: true              # ZERO data loss: commit waits for standby
+    synchronous_mode_strict: false      # but don't block writes if NO standby (avail > durability when alone)
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        # mirror infra/ha/postgres/postgresql.tuned.conf here (Patroni owns these)
+        wal_level: replica
+        hot_standby: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
+        wal_keep_size: 2GB
+        wal_compression: "on"
+        archive_mode: "on"
+        archive_command: 'envdir /etc/wal-g.d wal-g wal-push %p'
+        archive_timeout: 60
+        shared_buffers: 8GB
+        effective_cache_size: 24GB
+        maintenance_work_mem: 2GB
+        work_mem: 32MB
+        random_page_cost: 1.1
+        effective_io_concurrency: 200
+        max_worker_processes: 8
+        max_parallel_workers: 8
+        shared_preload_libraries: pg_stat_statements
+        track_io_timing: "on"
+        log_min_duration_statement: 1000
+  initdb:
+    - encoding: UTF8
+    - data-checksums                    # detect silent disk corruption
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: <THIS_NODE_IP>:5432
+  data_dir: /var/lib/postgresql/16/main
+  bin_dir: /usr/lib/postgresql/16/bin
+  pgpass: /tmp/pgpass
+  authentication:
+    superuser:
+      username: postgres
+      password: <POSTGRES_SUPERUSER_PASSWORD>
+    replication:
+      username: replicator
+      password: <REPLICATION_PASSWORD>
+  # WAL-G env for archive_command + clone-from-backup of a new standby.
+  callbacks: {}
+  create_replica_methods:
+    - wal_g                             # bootstrap new standbys from Wasabi, not the primary
+    - basebackup
+  wal_g:
+    command: 'envdir /etc/wal-g.d wal-g backup-fetch %d LATEST'
+    no_params: true
+  pg_hba:
+    - host replication replicator <DB_SUBNET_CIDR> scram-sha-256
+    - host all all <APP_SUBNET_CIDR> scram-sha-256
+    - host all all 127.0.0.1/32 scram-sha-256
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false

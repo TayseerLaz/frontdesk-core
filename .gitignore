@@ -1,0 +1,73 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# build outputs
+dist
+build
+.next
+out
+.turbo
+
+# env — never commit real secrets. Ignore ALL .env variants (incl.
+# .env.production), then re-allow only the committed *.example templates.
+# Previously .env.production was NOT matched here — one `git add .` would have
+# committed production secrets.
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# local machine-specific compose overrides (e.g. port remaps)
+docker-compose.override.yml
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+
+# coverage
+coverage
+*.lcov
+.nyc_output
+
+# prisma
+packages/db/prisma/migrations/**/migration_lock.toml
+
+# uploads / tmp
+uploads
+tmp
+
+# database dumps
+*.sql.gz
+*.dump
+
+# claude
+.claude
+
+# TypeScript incremental build info
+*.tsbuildinfo
+.last-deployed-sha
+
+# Mobile test builds dropped in the root for sideloading — never commit binaries.
+*.apk
+
+# Pentest / security tooling outputs (pentest-ai, cyber-claude) — raw findings,
+# evidence bundles and scan dumps land in the root during an engagement and
+# must never be committed. Keep only curated reports under docs/.
+pentest_findings.db
+evidence/
+scans/
+reports/
+brag-output/
+cyber-claude*.log

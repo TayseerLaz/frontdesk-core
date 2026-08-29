@@ -1,0 +1,62 @@
+# OWASP ZAP baseline scan of staging.
+#
+# Runs every Monday at 03:00 Asia/Dubai (i.e. 23:00 Sunday UTC) and on
+# manual dispatch. The baseline scan is passive only — it crawls staging
+# and reports common misconfigurations (missing headers, leaked secrets,
+# cookies without flags) but does NOT send attack payloads, so it's safe
+# to run against a non-prod environment with real data.
+#
+# Failure here does NOT block production — it opens a GitHub Issue with
+# the report so the on-call can triage. To gate a deploy on a clean
+# baseline, set `cmd_options` to include `-I` (informational only off) and
+# wire the result into deploy.yml.
+name: ZAP Baseline Security Scan
+
+on:
+  # Weekly cron DISABLED: there's no staging target (STAGING_URL) configured, so
+  # the scheduled scan failed red every Sunday for no signal. Run it manually
+  # (pass a `target` below) when you want a scan, or re-add the schedule once a
+  # staging URL secret exists.
+  #   schedule:
+  #     - cron: "0 23 * * 0"   # Sun 23:00 UTC (Mon 03:00 Asia/Dubai)
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Target URL to scan (e.g. https://hader.ai). Defaults to STAGING_URL secret."
+        required: false
+
+jobs:
+  baseline-scan:
+    name: ZAP baseline
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target URL
+        id: target
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+          INPUT_TARGET: ${{ inputs.target }}
+        run: |
+          if [ -n "$INPUT_TARGET" ]; then
+            echo "url=$INPUT_TARGET" >> "$GITHUB_OUTPUT"
+          elif [ -n "$STAGING_URL" ]; then
+            echo "url=$STAGING_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::No STAGING_URL secret configured and no target input passed."
+            exit 1
+          fi
+
+      - name: Run ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ steps.target.outputs.url }}
+          # Configurable false-positive list, version-controlled.
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-a -j"
+          fail_action: false
+          allow_issue_writing: true
+          artifact_name: zap-baseline-report

@@ -1,0 +1,57 @@
+# k6 load test against staging.
+#
+# Triggers:
+#   • Manually via workflow_dispatch (e.g. before a major release).
+#   • Optionally on push to main (currently OFF — uncomment when staging
+#     is wired up so every merge gets a fresh perf signal).
+#
+# Required secrets:
+#   • STAGING_API_URL    — base URL of the staging API (https://api.staging.…)
+#   • STAGING_API_KEY    — read-API key issued for a pilot tenant on staging
+#
+# Thresholds are encoded in infra/scripts/load-test.js — k6 exits non-zero
+# if any threshold (p95<200ms, p99<400ms, error rate<1%) is breached, which
+# fails the workflow.
+name: Load test (k6)
+
+on:
+  workflow_dispatch:
+    inputs:
+      rps:
+        description: "Requests per second (default 500)"
+        required: false
+        default: "500"
+      duration:
+        description: "Test duration (default 2m)"
+        required: false
+        default: "2m"
+  # Uncomment when staging has its own dedicated DB so a perf run won't
+  # interfere with shared QA. Currently a manual-only safety hatch.
+  # push:
+  #   branches: [main]
+
+jobs:
+  load-test:
+    name: 500 rps p95 < 200 ms
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+      - name: Run load test
+        env:
+          BASE_URL: ${{ secrets.STAGING_API_URL }}
+          API_KEY:  ${{ secrets.STAGING_API_KEY }}
+          RPS:      ${{ inputs.rps || '500' }}
+          DURATION: ${{ inputs.duration || '2m' }}
+        run: |
+          if [ -z "$BASE_URL" ] || [ -z "$API_KEY" ]; then
+            echo "::error::STAGING_API_URL or STAGING_API_KEY secret missing."
+            exit 1
+          fi
+          k6 run infra/scripts/load-test.js

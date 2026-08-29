@@ -1,0 +1,17 @@
+# Canonical unit for the ALIGNED background worker. See aligned-api.service for
+# why ExecStart uses `pnpm start` (--conditions=source → import from source).
+[Unit]
+Description=ALIGNED Worker (BullMQ, tsx)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/aligned/app/apps/worker
+EnvironmentFile=/opt/aligned/app/.env.production
+ExecStart=/usr/bin/env pnpm start
+Restart=always
+RestartSec=3
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

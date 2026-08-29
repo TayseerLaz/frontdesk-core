@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hader-web
+  namespace: hader
+spec:
+  selector:
+    app: hader-web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hader-web
+  namespace: hader
+spec:
+  # Stateless Next.js server — safe to scale freely. None of the background
+  # ticks live here.
+  replicas: 2
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: hader-web
+  template:
+    metadata:
+      labels:
+        app: hader-web
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: web
+          image: ghcr.io/tayseerlaz/hader-web:latest
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: hader-config
+            - secretRef:
+                name: hader-secrets
+          # Probe /app, NOT /. The portal runs under Next basePath '/app' and
+          # a request to / returns 404 — probing it would fail every pod
+          # forever while the app is perfectly healthy.
+          livenessProbe:
+            httpGet: { path: /app, port: 3000 }
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 4
+          readinessProbe:
+            httpGet: { path: /app, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits:   { memory: "1Gi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # next start writes to .next/cache at runtime.
+            - name: next-cache
+              mountPath: /app/apps/web/.next/cache
+            # `pnpm start` needs a writable HOME under readOnlyRootFilesystem —
+            # see the note in 40-api.yaml.
+            - name: home
+              mountPath: /home/node
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}
+        - name: home
+          emptyDir: {}

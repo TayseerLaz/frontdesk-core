@@ -1,0 +1,58 @@
+{
+  "name": "@platform/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "comment:exports": "The `source` condition points tsx (api/worker runtime, run with --conditions=source) straight at the TypeScript source, so the running app NEVER loads the compiled dist — this removes the stale-dist footgun where a deploy that forgot to rebuild dist silently shipped an old schema. Default conditions still resolve to dist for tsc typecheck + any dist consumer. `source` MUST be listed first so it wins when enabled.",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "source": "./src/client.ts",
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist .turbo node_modules/.prisma",
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev && pnpm rls:apply",
+    "migrate:deploy": "prisma migrate deploy && pnpm rls:apply",
+    "migrate:create": "prisma migrate dev --create-only",
+    "rls:apply": "tsx ./scripts/apply-rls.ts",
+    "reset": "prisma migrate reset --force --skip-seed && pnpm rls:apply && pnpm seed",
+    "seed": "tsx ./seed/index.ts",
+    "seed:pilot": "tsx ./seed/pilot.ts",
+    "seed:barista": "tsx --conditions=source ./scripts/seed-barista-bot.ts",
+    "seed:full-volume": "tsx ./seed/full-volume.ts",
+    "seed:super-admin": "tsx ./seed/super-admin.ts",
+    "studio": "prisma studio",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0"
+  },
+  "devDependencies": {
+    "@platform/config": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "bcryptjs": "^2.4.3",
+    "pg": "^8.13.1",
+    "prisma": "^6.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "prisma": {
+    "schema": "./prisma/schema.prisma",
+    "seed": "tsx ./seed/index.ts"
+  }
+}

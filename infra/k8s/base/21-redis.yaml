@@ -1,0 +1,87 @@
+# Redis 7 — BullMQ broker, read cache, rate limiter and distributed locks.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# maxmemory-policy is `noeviction` here, NOT the `allkeys-lru` used in
+# docker-compose.yml. That difference is deliberate and load-bearing.
+#
+# BullMQ stores job state in ordinary Redis keys. Under an LRU policy Redis is
+# free to evict those keys when memory fills — the queue then silently loses
+# jobs (imports that never finish, broadcasts that never send, webhooks that
+# never deliver) with no error anywhere. BullMQ's own documentation requires
+# noeviction for exactly this reason.
+#
+# The read cache shares this instance, but every cache key is written with a
+# TTL (60s fresh / 5min stale), so it bounds itself and does not need eviction
+# to stay healthy. Correct queues beat convenient caching.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: hader-redis
+  namespace: hader
+spec:
+  clusterIP: None
+  selector:
+    app: hader-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hader-redis
+  namespace: hader
+spec:
+  serviceName: hader-redis
+  # Single replica: the distributed locks (sequence tick, dunning tick,
+  # digest tick) assume one authoritative Redis. Sentinel/cluster is a
+  # separate design — see infra/ha/redis/.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hader-redis
+  template:
+    metadata:
+      labels:
+        app: hader-redis
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --maxmemory-policy
+            - noeviction
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { memory: "1Gi" }
+          volumeMounts:
+            - name: redisdata
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redisdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

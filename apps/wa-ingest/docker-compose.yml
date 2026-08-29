@@ -1,0 +1,115 @@
+# hader-wa-ingest — Sales Scan capture service. Runs on the AlignDesk box, 88.80.145.157.
+#
+# ⚠ SHARED BOX WARNING
+# This machine also runs `qr_whatsapp` out of ~/qr_whatsapp — a DIFFERENT product, serving
+# a paying customer's live WhatsApp bot on 127.0.0.1:4100. This project is separated from
+# it in every dimension Compose can separate: its own project name, container name, image
+# tag, volume and directory (~/hader-wa-ingest). Never run compose for this service from
+# ~/qr_whatsapp, never add this service to that project's file, and never `docker compose
+# down` without -p/-f scoping you have read twice.
+#
+# Ports already taken on this box: 4000 zeed · 4001 zeed-mohamad · 4100 qr_whatsapp.
+# We take 4200. Under host networking a port clash is a crash loop, so check before moving.
+#
+# Deploy:  bash infra/scripts/deploy-wa-ingest.sh   (from ~/hader-wa-ingest)
+# Manual:  cd ~/hader-wa-ingest/apps/wa-ingest && docker compose -p hader-wa-ingest up -d --build
+#
+# Requires Docker Compose v2.3.3+ (top-level `name:`). The deploy script also passes
+# `-p hader-wa-ingest` so project isolation holds even on a compose that ignores `name:`.
+
+name: hader-wa-ingest
+
+services:
+  wa-ingest:
+    build:
+      # Workspace root: this is a pnpm workspace package and the image needs the lockfile,
+      # every workspace manifest, packages/shared and packages/config. The root
+      # .dockerignore keeps node_modules/.git/dist/.env out of the context.
+      context: ../..
+      dockerfile: apps/wa-ingest/Dockerfile
+    image: hader-wa-ingest:local
+    container_name: hader-wa-ingest
+    restart: unless-stopped
+
+    # tini as PID 1: reaps the tsx child and forwards SIGTERM so pool.stopAll() runs.
+    init: true
+    # Give the shutdown path room to close every Baileys socket cleanly before SIGKILL.
+    stop_grace_period: 30s
+
+    # ── HOST networking, deliberately ────────────────────────────────────────────────
+    # 1. src/index.ts binds 127.0.0.1. Under bridge networking that makes the service
+    #    unreachable even from the host, because Docker's port proxy dials the container's
+    #    bridge IP and nothing is listening there — a bridge setup would require changing
+    #    the app to bind 0.0.0.0. Host mode keeps the application code exactly as reviewed.
+    # 2. Published ports (`ports:`) install DNAT rules in Docker's iptables chain that
+    #    BYPASS ufw. With host networking there is no DNAT at all, so the app's own
+    #    loopback bind is the control and no compose typo can widen it.
+    #
+    # ⚠ INVARIANT: because nothing else constrains reachability, the `host: '127.0.0.1'`
+    #   in src/index.ts IS the firewall. Do not "fix" it to 0.0.0.0 — /v1/status hands out
+    #   WhatsApp device-linking QR codes, and that must never be internet-reachable.
+    #   Hader (on 88.80.145.171) reaches this service through the reverse SSH tunnel
+    #   documented in README.md, not through a published port.
+    network_mode: host
+
+    env_file:
+      - .env
+    environment:
+      # Set here, not only in .env, so a stray WA_INGEST_DATA_DIR in the operator's .env
+      # cannot move the credential store off the persistent volume. `environment:` wins
+      # over `env_file:` in Compose precedence.
+      WA_INGEST_DATA_DIR: /data
+
+    volumes:
+      # Per-grant Baileys auth dirs (/data/auth/<grantId>). A NAMED volume, not a bind
+      # mount: it survives `up -d --build`, and it inherits the image's node:node ownership
+      # on first creation instead of needing a host-side chown for the unprivileged user.
+      #
+      # ⚠ This volume holds LIVE WhatsApp credentials for every active grant. Deleting it
+      #   unlinks every tenant and forces a fresh QR scan from each owner's phone — see
+      #   README.md, "Wiping auth is destructive".
+      - wa-ingest-data:/data
+
+    # Bounded so a Baileys memory leak cannot starve the paying customer's container on
+    # this box. An OOM kill is survivable: restart → reconcileOnBoot() → sessions resume
+    # from the credentials in the volume, with no new QR scan.
+    mem_limit: 2.5g
+
+    security_opt:
+      - no-new-privileges:true
+
+    # Optional extra hardening, left off so the first deploy stays boring. Both are safe in
+    # principle (the process needs no capabilities and writes only /data and $TMPDIR), but
+    # verify on a quiet window rather than during a tenant's live capture:
+    #   cap_drop: [ALL]
+    #   read_only: true
+    #   tmpfs: [/tmp]        # tsx caches transpiled output in the OS temp dir
+
+    healthcheck:
+      # Node's global fetch — no curl in the slim image, and nothing to install. Reads the
+      # port from the container env so it follows WA_INGEST_PORT automatically.
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:'+(process.env.WA_INGEST_PORT||4200)+'/health')
+          .then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+    logging:
+      driver: json-file
+      options:
+        # Bounded on a shared box. The logger structurally cannot write message bodies
+        # (see src/logger.ts), so these are metadata + lifecycle lines only.
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  wa-ingest-data:
+    # Explicit name so runbook commands are stable (`docker volume inspect
+    # hader-wa-ingest-data`) instead of depending on the project-name prefix.
+    name: hader-wa-ingest-data
