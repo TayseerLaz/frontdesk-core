@@ -237,8 +237,9 @@ purpose.
 - It never calls a contact who has opted out or been blocked. That is checked before a task row
   exists.
 - It refuses countries CALL-E does not support, up front.
-- Each task stores a durable idempotency key **before** the first request, so a crash or a network
-  retry cannot place a second call.
+- Each task stores an attempt-scoped idempotency key **before** the first request, so retrying that
+  attempt cannot become a second call. A new attempt gets a new key, and a call the provider has
+  already accepted cannot be recalled by closing the page.
 - A per-tenant daily cap and a delay after the order lands bound both spend and nuisance.
 - Auto-confirm is off by default and is a per-tenant switch.
 - Low confidence never performs a destructive write.

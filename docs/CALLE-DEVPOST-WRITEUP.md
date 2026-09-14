@@ -40,6 +40,8 @@ The platform is a TypeScript monorepo: Fastify API, BullMQ worker, Next.js porta
 
 Safety came from patterns already in the community repo: dry-run by default, an override phone that forces every live call to a number I own, respect for opted-out and blocked contacts, and a per-tenant daily cap.
 
+The submission PR was merged, and the maintainer's review earned its keep: they spotted that the cash-on-delivery rule cancelled an order whenever the extraction carried `confirmed: "no"`, regardless of disposition. A customer saying "no, not like that, I want to add something" comes back as `changed` with `confirmed: "no"` — so the very case my live test hit would have cancelled the order rather than escalating it, if the disposition check had not caught it first. Cancellation now requires an explicit `cancelled` disposition, the rule moved into its own dependency-free module, and sixteen unit tests cover it. That is the whole thesis of the project in one bug: the hard part is not dialling, it is deciding which answers may change a record.
+
 ## Challenges
 
 - **Region support.** Lebanon, where I live and where most of my tenants are, is not one of CALL-E's supported regions. The region gate therefore refuses a local customer before a task row is even written, which is the honest behaviour but also means my own market is not callable yet. I tested on a United States number instead.
