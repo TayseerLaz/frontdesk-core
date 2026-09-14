@@ -20,7 +20,7 @@ The AI front desk that picks up the phone: chat orders are confirmed by a real C
 
 | Field | Value |
 |---|---|
-| Pull request URL | *(fill after opening the PR — see `CALLE-HACKATHON-PLAN.md` §5)* |
+| Pull request URL | <https://github.com/CALLE-AI/awesome-phone-call-agents/pull/626> |
 | CALL-E account email | `tayseer.laz@aligned-tech.com` |
 | Demo video | *(fill: public YouTube link)* |
 | Functional demo app (optional) | *(leave blank unless deployed)* |
