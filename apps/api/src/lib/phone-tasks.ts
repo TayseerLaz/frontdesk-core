@@ -14,8 +14,9 @@
 // Write-back discipline (applyResult):
 //   - compare-and-set on appliedAt so a webhook + a poll racing apply once;
 //   - a record is only mutated when CALL-E says task_completed with confidence
-//     ≥ APPLY_MIN_CONFIDENCE AND the extracted disposition is unambiguous;
-//     everything else becomes needs_review and a human decides;
+//     ≥ APPLY_MIN_CONFIDENCE AND the extracted disposition is explicit AND
+//     uncontradicted by the rest of the extraction (phone-task-decision.ts);
+//     everything else, ambiguity included, becomes needs_review for a human;
 //   - every outcome (including failures) leaves an inbox note on the thread
 //     the order came from, so the conversation history stays the single
 //     source of truth for the operator.
@@ -43,12 +44,12 @@ import {
   type CalleCall,
 } from './calle.js';
 import { prisma } from './db.js';
+import { decideWriteBack } from './phone-task-decision.js';
 import { env } from './env.js';
 import { badRequest, forbidden, notFound, serviceUnavailable } from './errors.js';
 import { createNotification } from './notifications.js';
 import { emitWebhookEvent } from './webhooks.js';
 
-const APPLY_MIN_CONFIDENCE = 0.7;
 /** Dry-run calls "ring" for this long before the tick completes them. */
 export const DRY_RUN_RING_MS = 15_000;
 
@@ -573,25 +574,15 @@ type Decision =
   | { action: 'noop'; reason: string };
 
 function decide(task: PhoneTask, call: CalleCall, result: Record<string, unknown> | null): Decision {
-  if (call.status !== 'completed') {
-    return { action: 'needs_review', reason: `Call ${call.status}${call.failureMessage ? `: ${call.failureMessage}` : ''}` };
-  }
-  const score = call.completionConfidence?.score ?? 0;
-  if (!call.taskCompleted || score < APPLY_MIN_CONFIDENCE || !result) {
-    return { action: 'needs_review', reason: `Low confidence (${Math.round(score * 100)}%) or task not completed` };
-  }
-  const d = String(result.disposition ?? '');
-  if (task.kind === 'cod_order_confirm') {
-    if (d === 'confirmed' && result.confirmed === 'yes') return { action: 'confirmed', reason: 'Customer confirmed the order by phone' };
-    if (d === 'cancelled' || result.confirmed === 'no') return { action: 'cancelled', reason: 'Customer cancelled the order by phone' };
-    return { action: 'needs_review', reason: `Disposition: ${d || 'unknown'}` };
-  }
-  if (task.kind === 'booking_confirm') {
-    if (d === 'confirmed' && result.can_attend === 'yes') return { action: 'confirmed', reason: 'Customer confirmed the appointment by phone' };
-    if (d === 'declined') return { action: 'cancelled', reason: 'Customer declined the appointment by phone' };
-    return { action: 'needs_review', reason: `Disposition: ${d || 'unknown'}` };
-  }
-  return { action: 'noop', reason: 'Custom goal — result recorded, nothing mutated' };
+  // The rule itself lives in phone-task-decision.ts (pure, unit-tested).
+  return decideWriteBack({
+    kind: task.kind,
+    status: call.status,
+    failureMessage: call.failureMessage ?? null,
+    taskCompleted: call.taskCompleted === true,
+    confidence: call.completionConfidence?.score ?? 0,
+    result,
+  }) as Decision;
 }
 
 function noteFor(task: PhoneTask, call: CalleCall, decision: Decision, result: Record<string, unknown> | null): string {

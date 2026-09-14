@@ -72,9 +72,17 @@ Three things make it specific rather than generic:
 2. **It is escalation, not outreach.** Text first; voice only when a record is stuck. Nothing is
    cold-called. The phone number comes from the order the customer placed.
 3. **The result is governed.** An order only moves on `task_completed` **and** completion confidence
-   ≥ 0.7 **and** an unambiguous disposition. Anything else — voicemail, no answer, a hesitant
-   "maybe", schema drift — becomes `needs_review` and waits for a human. Low confidence can never
-   cancel someone's dinner.
+   ≥ 0.7 **and** a disposition that is both explicit and uncontradicted by the rest of the
+   extraction. Anything else — voicemail, no answer, a hesitant "maybe", a request to change the
+   order, a self-contradicting extraction, schema drift — becomes `needs_review` and waits for a
+   human. Low confidence can never cancel someone's dinner.
+
+   The word *uncontradicted* was earned. A reviewer on the CALL-E community repository read the
+   submitted skill and spotted that the cancel branch fired on `confirmed = "no"` regardless of
+   disposition, so a customer saying "no, not like that, I want to add something" would have had
+   the order cancelled instead of escalated. The rule now lives in its own dependency-free module,
+   `apps/api/src/lib/phone-task-decision.ts`, with sixteen unit tests in
+   `apps/api/test/pure/phone-task-decision.test.ts` that fail if anyone ever widens it again.
 
 ### How CALL-E is used at runtime
 
@@ -103,8 +111,10 @@ Three things make it specific rather than generic:
 - Numbers outside CALL-E's 23 supported countries are rejected up front with a clear error, rather
   than failing mid-call.
 - A per-tenant daily cap plus a delay after the order lands bound both spend and annoyance.
-- Every task persists a durable `Idempotency-Key` **before** the first request, so a crash or a
-  network retry can never place a second call.
+- Every task persists an attempt-scoped `Idempotency-Key` **before** the first request, so a crash
+  or a network retry inside that attempt cannot place a second call. A deliberate new attempt gets a
+  new key, and disabling auto-confirm stops future tasks rather than a call the provider has already
+  accepted, so an unknown outcome should be reconciled before retrying.
 
 ### Multi-tenancy
 
@@ -168,7 +178,7 @@ renegotiation when a courier slips, and a per-tenant voice persona that matches 
 | 0:25–0:45 | Screen: the order appearing in **Orders** as `new` | "Here's the order the AI just captured. Same platform, same catalogue the bot answered from." |
 | 0:45–1:40 | Click **Confirm by phone** → cut to the handset ringing, answer it, hold the conversation | "Now the AI picks up the phone. Notice it's reading back the real line items and the total from the order record, not from the chat." |
 | 1:40–2:10 | Screen: Phone tasks row moving to Completed; open the drawer | "Structured result, confidence, full transcript. The order flipped to confirmed on its own, and the summary is posted as a note in the customer's own chat thread." |
-| 2:10–2:35 | Screen: the settings card + the dry-run banner | "Auto-confirm with a delay and a daily cap. Dry-run is the default, and while an override number is set every live call goes to one verified handset. Low confidence never cancels an order — it goes to a human." |
+| 2:10–2:35 | Screen: the settings card + the dry-run banner | "Auto-confirm with a delay and a daily cap. Dry-run is the default, and while an override number is set every live call goes to one verified handset. Low confidence, or any ambiguous answer, never cancels an order. It goes to a human." |
 | 2:35–3:00 | Screen: `lib/calle.ts` briefly, then the Orders page | "One file talks to CALL-E. Results come back by webhook or poll and converge on a single idempotent write. That's phone work, finished, inside the system the business already runs." |
 
 Rules from the hackathon: under three minutes, own footage only, no third-party music or
