@@ -33,7 +33,7 @@
     "@fastify/sensible": "^6.0.1",
     "@fastify/swagger": "^9.4.0",
     "@fastify/swagger-ui": "^5.2.1",
-    "@fastify/under-pressure": "^9.0.3",
+    "@fastify/under-pressure": "^9.1.0",
     "@platform/db": "workspace:*",
     "@platform/shared": "workspace:*",
     "@sentry/node": "^8.50.0",
