@@ -18,9 +18,9 @@ backward-compatible by convention, so only code is reverted. Disable with
 ```bash
 # On your laptop:
 ssh-keygen -t ed25519 -C "deploy@platform" -f ~/.ssh/platform_deploy
-ssh-copy-id -p 269 -i ~/.ssh/platform_deploy.pub platform@91.92.108.178
+ssh-copy-id -p PLATFORM_SSH_PORT -i ~/.ssh/platform_deploy.pub platform@PLATFORM_HOST
 # NEW terminal — prove key login works BEFORE locking down:
-ssh -p 269 -i ~/.ssh/platform_deploy platform@91.92.108.178 'echo key-login-ok'
+ssh -p PLATFORM_SSH_PORT -i ~/.ssh/platform_deploy platform@PLATFORM_HOST 'echo key-login-ok'
 ```
 Then, on the server, in `/etc/ssh/sshd_config`:
 ```

@@ -2,7 +2,7 @@
 
 You're on **DediStart** (Redcluster LTD), VMware-based VPS. The current box is a
 VM with a **private NIC on `172.16.16.0/24`** (`ens33 = 172.16.16.32`), public
-`91.92.108.178` NAT'd to it. That private LAN is what makes HA cheap and safe —
+`PLATFORM_HOST` NAT'd to it. That private LAN is what makes HA cheap and safe —
 order the new VMs onto the **same VLAN** and all replication/cluster traffic
 stays private.
 

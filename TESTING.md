@@ -212,7 +212,8 @@ purpose.
 | What decides whether an order moves? | `phone-tasks.ts` → `decide()`. Requires `task_completed`, confidence ≥ 0.7 and an unambiguous disposition. Everything else is `needs_review`. |
 | How do results get back? | `apps/api/src/lib/phone-task-tick.ts` polls every 30s; `apps/api/src/modules/phone-tasks/calle-webhook.routes.ts` receives terminal events, deduplicates on `CALL-E-Event-Id`, and re-reads the call from the API rather than trusting the body. Both converge on a compare-and-set in `applyResult`. |
 | Is it safe for multiple businesses? | `phone_tasks` is tenant-scoped under Postgres row-level security. `apps/api/test/tenant-isolation.test.ts` has a blocking cross-tenant case for it. |
-| Reusable skill | `skills/cod-order-confirmation-call/` in the CALL-E community repo, submitted as part of this project. |
+| Reusable skill | [`skills/cod-order-confirmation-call/`](https://github.com/CALLE-AI/awesome-phone-call-agents/tree/main/skills/cod-order-confirmation-call) — merged into the CALL-E community repository as part of this project. |
+| Subsystem write-up | [`docs/PHONE-TASKS.md`](docs/PHONE-TASKS.md) |
 
 ---
 

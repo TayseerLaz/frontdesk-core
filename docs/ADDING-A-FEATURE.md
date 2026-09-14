@@ -132,7 +132,7 @@ Plugins register in `apps/api/src/server.ts:336-342`:
 
 ## 7. Deploy
 
-Pull-based: commit + push to `origin/main`, then `infra/scripts/redeploy.sh` **on the server** (`platform@91.92.108.178:269`, `/opt/platform/app`) — resets to origin/main, rebuilds db+shared, `prisma migrate deploy` (+ rls.sql), rebuilds web (swap-backed), restarts, health-checks. Multiple concurrent chats may share this working tree — **commit early and often**; uncommitted work is not safe.
+Pull-based: commit + push to `origin/main`, then `infra/scripts/redeploy.sh` **on the server** (`platform@PLATFORM_HOST:PLATFORM_SSH_PORT`, `/opt/platform/app`) — resets to origin/main, rebuilds db+shared, `prisma migrate deploy` (+ rls.sql), rebuilds web (swap-backed), restarts, health-checks. Multiple concurrent chats may share this working tree — **commit early and often**; uncommitted work is not safe.
 
 ## 8. Known gotchas / latent gaps
 

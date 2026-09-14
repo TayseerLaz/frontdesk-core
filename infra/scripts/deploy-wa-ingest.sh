@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy platform-wa-ingest (Sales Scan capture service) — run ON the AlignDesk box.
 #
-#   ssh -o KexAlgorithms=curve25519-sha256 -i ~/.ssh/id_ed25519 -p 7777 aladmin@88.80.145.157
+#   ssh -o KexAlgorithms=curve25519-sha256 -i ~/.ssh/id_ed25519 -p CAPTURE_SSH_PORT CAPTURE_USER@CAPTURE_HOST
 #   bash ~/platform-wa-ingest/infra/scripts/deploy-wa-ingest.sh
 #
 # Pull-based and git-based, same shape as infra/scripts/redeploy.sh: reset the checkout to
@@ -18,7 +18,7 @@
 #
 # Differences from redeploy.sh, and why:
 #   · No swapfile management — do not reshape a shared box's memory config from here.
-#   · No `sudo` — aladmin is in the docker group; nothing here needs root.
+#   · No `sudo` — CAPTURE_USER is in the docker group; nothing here needs root.
 #   · No migrations / no dist builds — this service owns no schema and compiles nothing
 #     (it runs via tsx from source, so the image build IS the whole build).
 #   · An extra pre-flight the the platform box doesn't need: recreating this container DROPS every
@@ -41,7 +41,7 @@ case "$APP_DIR" in
     deployment — this script must never operate there. Expected ~/platform-wa-ingest." ;;
   /opt/platform/app*)
     die "APP_DIR is the PLATFORM box path ($APP_DIR). This script is for the AlignDesk box
-    (88.80.145.157); the the platform box uses infra/scripts/redeploy.sh." ;;
+    (CAPTURE_HOST); the the platform box uses infra/scripts/redeploy.sh." ;;
 esac
 
 [ -d "$APP_DIR/.git" ] || die "$APP_DIR is not a git checkout. First-time setup: see

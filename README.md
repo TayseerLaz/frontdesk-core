@@ -77,7 +77,7 @@ Safety is enforced in code, not documentation:
 Code: `apps/api/src/lib/calle.ts` (the only importer of the SDK), `apps/api/src/lib/phone-tasks.ts`
 (task builders + write-back), `apps/api/src/lib/phone-task-tick.ts` (poll + auto-confirm),
 `apps/api/src/modules/phone-tasks/` (portal routes + the public webhook receiver),
-`apps/web/src/app/(dashboard)/phone-tasks/`. Sprint plan: `docs/CALLE-HACKATHON-PLAN.md`.
+`apps/web/src/app/(dashboard)/phone-tasks/`. Full subsystem notes: [docs/PHONE-TASKS.md](docs/PHONE-TASKS.md).
 
 ## Layout
 
@@ -119,6 +119,8 @@ constraints), then RLS.
 
 ## Docs
 
+- `docs/PHONE-TASKS.md` — the CALL-E phone follow-through subsystem: the three task kinds, the
+  safety rails, and the rule that decides whether a call may change a record
 - `docs/ARCHITECTURE.md` — runtime topology, the tenancy seam, subsystem index, critical paths
 - `docs/RUNBOOK.md` — deploy, rollback, restore, add-tenant, rotate secrets, incidents
 - `docs/ADDING-A-FEATURE.md` — the house pattern for a new feature + its feature flag

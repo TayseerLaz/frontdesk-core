@@ -1,6 +1,6 @@
 # platform-wa-ingest — Sales Scan capture service.
 #
-# Runs on the AlignDesk box (88.80.145.157), fully isolated from the qr_whatsapp
+# Runs on the AlignDesk box (CAPTURE_HOST), fully isolated from the qr_whatsapp
 # container that shares that machine. See ./README.md for topology + bootstrap and
 # ./docker-compose.yml for the runtime contract.
 #

@@ -10,10 +10,10 @@ single largest ban-risk reducer, and a config flag is too weak a guarantee.
 
 | | |
 |---|---|
-| Runs on | **AlignDesk**, `88.80.145.157` (SSH port **7777**, user **`aladmin`**) |
+| Runs on | **AlignDesk**, `CAPTURE_HOST` (SSH port **CAPTURE_SSH_PORT**, user **`CAPTURE_USER`**) |
 | Directory | `~/platform-wa-ingest` (a git checkout of this repo) |
 | Listens | `127.0.0.1:4200` — loopback only, never published |
-| Reached by the platform via | **reverse SSH tunnel** from this box to `91.92.108.178` (see [Networking](#networking)) |
+| Reached by the platform via | **reverse SSH tunnel** from this box to `PLATFORM_HOST` (see [Networking](#networking)) |
 | Talks to the platform at | `https://api.example.com` (outbound, public, HMAC-signed) |
 | Deploy | `bash ~/platform-wa-ingest/infra/scripts/deploy-wa-ingest.sh` |
 | Session cap | **2** (`WA_INGEST_MAX_SESSIONS`) — a ban-risk control, not a perf knob |
@@ -35,7 +35,7 @@ single largest ban-risk reducer, and a config flag is too weak a guarantee.
 
 ## Networking
 
-the platform runs on a **different box** (`91.92.108.178`) and makes two calls into this service:
+the platform runs on a **different box** (`PLATFORM_HOST`) and makes two calls into this service:
 `POST /v1/reconcile` (nudge, so a QR appears in seconds instead of on the next sweep) and
 `POST /v1/stop` (stop + purge a grant). `/v1/status` exists and returns the **WhatsApp
 device-linking QR**; the platform does not currently call it (it uses the Redis QR relay) but it is on
@@ -45,7 +45,7 @@ the same listener.
 `127.0.0.1` and is published nowhere:
 
 ```
-the platform box 91.92.108.178                     AlignDesk 88.80.145.157
+the platform box PLATFORM_HOST                     AlignDesk CAPTURE_HOST
 ───────────────────────                     ────────────────────────
 platform-api / platform-worker
   WA_INGEST_URL=http://127.0.0.1:4200
@@ -128,7 +128,7 @@ time. To go live you must now do both: set the vars on the the platform box **an
 ### 1 — AlignDesk: clone the repo
 
 ```bash
-ssh -o KexAlgorithms=curve25519-sha256 -i ~/.ssh/id_ed25519 -p 7777 aladmin@88.80.145.157
+ssh -o KexAlgorithms=curve25519-sha256 -i ~/.ssh/id_ed25519 -p CAPTURE_SSH_PORT CAPTURE_USER@CAPTURE_HOST
 
 # Read-only deploy key for this private repo (do not reuse the box's personal key).
 ssh-keygen -t ed25519 -f ~/.ssh/id_alignbot_deploy -N '' -C 'aligndesk-alignbot-deploy'
@@ -167,11 +167,11 @@ capped it at 2 until residential proxies exist.
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/id_platform_tunnel -N '' -C 'platform-wa-ingest-tunnel'
-ssh-keyscan -p 269 91.92.108.178 >> ~/.ssh/known_hosts
+ssh-keyscan -p PLATFORM_SSH_PORT PLATFORM_HOST >> ~/.ssh/known_hosts
 cat ~/.ssh/id_platform_tunnel.pub
 ```
 
-**On the the platform box** (`ssh -p 269 platform@91.92.108.178`) — confirm the port is free, then
+**On the the platform box** (`ssh -p PLATFORM_SSH_PORT platform@PLATFORM_HOST`) — confirm the port is free, then
 authorise that key for **one forward and nothing else**:
 
 ```bash
@@ -195,13 +195,13 @@ Wants=network-online.target
 StartLimitIntervalSec=0
 
 [Service]
-User=aladmin
+User=CAPTURE_USER
 ExecStart=/usr/bin/ssh -NT \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes \
-  -i /home/aladmin/.ssh/id_platform_tunnel \
-  -p 269 -R 127.0.0.1:4200:127.0.0.1:4200 platform@91.92.108.178
+  -i /home/CAPTURE_USER/.ssh/id_platform_tunnel \
+  -p PLATFORM_SSH_PORT -R 127.0.0.1:4200:127.0.0.1:4200 platform@PLATFORM_HOST
 Restart=always
 RestartSec=15
 
@@ -244,7 +244,7 @@ Then confirm from the ingest logs that the secret matches — `docker logs platf
 ## Redeploying
 
 ```bash
-ssh -o KexAlgorithms=curve25519-sha256 -i ~/.ssh/id_ed25519 -p 7777 aladmin@88.80.145.157
+ssh -o KexAlgorithms=curve25519-sha256 -i ~/.ssh/id_ed25519 -p CAPTURE_SSH_PORT CAPTURE_USER@CAPTURE_HOST
 bash ~/platform-wa-ingest/infra/scripts/deploy-wa-ingest.sh
 ```
 

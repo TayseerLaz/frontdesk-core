@@ -98,7 +98,7 @@ read-only mirror-row guard trigger.
 `DIRECT_DATABASE_URL` bypasses it and is what migrations and `rls:apply` use.
 
 **Separate repo:** the Aseer-time phone voicebot (Asterisk/AudioSocket + OpenAI realtime)
-at `88.80.145.146`. It owns telephony and audio only — it pulls a fully compiled
+at `VOICE_HOST`. It owns telephony and audio only — it pulls a fully compiled
 per-tenant system prompt and structured order/booking form config from
 `GET /api/v1/voice/config`, and posts call lifecycle, transcript turns, orders and
 bookings back.

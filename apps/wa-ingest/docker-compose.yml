@@ -1,4 +1,4 @@
-# platform-wa-ingest — Sales Scan capture service. Runs on the AlignDesk box, 88.80.145.157.
+# platform-wa-ingest — Sales Scan capture service. Runs on the AlignDesk box, CAPTURE_HOST.
 #
 # ⚠ SHARED BOX WARNING
 # This machine also runs `qr_whatsapp` out of ~/qr_whatsapp — a DIFFERENT product, serving

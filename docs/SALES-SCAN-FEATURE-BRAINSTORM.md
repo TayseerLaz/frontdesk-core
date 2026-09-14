@@ -9,7 +9,7 @@
 
 | # | Decision | Consequence |
 |---|---|---|
-| **Architecture** | **New service `platform-wa-ingest`**, forking `WaSession` — **its own systemd unit on the the platform prod box** (`91.92.108.178`), NOT inside `apps/api`/`apps/worker`, NOT on AlignDesk | `redeploy.sh:163` restarts only `platform-api platform-worker` (+web), so a the platform deploy never touches the ingest unit — sessions survive deploys. Localhost Postgres for the auth store + message writes; one box to operate; no cross-box webhook hop. **Baileys inside api/worker is ruled out**: every deploy would drop every session → reconnect storm → ban signal. |
+| **Architecture** | **New service `platform-wa-ingest`**, forking `WaSession` — **its own systemd unit on the the platform prod box** (`PLATFORM_HOST`), NOT inside `apps/api`/`apps/worker`, NOT on AlignDesk | `redeploy.sh:163` restarts only `platform-api platform-worker` (+web), so a the platform deploy never touches the ingest unit — sessions survive deploys. Localhost Postgres for the auth store + message writes; one box to operate; no cross-box webhook hop. **Baileys inside api/worker is ruled out**: every deploy would drop every session → reconnect storm → ban signal. |
 | **Session model** | **On-demand, permission-gated, time-boxed.** No tenant has a session by default. Permission grant → session connects → recent history + live capture for a bounded window → **auto-disconnect + purge auth** → learning runs on the corpus. Re-grant to refresh. | Concurrency ceiling, not a customer ceiling. Slots recycle. A tenant's number is attached to an unofficial client only during an active window. Permission expires naturally instead of drifting into a forgotten standing grant. |
 | **Window length** | **7 days** (was open; settled by the owner 2026-07-29) | 15 slots ÷ 1-week windows ≈ **~60 tenant scans/month** through one box. Summary generation fires at window close. |
 | **Gating (hidden when off)** | ~~The card renders for **every** tenant~~ — **REVERSED 2026-08-05 by owner decision.** Sales Scan now matches every other paged feature: the key registers `hrefs: ['/settings/sales-scan']`, so `isHrefDisabled` hides the Settings card and bounces the route when the feature is off. The **API** is gated with `assertOrgFeature` — *except* `GET /sales-scan/status` and the two revocation routes (stop capture, delete captured data), which stay ungated so a tenant whose feature is switched off can still withdraw consent. | No longer a deviation. Pinned by `apps/api/test/pure/sales-scan-invariants.test.ts`. |
@@ -116,7 +116,7 @@ support.
 ### The AlignDesk server
 | | |
 |---|---|
-| Host | `88.80.145.157`, SSH port **7777**, user **`aladmin`** (NOT `aliadmin` — that's the a partner box at `.120`) |
+| Host | `CAPTURE_HOST`, SSH port **CAPTURE_SSH_PORT**, user **`CAPTURE_USER`** (NOT `aliadmin` — that's the a partner box at `.120`) |
 | Key | `~/.ssh/id_ed25519`, needs `-o KexAlgorithms=curve25519-sha256` |
 | Public | `https://qr.aligndesk.ai` → nginx → `127.0.0.1:4100` (LE cert, SSE-friendly) |
 | App dir | `~/qr_whatsapp` — a real git repo tracking `origin/main` |
@@ -191,7 +191,7 @@ Plus: ban blast radius changes character completely. Today a ban costs *you* a b
 ## 4. Proposed shape
 
 ```
-Tenant browser                the platform (this repo)                  AlignDesk 88.80.145.157
+Tenant browser                the platform (this repo)                  AlignDesk CAPTURE_HOST
 ─────────────                 ─────────────────                  ────────────────────────
 /settings/sales-scan   ──►  POST /api/v1/sales-scan/connect ──►  POST /admin/v1/sessions
    consent + Connect                                              {orgId, proxy, dmOnly:true}

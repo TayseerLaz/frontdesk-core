@@ -2,7 +2,7 @@
 #
 # Run it against the live domain, and against a bare IP before you point DNS:
 #   .\check-public-exposure.ps1
-#   .\check-public-exposure.ps1 -ApiHost 91.92.108.178 -Scheme http
+#   .\check-public-exposure.ps1 -ApiHost PLATFORM_HOST -Scheme http
 #
 # Exit code 1 means something is exposed. Nothing here logs in or sends data;
 # it only asks the server what it is willing to hand an anonymous caller.
