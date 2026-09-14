@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Ban,
   Check,
+  PhoneForwarded,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -1357,6 +1358,28 @@ function ThreadHeader({
   // with which button was clicked.
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  // CALL-E phone follow-through: operator-typed goal → outbound AI call for this
+  // customer. The result lands as an internal note in this very thread.
+  const [callOpen, setCallOpen] = useState(false);
+  const [callGoal, setCallGoal] = useState('');
+  const placeCall = useMutation({
+    mutationFn: () =>
+      api.post<{ data: { id: string; dryRun: boolean } }>('/api/v1/phone-tasks', {
+        kind: 'custom',
+        threadId: thread.id,
+        goal: callGoal.trim(),
+      }),
+    onSuccess: (res) => {
+      setCallOpen(false);
+      setCallGoal('');
+      toast.success(
+        res.data.dryRun
+          ? 'Call queued (dry run) — the result will appear as a note here'
+          : 'Calling the customer now — the result will appear as a note here',
+      );
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.payload.message : 'Could not place the call'),
+  });
   const [confirmPurge, setConfirmPurge] = useState(false);
   useEffect(() => {
     setDraft(thread.customerName ?? '');
@@ -1576,6 +1599,9 @@ function ThreadHeader({
               <DropdownMenuItem onClick={onHandoff}>
                 <AlertTriangle className="size-4" /> Handoff to team
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCallOpen(true)}>
+                <PhoneForwarded className="size-4" /> Call customer (AI)
+              </DropdownMenuItem>
               {thread.status !== 'escalated' ? (
                 <DropdownMenuItem onClick={() => onStatusChange('escalated')}>
                   <AlertTriangle className="size-4 opacity-0" /> Mark escalated
@@ -1672,6 +1698,40 @@ function ThreadHeader({
           </>
         ) : null}
       </div>
+
+      <Dialog open={callOpen} onOpenChange={(open) => !placeCall.isPending && setCallOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PhoneForwarded className="size-4 text-brand-600" /> Call{' '}
+              {thread.customerName ?? thread.customerWhatsappName ?? thread.customerPhone}
+            </DialogTitle>
+            <DialogDescription>
+              The AI places one phone call through CALL-E, introduces itself on behalf of your
+              business, pursues the goal below, and posts the outcome as an internal note in this
+              conversation. It never takes payment or invents facts.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={callGoal}
+            onChange={(e) => setCallGoal(e.target.value)}
+            rows={4}
+            placeholder="e.g. Ask whether tomorrow 5 pm still works for the delivery and whether someone will be home to pay cash."
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCallOpen(false)} disabled={placeCall.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => placeCall.mutate()}
+              loading={placeCall.isPending}
+              disabled={callGoal.trim().length < 10}
+            >
+              <PhoneForwarded className="size-4" /> Place call
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmReset} onOpenChange={(open) => !resetPending && setConfirmReset(open)}>
         <DialogContent>

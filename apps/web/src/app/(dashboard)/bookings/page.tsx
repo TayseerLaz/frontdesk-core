@@ -10,6 +10,7 @@ import {
   Filter,
   List as ListIcon,
   MessageSquare,
+  PhoneCall,
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -305,6 +306,21 @@ export default function BookingsPage() {
       toast.success('Status updated');
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.payload.message : 'Update failed'),
+  });
+
+  // CALL-E phone follow-through: have the AI call the customer to confirm the
+  // appointment. Result flips the status or leaves it for review.
+  const callConfirm = useMutation({
+    mutationFn: (id: string) =>
+      api.post<{ data: { id: string; dryRun: boolean } }>('/api/v1/phone-tasks', {
+        kind: 'booking_confirm',
+        bookingId: id,
+      }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['phone-tasks'] });
+      toast.success(res.data.dryRun ? 'Confirmation call queued (dry run)' : 'Calling the customer now…');
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.payload.message : 'Could not place the call'),
   });
 
   const remove = useMutation({
@@ -686,6 +702,18 @@ export default function BookingsPage() {
                     })()}
                   </td>
                   <td className="px-4 py-4 text-right sm:px-6">
+                    {b.appointmentAt && (b.status === 'new' || b.status === 'confirmed') ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="mr-1"
+                        loading={callConfirm.isPending && callConfirm.variables === b.id}
+                        title="Have the AI call the customer to confirm this appointment"
+                        onClick={() => callConfirm.mutate(b.id)}
+                      >
+                        <PhoneCall className="size-4" /> Confirm by phone
+                      </Button>
+                    ) : null}
                     <Button
                       size="icon"
                       variant="ghost"
