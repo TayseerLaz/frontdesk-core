@@ -141,3 +141,36 @@ Platform repo (public): add a README section + link the video; ensure `.env.exam
 - SDK: `@call-e/calle@0.7.0`, `new CalleClient({apiKey, baseUrl})`, `client.calls.create/createAndWait({task, recipients:[{phones, region, locale}], resultSchema, recipientResultSchema, metadata}, {idempotencyKey})`, `client.calls.get(id)`; response has `status` (`queued|in_progress|completed|failed|canceled`), `structuredResult`, `taskCompleted`, `completionConfidence {score,label}`, `summary`, `evidence`, `recipients[].transcript_turns`.
 - REST: `https://api.heycall-e.com`, `Authorization: Bearer`, `POST /v1/calls` (`webhook_url` optional), `GET /v1/calls/{id}`, `GET /v1/calls/{id}/events`. Webhook: unsigned JSON `{id evt_…, type call.completed|call.failed|call.result_validation_failed, data: CallTask}`; dedupe on `CALL-E-Event-Id`.
 - Existing repo hooks to reuse: `assertOrgFeature` (`lib/org-feature-guard.ts`), `createNotification` (`lib/notifications.ts`), `emitWebhookEvent` (`lib/webhooks.ts`), `formatMoney`/`gatherBotData` (`lib/bot-engine.ts`), `WhatsAppNote` model + `POST /inbox/threads/:id/notes`, cart status via `PATCH /carts/:id`, Orders page mutation already exists (`cart/page.tsx:178`).
+
+---
+
+## Status — 11:35 EEST (build done; 7 h 10 min to the deadline)
+
+**Built, tested in dry-run, committed on branch `feat/calle-phone-tasks` (2 commits).** Verified through the real API and the portal:
+COD order → task → cart `confirmed` + inbox note + notification; booking → `confirmed`; custom goal → note only;
+auto-confirm tick placed a task on its own; `+961` rejected with `PHONE_TASK_REGION_UNSUPPORTED`; opted-out contact refused;
+`pnpm brand:check` ✓, API + shared typecheck ✓, web typecheck clean on touched files; screenshots taken of all four screens.
+
+**Submission repo prepared and pushed to your fork** — branch `feat/frontdesk-phone-follow-through` on
+`TayseerLaz/awesome-phone-call-agents` (community-app note, README entries, `skills/cod-order-confirmation-call/`; validator passes).
+Two placeholders remain: the public repo URL (currently `https://github.com/TayseerLaz/frontdesk-core`) and the video
+(`https://youtu.be/REPLACE_WITH_VIDEO_ID`). Fix with:
+
+```bash
+cd /private/tmp/claude-501/-Users-tayseerlaz-Projects-platform/f02e515a-aab2-4600-9f42-d51e8574baf8/scratchpad/awesome
+grep -rl "REPLACE_WITH_VIDEO_ID\|frontdesk-core" README.md docs skills | xargs sed -i '' -e 's#REPLACE_WITH_VIDEO_ID#<YOUTUBE_ID>#g' -e 's#TayseerLaz/frontdesk-core#TayseerLaz/<PUBLIC_REPO>#g'
+python3 scripts/validate_repository.py && git commit -am "docs(community-apps): add FrontDesk demo video + repo link" && git push
+gh pr create --repo CALLE-AI/awesome-phone-call-agents --head TayseerLaz:feat/frontdesk-phone-follow-through \
+  --title "feat(community-apps): add FrontDesk Phone Follow-Through and cod-order-confirmation-call skill" --body-file /dev/stdin
+```
+
+**Your queue, in order:**
+1. `npx -y skills add https://github.com/CALLE-AI/call-e-integrations --skill calle -g` → `calle auth login` → API key from the dashboard.
+2. Get a phone number in a supported country (US/UK/TR/…); put it in `.env` as `CALLE_LIVE_OVERRIDE_PHONE=+…`, set `CALLE_API_KEY`, `CALLE_DRY_RUN=false`; restart the API (`pnpm --filter @platform/api dev`).
+3. Smoke call (1 credit): Orders → **Confirm by phone** on a `new` order (any customer number — the override redirects to yours). Watch **Phone tasks** flip to Completed and the order to `confirmed`.
+4. Publish the platform: `git checkout main && git merge --ff-only feat/calle-phone-tasks && gh repo create <PUBLIC_REPO> --public --source=. --push`.
+5. Record the 3-minute video (script in §4), upload public to YouTube.
+6. Replace the two placeholders + open the PR (commands above).
+7. Devpost form (§6) before 18:45 EEST. Feedback survey by 18 Sep.
+
+Local login for the demo: `tayseer.laz@aligned-tech.com` / the `INITIAL_ADMIN_PASSWORD` in `.env`; portal <http://localhost:3000/app>.
