@@ -51,7 +51,7 @@ jobs:
           fi
 
       - name: Run ZAP baseline scan
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: ${{ steps.target.outputs.url }}
           # Configurable false-positive list, version-controlled.
