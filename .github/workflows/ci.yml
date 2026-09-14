@@ -55,7 +55,7 @@ jobs:
       - name: Brand-leak gate (HARD)
         run: bash infra/scripts/brand-check.sh
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.12.0
       - uses: actions/setup-node@v4
