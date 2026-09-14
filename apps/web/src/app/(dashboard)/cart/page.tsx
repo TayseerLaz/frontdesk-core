@@ -226,7 +226,7 @@ export default function CartPage() {
   return (
     <>
       <PageHeader
-        title="Cart"
+        title="Orders"
         description="Customer orders placed via the AI chatbot or entered manually. Configure the order form on /business-info → Shop form."
       />
       <Card>

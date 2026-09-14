@@ -14,8 +14,8 @@ import { cn } from '@/lib/utils';
  *   iconOnly = false → /platform-wordmark.png    (mark + "the platform" text)
  *
  * Native aspect ratios:
- *   icon:     2695  × 2702  ≈ 1:1
- *   wordmark: 6452  × 1272  ≈ 5.07:1
+ *   icon:     512  × 512  ≈ 1:1
+ *   wordmark: 1382 × 224  ≈ 6.17:1
  */
 export function BrandLogo({
   className,
@@ -60,7 +60,7 @@ export function BrandLogo({
       // the wordmark from squishing at any height.
       className={cn('inline-block h-9 text-brand-500', className)}
       style={{
-        aspectRatio: '6452 / 1272',
+        aspectRatio: '1382 / 224',
         backgroundColor: 'currentColor',
         // Prefixed with /app for the same basePath reason as the
         // iconOnly branch above.

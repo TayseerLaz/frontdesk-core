@@ -163,6 +163,8 @@ enum AuditAction {
   cart_created
   cart_updated
   cart_deleted
+  // CALL-E phone follow-through
+  phone_task_created
   // AI plan tier (basic / middle / max) changed by an super-admin.
   ai_plan_changed
   // super-admin edited the tenant's admin-only bot system-prompt addendum.

@@ -183,7 +183,7 @@ export default async function phoneTasksRoutes(app: FastifyInstance) {
         source: 'operator',
       });
       await recordAudit({
-        action: 'cart_updated',
+        action: 'phone_task_created',
         organizationId: orgId,
         actorUserId: req.auth!.userId,
         entityType: 'phone_task',
