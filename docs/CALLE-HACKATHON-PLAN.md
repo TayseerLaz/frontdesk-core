@@ -174,3 +174,40 @@ gh pr create --repo CALLE-AI/awesome-phone-call-agents --head TayseerLaz:feat/fr
 7. Devpost form (§6) before 18:45 EEST. Feedback survey by 18 Sep.
 
 Local login for the demo: `tayseer.laz@aligned-tech.com` / the `INITIAL_ADMIN_PASSWORD` in `.env`; portal <http://localhost:3000/app>.
+
+---
+
+## Status — 12:05 EEST · live path proven against a mock, PR open
+
+**Done since the 11:35 note:**
+
+- Repo published: <https://github.com/TayseerLaz/frontdesk-core> (public, `main`). Secret scan clean — `.env` is
+  gitignored and the two regex hits were false positives (a doc line and a minified audio worker).
+- **PR opened: <https://github.com/CALLE-AI/awesome-phone-call-agents/pull/626>** — the community-app entry plus
+  the `cod-order-confirmation-call` skill. The repository validator passes. The demo-video link was left OUT
+  rather than shipped as a dead placeholder; it goes in as a follow-up commit on the same branch.
+- CALL-E API key stored in `.env` and verified live (`GET /v1/goals` → HTTP 200).
+- **The non-dry-run code path was exercised end to end against a mock CALL-E server** shaped like the published
+  OpenAPI schema, so the first real call is not the first test. Verified:
+
+  | Check | Result |
+  |---|---|
+  | Request shape | `task`, `recipients[{phones,locale,region}]`, `result_schema`, `recipient_result_schema`, `metadata` |
+  | `Idempotency-Key` header | `phone-task:<org>:cod_order_confirm:<cart>:1:v1` |
+  | Live override | intended `+14155550100` → dialed `+14155550111`, `liveOverride: true` in metadata |
+  | Status machine | `queued` → `in_progress` → `completed` across two polls |
+  | Result parsing | `completion_confidence.score` 0.94, structured result, 5 transcript turns, `offset_seconds` → ms |
+  | Write-back | order flipped to `confirmed` |
+  | **Low-confidence safety** | score 0.31 + `task_completed: false` → task `needs_review`, **order stayed `new`** |
+
+- `.env` restored to the real endpoint and **left in dry-run with no override**, so no stray click can burn one
+  of the 20 free calls before a verified number exists.
+
+**Blocked on you, in order:**
+
+1. **A phone number in a supported country that rings on your handset** (US, UK, TR, DE, ES, NL, PL, FI, SG, MY,
+   TH, ID, PH, VN, IN, PK, BD, CN, JP, MX, BR, AU, CA). Lebanon is not supported. Send it and I will set
+   `CALLE_LIVE_OVERRIDE_PHONE`, flip `CALLE_DRY_RUN=false`, restart, and place the call.
+2. **Record and upload the video** (shot list in `CALLE-DEVPOST-SUBMISSION.md`). Public on YouTube.
+3. **Devpost form** — full text ready in `CALLE-DEVPOST-SUBMISSION.md`. Due 18:45 EEST.
+4. Feedback survey by 18 Sep (separate $200 prize, five winners).
