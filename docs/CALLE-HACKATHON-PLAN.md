@@ -211,3 +211,19 @@ Local login for the demo: `tayseer.laz@aligned-tech.com` / the `INITIAL_ADMIN_PA
 2. **Record and upload the video** (shot list in `CALLE-DEVPOST-SUBMISSION.md`). Public on YouTube.
 3. **Devpost form** — full text ready in `CALLE-DEVPOST-SUBMISSION.md`. Due 18:45 EEST.
 4. Feedback survey by 18 Sep (separate $200 prize, five winners).
+
+---
+
+## Status — 12:10 EEST · LIVE CALL SUCCEEDED
+
+Real call placed and answered. Call id `call_gI_eGCpcqmdZXknQYRdrFg`, 29-turn transcript, 88%
+confidence, one CALL-E credit spent (19 remain).
+
+The customer asked to add an item during the call, so CALL-E returned `disposition: changed` and the
+platform routed the task to `needs_review` and left the order at `new` — the governance rule working
+on live input. Notification raised, transcript and structured result stored and rendering correctly
+in the portal.
+
+**Remaining, all yours:** record the video, send me the YouTube link, submit the Devpost form.
+For the demo take, confirm the order **without** asking for changes so the order visibly flips to
+`confirmed`; the existing `needs_review` row is already on screen as proof of the safety rule.

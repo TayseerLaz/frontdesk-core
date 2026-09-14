@@ -173,3 +173,19 @@ renegotiation when a courier slips, and a per-tenant voice persona that matches 
 
 Rules from the hackathon: under three minutes, own footage only, no third-party music or
 trademarks, uploaded **public** to YouTube or Vimeo.
+
+---
+
+## Verified live (evidence for the Technical Implementation criterion)
+
+A real CALL-E call was placed from this codebase on **14 September 2026, 12:01 EEST**, call id
+`call_gI_eGCpcqmdZXknQYRdrFg`, to a verified number via `CALLE_LIVE_OVERRIDE_PHONE`.
+
+The AI opened with "this is the shop calling to confirm Taylor's order", read back two chicken
+shawarma wraps and one large fries, and confirmed the delivery address. **The customer asked to add
+an item mid-call.** CALL-E returned `disposition: changed` with `requested_changes: "Add 1 sub print"`
+at 88% confidence across a 29-turn transcript.
+
+The platform therefore did **not** auto-confirm. The task became `needs_review`, the order stayed
+`new`, and a warning notification was raised for a human — the exact governance rule described
+above, exercised on real, unscripted input rather than a happy-path fixture.
