@@ -219,7 +219,10 @@ export default function PhoneTasksPage() {
           </CardContent>
         </Card>
 
-        <SettingsCard />
+        <div className="space-y-4">
+          <SettingsCard />
+          <TryCallCard />
+        </div>
       </div>
 
       <TaskDialog taskId={openId} onClose={() => setOpenId(null)} />
@@ -339,6 +342,92 @@ function SettingsCard() {
         <p className="text-xs text-foreground-subtle">
           Contacts who opted out or are blocked are never called. Each task keeps a durable
           idempotency key so a retry can never place a second call.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TryCallCard() {
+  const qc = useQueryClient();
+  const runtime = useQuery({
+    queryKey: ['phone-tasks', 'runtime'],
+    queryFn: () => api.get<{ data: Runtime }>('/api/v1/phone-tasks/runtime'),
+  });
+  const rt = runtime.data?.data;
+  const [phone, setPhone] = useState('');
+  const [goal, setGoal] = useState(
+    'Introduce yourself as the clinic, ask whether they can hear you clearly, and ask if 4:30pm tomorrow would suit them for a skin consultation.',
+  );
+
+  const place = useMutation({
+    mutationFn: () =>
+      api.post<{ data: PhoneTask }>('/api/v1/phone-tasks', {
+        kind: 'custom',
+        phoneE164: phone.trim(),
+        goal: goal.trim(),
+      }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['phone-tasks'] });
+      toast.success(
+        res.data.dryRun
+          ? 'Queued as a dry run — no call placed. Set CALLE_DRY_RUN=false to dial for real.'
+          : 'Calling you now. Answer your phone.',
+      );
+      setPhone('');
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.payload.message : 'Could not place the call'),
+  });
+
+  const valid = /^\+?[0-9][0-9\s-]{7,19}$/.test(phone.trim()) && goal.trim().length >= 10;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Try it on your own phone</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p className="text-xs text-foreground-muted">
+          Places a one-off CALL-E call to any number you own, so you can hear the agent without
+          touching a customer record. The result lands in the list on the left with its transcript
+          and structured JSON.
+        </p>
+        <label className="block space-y-1">
+          <span className="text-xs text-foreground-muted">Your number, international format</span>
+          <Input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+14155550100"
+            inputMode="tel"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs text-foreground-muted">What should the AI do on the call?</span>
+          <textarea
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            rows={4}
+            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand-500"
+          />
+        </label>
+        <Button
+          className="w-full"
+          disabled={!valid}
+          loading={place.isPending}
+          onClick={() => place.mutate()}
+        >
+          <PhoneForwarded className="size-4" />
+          {rt && !rt.dryRun ? 'Call me now' : 'Queue a dry run'}
+        </Button>
+        {rt && !rt.dryRun && rt.liveOverridePhone ? (
+          <p className="text-xs text-warning">
+            An override is set, so this will ring {rt.liveOverridePhone} rather than the number above.
+            Clear CALLE_LIVE_OVERRIDE_PHONE to dial your own number.
+          </p>
+        ) : null}
+        <p className="text-xs text-foreground-subtle">
+          Supported countries: {rt?.supportedRegions.join(', ') ?? '…'}. Anything else is refused
+          before a call is attempted.
         </p>
       </CardContent>
     </Card>

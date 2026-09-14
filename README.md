@@ -1,5 +1,8 @@
 # Platform Core
 
+> **Evaluating this project?** Read **[TESTING.md](TESTING.md)** — it takes you from a fresh
+> clone to a real phone call in about fifteen minutes, including a no-credentials dry run.
+
 A multi-tenant SaaS that turns a business's WhatsApp number into an AI front desk.
 
 A tenant loads its catalogue, hours, FAQs and policies into a web portal and connects

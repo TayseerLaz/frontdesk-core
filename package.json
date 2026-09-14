@@ -29,7 +29,9 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "bootstrap": "pnpm --filter @platform/db bootstrap",
     "db:seed:demo": "pnpm --filter @platform/db seed",
-    "brand:check": "bash infra/scripts/brand-check.sh"
+    "brand:check": "bash infra/scripts/brand-check.sh",
+    "seed:demo": "pnpm --filter @platform/db exec tsx --conditions=source scripts/seed-demo-clinic.ts && pnpm --filter @platform/db exec tsx --conditions=source scripts/seed-demo-clinic-user.ts",
+    "dev:demo": "turbo run dev --filter=@platform/api --filter=@platform/web"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
