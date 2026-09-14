@@ -513,4 +513,50 @@ describe('tenant isolation', () => {
     });
     expect(crossOrg.statusCode).toBe(403);
   });
+  // CALL-E phone follow-through (2026-09-14): phone_tasks carry customer phone
+  // numbers + call transcripts. Route-level 404 + list exclusion + Postgres RLS.
+  it('a user in org A cannot read phone tasks from org B', async () => {
+    const app = getApp();
+    const a = await seedOrgAndLogin(app, 'phone-task-iso-a');
+    const b = await seedOrgAndLogin(app, 'phone-task-iso-b');
+
+    // Seed a phone task directly for org B (bypass role, like the other probes).
+    const row = await prisma.phoneTask.create({
+      data: {
+        organizationId: b.orgId,
+        kind: 'custom',
+        phoneE164: '+14155550100',
+        task: 'isolation probe',
+        resultSchema: { type: 'object', properties: {} },
+        idempotencyKey: `iso-${b.orgId}`,
+        dryRun: true,
+        status: 'completed',
+      },
+    });
+
+    const fetchA = await app.inject({
+      method: 'GET',
+      url: `/api/v1/phone-tasks/${row.id}`,
+      headers: { authorization: `Bearer ${a.accessToken}` },
+    });
+    expect(fetchA.statusCode).toBe(404);
+
+    const listA = await app.inject({
+      method: 'GET',
+      url: '/api/v1/phone-tasks',
+      headers: { authorization: `Bearer ${a.accessToken}` },
+    });
+    expect(listA.statusCode).toBe(200);
+    expect((listA.json() as { data: { id: string }[] }).data.find((t) => t.id === row.id)).toBeUndefined();
+
+    const fetchB = await app.inject({
+      method: 'GET',
+      url: `/api/v1/phone-tasks/${row.id}`,
+      headers: { authorization: `Bearer ${b.accessToken}` },
+    });
+    expect(fetchB.statusCode).toBe(200);
+
+    expect(await probeRls('phone_tasks', row.id, b.orgId)).toBe(1);
+    expect(await probeRls('phone_tasks', row.id, a.orgId)).toBe(0);
+  });
 });

@@ -410,6 +410,9 @@ model Organization {
   // 'ai' additionally turns off the bot's auto-reply (manual inbox only — a
   // pure social-media handler). Empty = full access. See ORG_FEATURES in shared.
   disabledFeatures    String[]  @default([]) @map("disabled_features")
+  // CALL-E phone follow-through settings (lib/phone-tasks.ts). Nullable JSON:
+  // { codAutoConfirm: boolean, delayMinutes: number, dailyCap: number }.
+  phoneTaskSettings   Json?     @map("phone_task_settings")
   // What this tenant pays the platform per month (USD), entered manually by an
   // super-admin. Drives the per-tenant Billing & overview (paid vs cost).
   monthlyPaidUsd      Float?    @map("monthly_paid_usd")
@@ -494,6 +497,7 @@ model Organization {
   voiceCalls               VoiceCall[]
   voiceCallTurns           VoiceCallTurn[]
   phoneIntegrations        PhoneIntegration[]
+  phoneTasks               PhoneTask[]
   // Google Calendar — per-tenant one-way booking sync (opt-in; absent = off)
   googleCalendarConnection GoogleCalendarConnection?
   // Sales Scan ("Teach the bot with your own data") — opt-in, HQ-activated
@@ -3753,4 +3757,58 @@ model ContactSyncStagedItem {
   @@index([organizationId, sessionId, status])
   @@index([sessionId, appliedAt])
   @@map("contact_sync_staged_items")
+}
+
+// ---------------------------------------------------------------------------
+// Phone tasks — outbound AI phone calls placed through CALL-E (@call-e/calle)
+// to close the loop on a record the chat bot opened: confirm a cash-on-delivery
+// order, confirm a booking, or a free-form operator goal. One row per call
+// attempt; the CALL-E call id + our durable idempotency key make retries safe.
+// Results are written back to the target (cart/booking) + the inbox thread by
+// lib/phone-tasks.ts applyResult — never by the caller.
+// ---------------------------------------------------------------------------
+model PhoneTask {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  // 'cod_order_confirm' | 'booking_confirm' | 'custom'
+  kind           String
+  // 'cart' | 'booking' | 'thread' | null (custom without a record)
+  targetType     String?   @map("target_type")
+  targetId       String?   @map("target_id") @db.Uuid
+  contactId      String?   @map("contact_id") @db.Uuid
+  threadId       String?   @map("thread_id") @db.Uuid
+  phoneE164      String    @map("phone_e164")
+  // The phone actually dialed (differs from phoneE164 when CALLE_LIVE_OVERRIDE_PHONE is set).
+  dialedPhone    String?   @map("dialed_phone")
+  locale         String?
+  region         String?
+  task           String
+  resultSchema   Json      @map("result_schema")
+  metadata       Json      @default("{}")
+  idempotencyKey String    @unique @map("idempotency_key")
+  calleCallId    String?   @map("calle_call_id")
+  dryRun         Boolean   @default(true) @map("dry_run")
+  // 'queued' | 'in_progress' | 'completed' | 'failed' | 'canceled' | 'needs_review'
+  status         String    @default("queued")
+  structuredResult Json?   @map("structured_result")
+  summary        String?
+  taskCompleted  Boolean?  @map("task_completed")
+  confidence     Float?
+  transcript     Json?
+  error          String?
+  // Stamped once when the result has been written back (idempotency for webhook + poll races).
+  appliedAt      DateTime? @map("applied_at")
+  // What applyResult did: 'confirmed' | 'cancelled' | 'needs_review' | 'noop'
+  appliedAction  String?   @map("applied_action")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  completedAt    DateTime? @map("completed_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt(sort: Desc)])
+  @@index([organizationId, targetType, targetId])
+  @@index([calleCallId])
+  @@map("phone_tasks")
 }

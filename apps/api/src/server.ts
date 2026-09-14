@@ -65,6 +65,8 @@ import notificationRoutes from './modules/notifications/notifications.routes.js'
 import readApiRoutes from './modules/read/read.routes.js';
 import voiceRoutes from './modules/voice/voice.routes.js';
 import phoneIntegrationRoutes from './modules/voice/phone-integration.routes.js';
+import phoneTasksRoutes from './modules/phone-tasks/phone-tasks.routes.js';
+import calleWebhookRoutes from './modules/phone-tasks/calle-webhook.routes.js';
 import revisionRoutes from './modules/revisions/revisions.routes.js';
 import multipartUploadRoutes from './modules/storage/multipart-upload.routes.js';
 import storageRoutes from './modules/storage/storage.routes.js';
@@ -326,6 +328,7 @@ export async function buildServer() {
         { name: 'api-keys', description: 'API keys for the chatbot read API' },
         { name: 'chatbot-read', description: 'Read-only API consumed by the WhatsApp chatbot' },
         { name: 'voice', description: 'Voice media gateway — call config, lifecycle, transcripts' },
+        { name: 'phone-tasks', description: 'CALL-E phone follow-through — outbound AI calls + results' },
       ],
     },
     transform: jsonSchemaTransform,
@@ -395,6 +398,8 @@ export async function buildServer() {
   await app.register(webhookEndpointRoutes, { prefix: '/api/v1' });
   await app.register(apiKeyRoutes, { prefix: '/api/v1' });
   await app.register(phoneIntegrationRoutes, { prefix: '/api/v1' });
+  // CALL-E phone follow-through — portal routes (JWT).
+  await app.register(phoneTasksRoutes, { prefix: '/api/v1' });
   await app.register(revisionRoutes, { prefix: '/api/v1' });
   await app.register(notificationRoutes, { prefix: '/api/v1' });
   await app.register(dashboardRoutes, { prefix: '/api/v1' });
@@ -425,6 +430,9 @@ export async function buildServer() {
   await app.register(shopifyWebhookRoutes, { prefix: '/api/v1' });
   // Sales Scan capture service (runs off-box on AlignDesk) -> HMAC + skew + replay nonce.
   await app.register(salesScanIngestRoutes, { prefix: '/api/v1' });
+
+  // CALL-E terminal call events (token-in-URL, unsigned by design — see module header).
+  await app.register(calleWebhookRoutes, { prefix: '/api/v1' });
 
   // Routes — public payment-confirmation webhooks (gateway-signed, no JWT)
   await app.register(paymentWebhookRoutes, { prefix: '/api/v1' });
@@ -471,6 +479,14 @@ async function start() {
       app.log.info({ name: gcalTick.name }, 'google calendar sync tick started');
     } catch (tickErr) {
       app.log.error({ err: tickErr }, 'failed to start google calendar sync tick (non-fatal)');
+    }
+    // CALL-E phone-task tick — polls open calls + auto-confirms COD orders.
+    try {
+      const { startPhoneTaskTick } = await import('./lib/phone-task-tick.js');
+      const phoneTick = startPhoneTaskTick(app.log);
+      app.log.info({ name: phoneTick.name }, 'phone-task tick started');
+    } catch (tickErr) {
+      app.log.error({ err: tickErr }, 'failed to start phone-task tick (non-fatal)');
     }
     // Wallet balance-depletion alert tick — notifies tenant + admins when a
     // metered wallet crosses its configured %-used thresholds. Non-fatal.

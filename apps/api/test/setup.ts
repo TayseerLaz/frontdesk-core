@@ -38,6 +38,7 @@ beforeEach(async () => {
   await prisma.$executeRawUnsafe(`SET app.bypass_rls = 'on'`);
   await prisma.$executeRawUnsafe(
     `TRUNCATE
+       phone_tasks,
        whatsapp_messages, whatsapp_channels,
        webhook_deliveries, webhook_endpoints,
        sync_runs, api_connectors,

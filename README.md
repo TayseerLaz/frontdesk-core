@@ -45,6 +45,37 @@ Log in at <http://localhost:3000/app> with `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMI
 `packages/shared/src/brand.ts` is the single source of truth; `apps/web/src/lib/brand.ts`
 is its browser-safe twin (Next inlines `NEXT_PUBLIC_*` at build time).
 
+## Phone follow-through with CALL-E
+
+The AI front desk can now **pick up the phone when chat is not enough**. Orders and
+bookings the chat bot captures are closed by an outbound AI call placed through
+[CALL-E](https://www.heycall-e.com/) (`@call-e/calle`), and the structured result is
+written back to the record and posted as a note in the same inbox conversation.
+
+| Trigger | What the call does | Write-back |
+|---|---|---|
+| **Cash-on-delivery order** (manual button on Orders, or auto after N minutes) | Reads back the *real* cart rows and total, confirms the delivery address, records changes | cart → `confirmed` / `cancelled`, or `needs_review` for a human |
+| **Booking** | Asks whether the customer can still attend; records a requested new time without promising it | booking → `confirmed` / `cancelled`, or `needs_review` |
+| **Custom goal** from a conversation | Whatever the operator asks, grounded in the business name and policies | inbox note only |
+
+Safety is enforced in code, not documentation:
+
+- `CALLE_DRY_RUN=true` is the **default** — nothing is dialed, a synthetic result completes
+  the whole write-back path so the feature can be evaluated without credentials.
+- `CALLE_LIVE_OVERRIDE_PHONE` redirects **every** live call to one verified number.
+- Contacts who opted out or are blocked are never called; unsupported countries are
+  rejected before a row exists; a per-tenant daily cap bounds spend.
+- Every task persists a durable `Idempotency-Key` before the first request, and results
+  apply through a compare-and-set so the webhook and the 30-second poll can never
+  double-apply.
+- Low confidence or an ambiguous disposition **never** cancels an order — it becomes
+  `needs_review`.
+
+Code: `apps/api/src/lib/calle.ts` (the only importer of the SDK), `apps/api/src/lib/phone-tasks.ts`
+(task builders + write-back), `apps/api/src/lib/phone-task-tick.ts` (poll + auto-confirm),
+`apps/api/src/modules/phone-tasks/` (portal routes + the public webhook receiver),
+`apps/web/src/app/(dashboard)/phone-tasks/`. Sprint plan: `docs/CALLE-HACKATHON-PLAN.md`.
+
 ## Layout
 
 ```

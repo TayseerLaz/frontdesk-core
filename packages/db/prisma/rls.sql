@@ -311,3 +311,7 @@ SELECT _apply_tenant_rls('conversation_feedback');
 -- Back-in-stock watches (F5, roadmap 2026-08-26) — per-tenant customer
 -- interest flags with contact linkage. Added 2026-08-28.
 SELECT _apply_tenant_rls('stock_watches');
+
+-- CALL-E phone follow-through tasks (2026-09-14) — per-tenant outbound call
+-- records carrying customer phone numbers + transcripts.
+SELECT _apply_tenant_rls('phone_tasks');

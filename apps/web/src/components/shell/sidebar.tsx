@@ -25,6 +25,7 @@ import {
   UserPlus,
   Users,
   Wallet,
+  PhoneForwarded,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -82,6 +83,7 @@ const groups: NavGroup[] = [
     items: [
       { href: '/inbox-full', label: 'Inbox', icon: Inbox, badgeKey: 'inboxEscalated', newTab: true },
       { href: '/voice-calls', label: 'Voice calls', icon: PhoneCall, hideForAdminHome: true },
+      { href: '/phone-tasks', label: 'Phone tasks', icon: PhoneForwarded, hideForAdminHome: true },
       { href: '/contacts', label: 'Contacts', icon: ContactIcon },
       { href: '/broadcasts', label: 'Broadcasts', icon: Megaphone },
       // Canned replies moved INTO the inbox (a dialog from the inbox header),

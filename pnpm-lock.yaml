@@ -27,12 +27,6 @@ importers:
 
   apps/api:
     dependencies:
-      '@platform/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@platform/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@anthropic-ai/sdk':
         specifier: ^0.100.1
         version: 0.100.1(zod@3.25.76)
@@ -42,6 +36,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.717.0
         version: 3.1032.0
+      '@call-e/calle':
+        specifier: 0.7.0
+        version: 0.7.0
       '@fastify/cookie':
         specifier: ^11.0.1
         version: 11.0.2
@@ -69,6 +66,12 @@ importers:
       '@fastify/under-pressure':
         specifier: ^9.0.3
         version: 9.0.3
+      '@platform/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@platform/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@sentry/node':
         specifier: ^8.50.0
         version: 8.55.1
@@ -185,12 +188,12 @@ importers:
 
   apps/wa-ingest:
     dependencies:
-      '@platform/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@hapi/boom':
         specifier: ^10.0.1
         version: 10.0.1
+      '@platform/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@whiskeysockets/baileys':
         specifier: ^6.7.23
         version: 6.17.16(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
@@ -222,12 +225,12 @@ importers:
 
   apps/web:
     dependencies:
-      '@platform/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.72.1(react@19.2.5))
+      '@platform/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@radix-ui/react-avatar':
         specifier: ^1.1.2
         version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -340,15 +343,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.717.0
+        version: 3.1032.0
       '@platform/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@platform/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@aws-sdk/client-s3':
-        specifier: ^3.717.0
-        version: 3.1032.0
       '@prisma/client':
         specifier: ^6.1.0
         version: 6.19.3(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3)
@@ -704,6 +707,10 @@ packages:
 
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
+
+  '@call-e/calle@0.7.0':
+    resolution: {integrity: sha512-SUOm42SaVvzboBbXlv7d8uGmbpPuQwZIX5rU9nWo5tr+JOgP36P8rfe1AI7ZVbMpLuX88XIxASm2BQ3qfAKyPg==}
+    hasBin: true
 
   '@derhuerst/http-basic@8.2.4':
     resolution: {integrity: sha512-F9rL9k9Xjf5blCz8HsJRO4diy111cayL2vkY2XE4r4t3n0yPXVYy3KD3nJ1qbrSn9743UWSXH4IwuCa/HWlGFw==}
@@ -3709,6 +3716,7 @@ packages:
   cron-parser@4.9.0:
     resolution: {integrity: sha512-p0SaNjrHOnQeR8/VnfGbmg9te2kfyYSQ7Sc/j/6DtPL3JQvKxmjO9TSjNFpujqV3vEYYBvNNvXSxzyksBWAx1Q==}
     engines: {node: '>=12.0.0'}
+    deprecated: v4 is no longer maintained, upgrade to v5
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -4098,6 +4106,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -5325,8 +5334,14 @@ packages:
       zod:
         optional: true
 
+  openapi-fetch@0.14.1:
+    resolution: {integrity: sha512-l7RarRHxlEZYjMLd/PR0slfMVse2/vvIAGm75/F7J6MlQ8/b9uUQmUF2kCPrQhJqMXSxmYWObVgeYXbFYzZR+A==}
+
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
+
+  openapi-typescript-helpers@0.0.15:
+    resolution: {integrity: sha512-opyTPaunsklCBpTK8JGef6mfPhLSnyy5a0IN9vKtx3+4aExf+KxEqYwIy3hqkedXIB97u357uLMJsOnm3GVjsw==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -5593,6 +5608,7 @@ packages:
   prom-client@15.1.3:
     resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
     engines: {node: ^16 || ^18 || >=20}
+    deprecated: prom-client has been replaced by @prometheus-io/client
 
   promise-coalesce@1.5.0:
     resolution: {integrity: sha512-cTJ30U+ur1LD7pMPyQxiKIwxjtAjLsyU7ivRhVWZrX9BNIXtf78pc37vSMc8Vikx7DVzEKNk2SEJ5KWUpSG2ig==}
@@ -7080,6 +7096,10 @@ snapshots:
     dependencies:
       hashery: 1.5.1
       keyv: 5.6.0
+
+  '@call-e/calle@0.7.0':
+    dependencies:
+      openapi-fetch: 0.14.1
 
   '@derhuerst/http-basic@8.2.4':
     dependencies:
@@ -12203,7 +12223,13 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
+  openapi-fetch@0.14.1:
+    dependencies:
+      openapi-typescript-helpers: 0.0.15
+
   openapi-types@12.1.3: {}
+
+  openapi-typescript-helpers@0.0.15: {}
 
   optionator@0.9.4:
     dependencies:

@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -151,6 +152,7 @@ function ChannelBadge({ cart }: { cart: Cart }) {
 
 export default function CartPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -182,6 +184,23 @@ export default function CartPage() {
       toast.success('Status updated');
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.payload.message : 'Update failed'),
+  });
+
+  // CALL-E phone follow-through: place an AI confirmation call for this order.
+  // The result flips the status (confirmed / cancelled) or parks it for review.
+  const callConfirm = useMutation({
+    mutationFn: (id: string) =>
+      api.post<{ data: { id: string; dryRun: boolean; status: string } }>('/api/v1/phone-tasks', {
+        kind: 'cod_order_confirm',
+        cartId: id,
+      }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['phone-tasks'] });
+      toast.success(res.data.dryRun ? 'Confirmation call queued (dry run)' : 'Calling the customer now…', {
+        action: { label: 'View', onClick: () => router.push('/phone-tasks') },
+      });
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.payload.message : 'Could not place the call'),
   });
 
   const remove = useMutation({
@@ -277,6 +296,8 @@ export default function CartPage() {
                     isOpen={isOpen}
                     onToggle={() => toggleExpand(c.id)}
                     onStatus={(status) => setStatus.mutate({ id: c.id, status })}
+                    onCall={c.status === 'new' ? () => callConfirm.mutate(c.id) : null}
+                    calling={callConfirm.isPending && callConfirm.variables === c.id}
                     onDelete={() => {
                       if (
                         window.confirm(
@@ -302,12 +323,16 @@ function CartRow({
   isOpen,
   onToggle,
   onStatus,
+  onCall,
+  calling,
   onDelete,
 }: {
   cart: Cart;
   isOpen: boolean;
   onToggle: () => void;
   onStatus: (status: Status) => void;
+  onCall: (() => void) | null;
+  calling: boolean;
   onDelete: () => void;
 }) {
   return (
@@ -384,6 +409,18 @@ function CartRow({
           </Select>
         </td>
         <td className="px-6 py-4 text-right">
+          {onCall ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mr-1"
+              loading={calling}
+              title="Have the AI call the customer to confirm this cash-on-delivery order"
+              onClick={onCall}
+            >
+              <PhoneCall className="size-4" /> Confirm by phone
+            </Button>
+          ) : null}
           <Button
             size="icon"
             variant="ghost"

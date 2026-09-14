@@ -122,6 +122,24 @@ const envSchema = z.object({
   // 503); per-line X-Api-Key auth keeps working regardless.
   VOICE_GATEWAY_SECRET: z.string().optional(),
 
+  // CALL-E phone follow-through (lib/calle.ts). Dry-run is the DEFAULT: every
+  // code path runs, nothing is dialed, a deterministic fake result comes back.
+  // Flip CALLE_DRY_RUN=false AND set CALLE_API_KEY to place real calls. While
+  // CALLE_LIVE_OVERRIDE_PHONE is set, every live call is redirected to that one
+  // verified number (enforced in code, not docs) so a demo can never dial a
+  // real customer by accident.
+  CALLE_API_KEY: z.string().optional(),
+  CALLE_BASE_URL: z.string().url().default('https://api.heycall-e.com'),
+  CALLE_DRY_RUN: z
+    .string()
+    .default('true')
+    .transform((v) => v.trim().toLowerCase() !== 'false'),
+  CALLE_LIVE_OVERRIDE_PHONE: z.string().optional(),
+  // Shared token in the public webhook URL (/calle/webhook/:orgId?token=…).
+  // CALL-E deliveries are unsigned, so this is the only receiver-side check.
+  CALLE_WEBHOOK_TOKEN: z.string().optional(),
+  PHONE_TASK_DAILY_CAP: z.coerce.number().int().positive().default(50),
+
   RATE_LIMIT_AUTH_PER_MINUTE: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_API_PER_SECOND: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_READ_API_PER_SECOND: z.coerce.number().int().positive().default(200),

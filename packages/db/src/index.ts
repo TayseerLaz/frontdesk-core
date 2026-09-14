@@ -77,5 +77,7 @@ export type {
   SequenceStep,
   SequenceEnrollment,
   SequenceEnrollmentStatus,
+  // CALL-E phone follow-through
+  PhoneTask,
   Prisma,
 } from '@prisma/client';

@@ -86,6 +86,13 @@ export const ORG_FEATURES = [
     hrefs: ['/phone-integrations', '/voice-calls'],
   },
   {
+    key: 'phone_tasks',
+    label: 'Phone follow-through (CALL-E)',
+    description:
+      'Let the AI place outbound phone calls through CALL-E to confirm cash-on-delivery orders and bookings, with results written back to the order and the inbox. Turn OFF to hide the Phone tasks page and block new calls.',
+    hrefs: ['/phone-tasks'],
+  },
+  {
     key: 'exports',
     label: 'Data export',
     description:
