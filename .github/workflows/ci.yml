@@ -47,7 +47,7 @@ jobs:
       SECRET_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Runs FIRST and needs no install: this template names no product, so a
       # hard-coded brand word is a regression — usually re-introduced by porting
