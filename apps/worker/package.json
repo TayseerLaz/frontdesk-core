@@ -23,7 +23,7 @@
     "csv-parse": "^5.6.0",
     "exceljs": "^4.4.0",
     "ioredis": "^5.4.2",
-    "jszip": "^3.10.1",
+    "jszip": "^3.10.2",
     "nodemailer": "^6.9.16",
     "openai": "^4.77.0",
     "pino": "^9.5.0",
